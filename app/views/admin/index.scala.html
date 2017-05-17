@@ -308,6 +308,7 @@
                                 <th class="col-md-2">Username</th>
                                 <th class="col-md-3" data-class-name="priority">Timestamp</th>
                                 <th class="col-md-2">Label Type</th>
+                                <th class="col-md-2">Label ID</th>
                                 <th class="col-md-1">Severity</th>
                                 <th class="col-md-1">Temporary?</th>
                                 <th class="col-md-5">Description</th>
@@ -315,12 +316,13 @@
                             </tr>
                             </thead>
                             <tbody>
-                            @LabelTable.selectTopLabelsAndMetadata(1000).map { label =>
+                            @LabelTable.selectTopLabelsAndMetadata(1500).map { label =>
                             <tr>
                                 <td><a href='@routes.AdminController.userProfile(label.username)'>@label.username</a>
                                 </td>
                                 <td>@label.timestamp</td>
                                 <td>@label.labelTypeValue</td>
+                                <td>@label.labelId</td>
                                 <td>@label.severity</td>
                                 <td>@label.temporary</td>
                                 <td>@label.description</td>
