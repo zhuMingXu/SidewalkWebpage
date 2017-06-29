@@ -456,6 +456,33 @@ object LabelTable {
   }
 
   /**
+    * This method returns all the submitted from non-researchers labels with their severities included.
+    *
+    * @return
+    */
+  def selectLocationsAndSeveritiesOfNonResearcherLabels: List[LabelLocationWithSeverity] = db.withSession { implicit session =>
+    val _labels = for {
+      (_labels, _tasks) <- labelsWithoutDeleted.innerJoin(auditTasks).on(_.auditTaskId === _.auditTaskId)
+      if !(_tasks.userId inSet researcherIdsSansAnon)
+    } yield (_tasks.userId, _labels.labelId, _labels.auditTaskId, _labels.gsvPanoramaId, _labels.labelTypeId)
+    val nr_labels = _labels.filterNot(_._1 inSet researcherIdsSansAnon)
+    val _tlabels = for {
+      (_labels, _labelTypes) <- nr_labels.innerJoin(labelTypes).on(_._5 === _.labelTypeId)
+    } yield (_labels._2, _labels._3, _labels._4, _labelTypes.labelType)
+
+    val _slabels = for {
+      (l, s) <- _tlabels.innerJoin(severities).on(_._1 === _.labelId)
+    } yield (l._1, l._2, l._3, l._4, s.severity)
+
+    val _points = for {
+      (l, p) <- _slabels.innerJoin(labelPoints).on(_._1 === _.labelId)
+    } yield (l._1, l._2, l._3, l._4, l._5, p.lat.getOrElse(0.toFloat), p.lng.getOrElse(0.toFloat))
+
+    val labelLocationList: List[LabelLocationWithSeverity] = _points.list.map(label => LabelLocationWithSeverity(label._1, label._2, label._3, label._4, label._5, label._6, label._7))
+    labelLocationList
+  }
+
+  /**
     * Retrieve Label Locations within a given bounding box
     *
     * @param minLat

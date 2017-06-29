@@ -757,7 +757,7 @@ function Admin(_, $, c3, turf) {
 
                 vega.embed("#onboarding-completion-duration-histogram", chart, opt, function(error, results) {});
             });
-            $.getJSON('/adminapi/labels/all', function (data) {
+            $.getJSON('/adminapi/nonResearcherLabels/all', function (data) {
                 for (var i = 0; i < data.features.length; i++) {
                     data.features[i].label_type = data.features[i].properties.label_type;
                     data.features[i].severity = data.features[i].properties.severity;
@@ -767,6 +767,15 @@ function Admin(_, $, c3, turf) {
                 var surfaceProblems = data.features.filter(function(label) {return label.properties.label_type === "SurfaceProblem"});
                 var obstacles = data.features.filter(function(label) {return label.properties.label_type === "Obstacle"});
 
+                var curbRampStats = getSummaryStats(curbRamps, "severity");
+                var noCurbRampStats = getSummaryStats(noCurbRamps, "severity");
+                var surfaceProblemStats = getSummaryStats(surfaceProblems, "severity");
+                var obstacleStats = getSummaryStats(obstacles, "severity");
+                console.log(curbRampStats);
+                console.log(noCurbRampStats);
+                console.log(surfaceProblemStats);
+                console.log(obstacleStats);
+
                 var subPlotHeight = 200;
                 var subPlotWidth = 199;
                 var chart = {
@@ -775,12 +784,46 @@ function Admin(_, $, c3, turf) {
                             "height": subPlotHeight,
                             "width": subPlotWidth,
                             "data": {"values": curbRamps},
-                            "mark": "bar",
-                            "encoding": {
-                                "x": {"field": "severity", "type": "ordinal",
-                                    "axis": {"title": "Curb Ramp Severity", "labelAngle": 0}},
-                                "y": {"aggregate": "count", "type": "quantitative", "axis": {"title": "# of labels"}}
-                            }
+                            "layer": [
+                                {
+                                    "mark": "bar",
+                                    "encoding": {
+                                        "x": {
+                                            "field": "severity", "type": "ordinal",
+                                            "axis": {"title": "Curb Ramp Severity", "labelAngle": 0}
+                                        },
+                                        "y": {
+                                            "aggregate": "count",
+                                            "type": "quantitative",
+                                            "axis": {"title": "# of labels"}
+                                        }
+                                    }
+                                },
+                                {
+                                    "data": {"values": [
+                                        {"stat": "mean", "value": curbRampStats.mean}, {"stat": "median", "value": curbRampStats.median}]
+                                    },
+                                    "mark": "rule",
+                                    "encoding": {
+                                        "x": {
+                                            "field": "value", "type": "ordinal",
+                                            "axis": {"labels": false, "ticks": false, "title": "", "grid": false},
+                                            "scale": {"domain": [0,5]}
+                                        },
+                                        "color": {
+                                            "field": "stat", "type": "nominal", "scale": {"range": ["pink", "orange"]},
+                                            "legend": {
+                                                "title": "Summary Stats",
+                                                "values": ["mean: " + curbRampStats.mean.toFixed(2), "median: " + curbRampStats.median.toFixed(2)]
+                                            }
+                                        },
+                                        "size": {
+                                            "value": 2
+                                        }
+                                    }
+                                }
+                            ],
+                            "resolve": {"x": {"scale": "independent"}}
                         },
                         {
                             "height": subPlotHeight,

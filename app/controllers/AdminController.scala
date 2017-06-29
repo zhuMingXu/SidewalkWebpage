@@ -99,6 +99,32 @@ class AdminController @Inject() (implicit val env: Environment[User, SessionAuth
   }
 
   /**
+    * Get a list of all non-researcher labels
+    *
+    * @return
+    */
+  def getAllNonResearcherLabels = UserAwareAction.async { implicit request =>
+    if (isAdmin(request.identity)) {
+      val labels = LabelTable.selectLocationsAndSeveritiesOfNonResearcherLabels
+      val features: List[JsObject] = labels.map { label =>
+        val point = geojson.Point(geojson.LatLng(label.lat.toDouble, label.lng.toDouble))
+        val properties = Json.obj(
+          "audit_task_id" -> label.auditTaskId,
+          "label_id" -> label.labelId,
+          "gsv_panorama_id" -> label.gsvPanoramaId,
+          "label_type" -> label.labelType,
+          "severity" -> label.severity
+        )
+        Json.obj("type" -> "Feature", "geometry" -> point, "properties" -> properties)
+      }
+      val featureCollection = Json.obj("type" -> "FeatureCollection", "features" -> features)
+      Future.successful(Ok(featureCollection))
+    } else {
+      Future.successful(Redirect("/"))
+    }
+  }
+
+  /**
     * Returns audit coverage of each neighborhood
     *
     * @return
@@ -114,7 +140,7 @@ class AdminController @Inject() (implicit val env: Environment[User, SessionAuth
         "total_distance_m" -> neighborhood.totalDistance,
         "completed_distance_m" -> neighborhood.auditedDistance,
         "rate" -> (neighborhood.auditedDistance / neighborhood.totalDistance),
-        "name" -> neighborhood.regionId
+        "name" -> neighborhood.name
       )
     }
 
