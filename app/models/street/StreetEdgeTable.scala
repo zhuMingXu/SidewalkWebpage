@@ -330,7 +330,6 @@ object StreetEdgeTable {
         |INNER JOIN sidewalk.audit_task
         |  ON street_edge.street_edge_id = audit_task.street_edge_id
         |  AND audit_task.completed = TRUE
-        |  AND audit_task.user_id NOT IN ?
         |WHERE region.region_id=?
         |  AND street_edge.deleted=FALSE
       """.stripMargin
