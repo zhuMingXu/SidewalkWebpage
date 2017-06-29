@@ -107,13 +107,14 @@ class AdminController @Inject() (implicit val env: Environment[User, SessionAuth
     RegionCompletionTable.initializeRegionCompletionTable()
 
     getAllAnonUserCompletedMissionCounts
-    val neighborhoods = RegionCompletionTable.selectAllNamedNeighborhoodCompletions
+//    val neighborhoods = RegionCompletionTable.selectAllNamedNeighborhoodCompletions
+    val neighborhoods = RegionCompletionTable.getNonResearcherNeighborhoodCompletionRate
     val completionRates: List[JsObject] = for (neighborhood <- neighborhoods) yield {
       Json.obj("region_id" -> neighborhood.regionId,
         "total_distance_m" -> neighborhood.totalDistance,
         "completed_distance_m" -> neighborhood.auditedDistance,
         "rate" -> (neighborhood.auditedDistance / neighborhood.totalDistance),
-        "name" -> neighborhood.name
+        "name" -> neighborhood.regionId
       )
     }
 

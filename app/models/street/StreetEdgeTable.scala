@@ -16,6 +16,7 @@ import play.api.Play.current
 import scala.slick.jdbc.{GetResult, StaticQuery => Q}
 
 case class StreetEdge(streetEdgeId: Int, geom: LineString, source: Int, target: Int, x1: Float, y1: Float, x2: Float, y2: Float, wayType: String, deleted: Boolean, timestamp: Option[Timestamp])
+case class StreetEdgePlus(userId: String, streetEdgeId: Int, geom: LineString, source: Int, target: Int, x1: Float, y1: Float, x2: Float, y2: Float, wayType: String, deleted: Boolean, timestamp: Option[Timestamp])
 
 /**
  *
@@ -58,6 +59,21 @@ object StreetEdgeTable {
     val deleted = r.nextBoolean
     val timestamp = r.nextTimestampOption
     StreetEdge(streetEdgeId, geometry, source, target, x1, y1, x2, y2, wayType, deleted, timestamp)
+  })
+  implicit val streetEdgePlusConverter = GetResult[StreetEdgePlus](r => {
+    val userId = r.nextString
+    val streetEdgeId = r.nextInt
+    val geometry = r.nextGeometry[LineString]
+    val source = r.nextInt
+    val target = r.nextInt
+    val x1 = r.nextFloat
+    val y1 = r.nextFloat
+    val x2 = r.nextFloat
+    val y2 = r.nextFloat
+    val wayType = r.nextString
+    val deleted = r.nextBoolean
+    val timestamp = r.nextTimestampOption
+    StreetEdgePlus(userId, streetEdgeId, geometry, source, target, x1, y1, x2, y2, wayType, deleted, timestamp)
   })
 
   val db = play.api.db.slick.DB
@@ -305,8 +321,8 @@ object StreetEdgeTable {
     selectAuditedStreetsQuery(regionId).list.groupBy(_.streetEdgeId).map(_._2.head).toList
   }
 
-  def selectNonResearcherAuditedStreetsByARegionId(regionId: Int, auditCount: Int = 1): Float = db.withSession { implicit session =>
-    val selectAuditedStreetsQuery = Q.query[Int, StreetEdge](
+  def selectNonResearcherAuditedStreetsByARegionId(regionId: Int, auditCount: Int = 1): List[StreetEdgePlus] = db.withSession { implicit session =>
+    val selectAuditedStreetsQuery = Q.query[Int, StreetEdgePlus](
       """SELECT audit_task.user_id, street_edge.street_edge_id, street_edge.geom, source, target, x1, y1, x2, y2, way_type, street_edge.deleted, street_edge.timestamp
         |  FROM sidewalk.street_edge
         |INNER JOIN sidewalk.region
@@ -314,12 +330,17 @@ object StreetEdgeTable {
         |INNER JOIN sidewalk.audit_task
         |  ON street_edge.street_edge_id = audit_task.street_edge_id
         |  AND audit_task.completed = TRUE
+        |  AND audit_task.user_id NOT IN ?
         |WHERE region.region_id=?
         |  AND street_edge.deleted=FALSE
       """.stripMargin
-    ).filterNot(_.userId inSet researcherIdsSansAnon).groupBy(x => x).map((_._1.streetEdgeId, _._1.geom.transform(26918).length)).list.groupBy(_._1).map(_._2.head._2).toList.sum
+    )
+    //).filterNot(_.userId inSet researcherIdsSansAnon).groupBy(x => x).map((_._1.streetEdgeId, _._1.geom.transform(26918).length)).list.groupBy(_._1).map(_._2.head._2).toList.sum
+//    val researcherIdsString = researcherIdsSansAnon.map("'" + _ + "'").mkString(",")
+    val nonResearcherStreets = selectAuditedStreetsQuery(regionId).list.filterNot(edgePlus => researcherIdsSansAnon.contains(edgePlus.userId))
+    nonResearcherStreets.groupBy(_.streetEdgeId).map(_._2.head).toList
 
-    val nonResearcherAudits = completedAuditTasks.filterNot(_.userId inSet researcherIdsSansAnon)
+//    val nonResearcherAudits = completedAuditTasks.filterNot(_.userId inSet researcherIdsSansAnon)
     //val something = selectAuditedStreetsQuery(regionId).filterNot(_.userId inSet researcherIdsSansAnon).groupBy(x => x).map((_._1.streetEdgeId, _._1.geom.transform(26918).length))
     //something.list.groupBy(_._1).map(_._2.head._2).toList.sum
 
