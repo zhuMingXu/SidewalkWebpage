@@ -1065,6 +1065,15 @@ function Admin(_, $, c3, turf) {
 
                 vega.embed("#login-count-chart", chart, opt, function(error, results) {});
             });
+            $.getJSON("/userapi/regUserAveLabelCounts/all", function (data) {
+                stats = getSummaryStats(data[0], "count");
+
+                $("#reg-ave-label-count-std").html((stats.std).toFixed(2) + " labels");
+                var histOpts = {xAxisTitle:"Mean # Labels per 1000ft per Registered User", binStep:500};
+                var chart = getVegaLiteHistogram(data[0], stats.mean, stats.median, histOpts);
+
+                vega.embed("#reg-ave-label-count-chart", chart, opt, function(error, results) {});
+            });
             self.graphsLoaded = true;
         }
     });
