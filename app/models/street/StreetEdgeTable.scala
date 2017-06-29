@@ -130,6 +130,18 @@ object StreetEdgeTable {
   }
 
   /**
+    * Calculate the proportion of the total miles of DC that have been audited at least auditCount times by non researchers.
+    *
+    * @param auditCount
+    * @return Float between 0 and 1
+    */
+  def streetDistanceCompletionRateByNonResearchers(auditCount: Int): Float = db.withSession { implicit session =>
+    val auditedDistance = auditedStreetDistanceByNonResearchers(auditCount)
+    val totalDistance = totalStreetDistance()
+    auditedDistance / totalDistance
+  }
+
+  /**
     * Get the total distance in miles
     * Reference: http://gis.stackexchange.com/questions/143436/how-do-i-calculate-st-length-in-miles
     *
@@ -153,6 +165,23 @@ object StreetEdgeTable {
     // DISTINCT query: http://stackoverflow.com/questions/18256768/select-distinct-in-scala-slick
     val edges = for {
       (_streetEdges, _auditTasks) <- streetEdgesWithoutDeleted.innerJoin(completedAuditTasks).on(_.streetEdgeId === _.streetEdgeId)
+    } yield _streetEdges
+    val distances: List[Float] = edges.groupBy(x => x).map(_._1.geom.transform(26918).length).list
+    (distances.sum * 0.000621371).toFloat
+  }
+
+  /**
+    * Get the audited distance in miles of non researchers
+    * Reference: http://gis.stackexchange.com/questions/143436/how-do-i-calculate-st-length-in-miles
+    *
+    * @param auditCount
+    * @return
+    */
+  def auditedStreetDistanceByNonResearchers(auditCount: Int): Float = db.withSession { implicit session =>
+    // DISTINCT query: http://stackoverflow.com/questions/18256768/select-distinct-in-scala-slick
+    val nonResearcherAudits = completedAuditTasks.filterNot(_.userId inSet researcherIdsSansAnon)
+    val edges = for {
+      (_streetEdges, _auditTasks) <- streetEdgesWithoutDeleted.innerJoin(nonResearcherAudits).on(_.streetEdgeId === _.streetEdgeId)
     } yield _streetEdges
     val distances: List[Float] = edges.groupBy(x => x).map(_._1.geom.transform(26918).length).list
     (distances.sum * 0.000621371).toFloat
@@ -276,25 +305,25 @@ object StreetEdgeTable {
     selectAuditedStreetsQuery(regionId).list.groupBy(_.streetEdgeId).map(_._2.head).toList
   }
 
-//  def selectNonResearcherAuditedStreetsByARegionId(regionId: Int, auditCount: Int = 1): Float = db.withSession { implicit session =>
-//    val selectAuditedStreetsQuery = Q.query[Int, StreetEdge](
-//      """SELECT audit_task.user_id, street_edge.street_edge_id, street_edge.geom
-//        |  FROM sidewalk.street_edge
-//        |INNER JOIN sidewalk.region
-//        |  ON ST_Intersects(street_edge.geom, region.geom)
-//        |INNER JOIN sidewalk.audit_task
-//        |  ON street_edge.street_edge_id = audit_task.street_edge_id
-//        |  AND audit_task.completed = TRUE
-//        |WHERE region.region_id=?
-//        |  AND street_edge.deleted=FALSE
-//      """.stripMargin
-//    ).filterNot(_.userId inSet researcherIdsSansAnon).groupBy(x => x).map((_._1.streetEdgeId, _._1.geom.transform(26918).length)).list.groupBy(_._1).map(_._2.head._2).toList.sum
-//
-//    val nonResearcherAudits = completedAuditTasks.filterNot(_.userId inSet researcherIdsSansAnon)
-//    //val something = selectAuditedStreetsQuery(regionId).filterNot(_.userId inSet researcherIdsSansAnon).groupBy(x => x).map((_._1.streetEdgeId, _._1.geom.transform(26918).length))
-//    //something.list.groupBy(_._1).map(_._2.head._2).toList.sum
-//
-//  }
+  def selectNonResearcherAuditedStreetsByARegionId(regionId: Int, auditCount: Int = 1): Float = db.withSession { implicit session =>
+    val selectAuditedStreetsQuery = Q.query[Int, StreetEdge](
+      """SELECT audit_task.user_id, street_edge.street_edge_id, street_edge.geom, source, target, x1, y1, x2, y2, way_type, street_edge.deleted, street_edge.timestamp
+        |  FROM sidewalk.street_edge
+        |INNER JOIN sidewalk.region
+        |  ON ST_Intersects(street_edge.geom, region.geom)
+        |INNER JOIN sidewalk.audit_task
+        |  ON street_edge.street_edge_id = audit_task.street_edge_id
+        |  AND audit_task.completed = TRUE
+        |WHERE region.region_id=?
+        |  AND street_edge.deleted=FALSE
+      """.stripMargin
+    ).filterNot(_.userId inSet researcherIdsSansAnon).groupBy(x => x).map((_._1.streetEdgeId, _._1.geom.transform(26918).length)).list.groupBy(_._1).map(_._2.head._2).toList.sum
+
+    val nonResearcherAudits = completedAuditTasks.filterNot(_.userId inSet researcherIdsSansAnon)
+    //val something = selectAuditedStreetsQuery(regionId).filterNot(_.userId inSet researcherIdsSansAnon).groupBy(x => x).map((_._1.streetEdgeId, _._1.geom.transform(26918).length))
+    //something.list.groupBy(_._1).map(_._2.head._2).toList.sum
+
+  }
 
   def selectStreetsAuditedByAUser(userId: UUID, regionId: Int): List[StreetEdge] = db.withSession { implicit session =>
     val selectAuditedStreetsQuery = Q.query[(String, Int), StreetEdge](
