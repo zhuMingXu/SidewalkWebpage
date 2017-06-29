@@ -74,9 +74,31 @@ object RegionCompletionTable {
 
     namedRegionCompletions.list.map(x => NamedRegionCompletion.tupled(x))
   }
+
   /**
     *
     */
+
+//  def getNonResearcherNeighborhoodCompletionRate(): List[RegionCompletion] = db.withTransaction { implicit session =>
+//
+//    // http://docs.geotools.org/latest/tutorials/geometry/geometrycrs.html
+//    val CRSEpsg4326 = CRS.decode("epsg:4326")
+//    val CRSEpsg26918 = CRS.decode("epsg:26918")
+//    val transform = CRS.findMathTransform(CRSEpsg4326, CRSEpsg26918)
+//
+//    var completions: List[RegionCompletion] = List()
+//    val neighborhoods = RegionTable.selectAllNamedNeighborhoods
+//    for (neighborhood <- neighborhoods) yield {
+//      val streets: List[StreetEdge] = StreetEdgeTable.selectStreetsByARegionId(neighborhood.regionId)
+//      val auditedStreets: Float = StreetEdgeTable.selectNonResearcherAuditedStreetsByARegionId(neighborhood.regionId)
+//
+////      val auditedDistance = auditedStreets.map(s => JTS.transform(s.geom, transform).getLength).sum
+//      val totalDistance = streets.map(s => JTS.transform(s.geom, transform).getLength).sum
+//
+//      completions = completions :+ RegionCompletion(neighborhood.regionId, totalDistance, auditedStreets.toDouble)
+//    }
+//    completions
+//  }
 
 
   /**

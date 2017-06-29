@@ -74,6 +74,20 @@ object StreetEdgeTable {
   val streetEdgeNeighborhood = for { (se, n) <- streetEdgeRegion.innerJoin(neighborhoods).on(_.regionId === _.regionId) } yield se
 
 
+  // Jon, Kotaro, Mikey, Soheil, Manaswi, Teja, Aditya, Chirag, Sage, Anthony, Ryan H, Ladan, Ji Hyuk Bae, Maria Furman,
+  // Zadorozhnyy, Alexander Zhang, Zachary Lawrence, test5, Manaswi again, test4, test6, test7, test8, test_0830, ANONYMOUS
+  val researcherIds: List[String] = List("49787727-e427-4835-a153-9af6a83d1ed1", "25b85b51-574b-436e-a9c4-339eef879e78",
+    "9efaca05-53bb-492e-83ab-2b47219ee863", "5473abc6-38fc-4807-a515-e44cdfb92ca2", "0c6cb637-05b7-4759-afb2-b0a25b615597",
+    "9c828571-eb9d-4723-9e8d-2c00289a6f6a", "6acde11f-d9a2-4415-b73e-137f28eaa4ab", "0082be2e-c664-4c05-9881-447924880e2e",
+    "ae8fc440-b465-4a45-ab49-1964a7f1dcee", "c4ba8834-4722-4ee1-8f71-4e3fe9af38eb", "41804389-8f0e-46b1-882c-477e060dbe95",
+    "d8862038-e4dd-48a4-a6d0-69042d9e247a", "43bd82ab-bc7d-4be7-a637-99c92f566ba5", "0bfed786-ce24-43f9-9c58-084ae82ad175",
+    "b65c0864-7c3a-4ba7-953b-50743a2634f6", "b6049113-7e7a-4421-a966-887266200d72", "395abc5a-14ea-443c-92f8-85e87fa002be",
+    "a6611125-51d0-41d1-9868-befcf523e131", "1dc2f78e-f722-4450-b14e-b21b232ecdef", "ee570f03-7bca-471e-a0dc-e7924dac95a4",
+    "1dc2f78e-f722-4450-b14e-b21b232ecdef", "23fce322-9f64-4e95-90fc-7141f755b2a1", "c846ef76-39c1-4a53-841c-6588edaac09b",
+    "74b56671-c9b0-4052-956e-02083cbb5091", "fe724938-797a-48af-84e9-66b6b86b6245", "97760883-8ef0-4309-9a5e-0c086ef27573")
+  val researcherIdsSansAnon: List[String] = researcherIds.dropRight(1)
+
+
   /**
    * Returns a list of all the street edges
     *
@@ -261,6 +275,26 @@ object StreetEdgeTable {
     )
     selectAuditedStreetsQuery(regionId).list.groupBy(_.streetEdgeId).map(_._2.head).toList
   }
+
+//  def selectNonResearcherAuditedStreetsByARegionId(regionId: Int, auditCount: Int = 1): Float = db.withSession { implicit session =>
+//    val selectAuditedStreetsQuery = Q.query[Int, StreetEdge](
+//      """SELECT audit_task.user_id, street_edge.street_edge_id, street_edge.geom
+//        |  FROM sidewalk.street_edge
+//        |INNER JOIN sidewalk.region
+//        |  ON ST_Intersects(street_edge.geom, region.geom)
+//        |INNER JOIN sidewalk.audit_task
+//        |  ON street_edge.street_edge_id = audit_task.street_edge_id
+//        |  AND audit_task.completed = TRUE
+//        |WHERE region.region_id=?
+//        |  AND street_edge.deleted=FALSE
+//      """.stripMargin
+//    ).filterNot(_.userId inSet researcherIdsSansAnon).groupBy(x => x).map((_._1.streetEdgeId, _._1.geom.transform(26918).length)).list.groupBy(_._1).map(_._2.head._2).toList.sum
+//
+//    val nonResearcherAudits = completedAuditTasks.filterNot(_.userId inSet researcherIdsSansAnon)
+//    //val something = selectAuditedStreetsQuery(regionId).filterNot(_.userId inSet researcherIdsSansAnon).groupBy(x => x).map((_._1.streetEdgeId, _._1.geom.transform(26918).length))
+//    //something.list.groupBy(_._1).map(_._2.head._2).toList.sum
+//
+//  }
 
   def selectStreetsAuditedByAUser(userId: UUID, regionId: Int): List[StreetEdge] = db.withSession { implicit session =>
     val selectAuditedStreetsQuery = Q.query[(String, Int), StreetEdge](

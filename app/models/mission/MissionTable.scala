@@ -6,15 +6,17 @@ import models.daos.slick.DBTableDefinitions.UserTable
 import models.utils.MyPostgresDriver.simple._
 import models.region._
 import models.audit._
+import models.daos.UserDAOImpl.{anonIps, auditTaskEnvironmentTable, auditTaskTable}
 import models.label.LabelTable
 import models.label.LabelTable.labels
-import models.street.{StreetEdgeTable}
+import models.street.StreetEdgeTable
+
+import scala.slick.lifted.ForeignKeyQuery
+import scala.slick.jdbc.{GetResult, StaticQuery => Q}
 
 import play.api.Play.current
 import play.api.libs.json.{JsObject, Json}
 
-import scala.slick.lifted.ForeignKeyQuery
-import scala.slick.jdbc.{GetResult, StaticQuery => Q}
 
 
 case class RegionalMission(missionId: Int, regionId: Option[Int], regionName: Option[String], label: String, level: Int, distance: Option[Double], distance_ft: Option[Double], distance_mi: Option[Double], coverage: Option[Double])
@@ -78,14 +80,25 @@ object MissionTable {
     "74b56671-c9b0-4052-956e-02083cbb5091", "fe724938-797a-48af-84e9-66b6b86b6245")
 
   val auditTaskTable = TableQuery[AuditTaskTable]
+  val completedAudits = auditTaskTable.filter(_.completed === true)
   val nonResearcherCompletedAudits = auditTaskTable.filterNot(_.userId inSet researcherIds).filter(_.completed === true)
   val usersWithAnAudit = nonResearcherCompletedAudits.groupBy(x => x.userId).map {
     case (userId, group) => userId
   }
+
+  val auditTaskEnvironmentTable = TableQuery[AuditTaskEnvironmentTable]
+
   val labels = TableQuery[LabelTable]
   val labelsWithoutDeleted = labels.filter(_.deleted === false)
 
   val streetEdges = TableQuery[StreetEdgeTable].filter(_.deleted === false)
+
+  val anonUsers = for {
+    (_ate, _at) <- auditTaskEnvironmentTable.innerJoin(auditTaskTable).on(_.auditTaskId === _.auditTaskId)
+    if _at.userId === "97760883-8ef0-4309-9a5e-0c086ef27573" && _at.completed === true
+  } yield (_ate.ipAddress, _ate.auditTaskId, _at.taskStart, _at.taskEnd)
+
+val anonIps = anonUsers.groupBy(_._1).map{case(ip,group)=>ip}
 
   implicit val missionConverter = GetResult[Mission](r => {
     // missionId: Int, regionId: Option[Int], label: String, level: Int, distance: Option[Double], distance_ft: Option[Double], distance_mi: Option[Double], coverage: Option[Double], deleted: Boolean
@@ -270,9 +283,9 @@ object MissionTable {
   }
 
   /**
-    * Select label counts per registered user as a query
+    * Select label counts per registered user
     */
-  def getLabelCountsPerRegisteredUserQuery = db.withSession { implicit session =>
+  def getLabelCountsPerRegisteredUser: List[(String, Int)] = db.withSession { implicit session =>
 
     val regUserAudits = nonResearcherCompletedAudits.filterNot(_.userId === "97760883-8ef0-4309-9a5e-0c086ef27573")
 
@@ -280,7 +293,30 @@ object MissionTable {
       (_tasks, _labels) <- regUserAudits.innerJoin(labelsWithoutDeleted).on(_.auditTaskId === _.auditTaskId)
     } yield _tasks.userId
 
-    _labels.groupBy(l => l).map{ case (uid, group) => (uid, group.length)}
+    _labels.groupBy(l => l).map{ case (uid, group) => (uid, group.length)}.list
+  }
+
+  /**
+    * Select label counts per anonymous user
+    */
+  def getLabelCountsPerAnonUser: List[(String, Int)] = db.withSession { implicit session =>
+
+    val _anonAudits = for {
+      (_ate, _at) <- auditTaskEnvironmentTable.innerJoin(auditTaskTable).on(_.auditTaskId === _.auditTaskId)
+      if _at.userId === "97760883-8ef0-4309-9a5e-0c086ef27573"
+    } yield (_ate.ipAddress, _ate.auditTaskId)
+
+    val _labels = for {
+      (_tasks, _labels) <- _anonAudits.innerJoin(labelsWithoutDeleted).on(_._2 === _.auditTaskId)
+    } yield _tasks._1
+
+    val labelCounts = _labels.groupBy(l => l).map{ case (uid, group) => (uid, group.length)}.rightJoin(anonIps).on(_._1 === _).map{
+    case (cm, ai) => (ai, cm._2.?)
+  }.list
+
+    // right now the count is an option; replace the None with a 0 -- it was none b/c only users who had completed
+    // missions ended up in the completedMissions query.
+    labelCounts.map{pair => (pair._1.get, pair._2.getOrElse(0))}
   }
 
   /**
@@ -300,16 +336,16 @@ object MissionTable {
   /**
     * Select average label counts per 1000ft, per registered user
     */
-  def getRegUserLabelCounts: List[(String, Float)] = db.withSession { implicit session =>
-
-    val distPerUser = getAuditDistancePerRegisteredUserQuery
-
-    val countPerUser = getLabelCountsPerRegisteredUserQuery
-
-    val aveCountPerUser = countPerUser.rightJoin(distPerUser).on(_._1 === _._1).map {case (c, d) => (d._1, d._2, c._2.?)}.list
-
-    val usersWithFullMission = aveCountPerUser.filter(_._2.get * 3.28084 > 1000.0)
-
-    usersWithFullMission.map{triple => (triple._1, (triple._3.getOrElse(0).toFloat / (triple._2.get * 0.00328084)).toFloat)}
-  }
+//  def getRegUserLabelCounts: List[(String, Float)] = db.withSession { implicit session =>
+//
+//    val distPerUser = getAuditDistancePerRegisteredUserQuery
+//
+//    val countPerUser = getLabelCountsPerRegisteredUserQuery
+//
+//    val aveCountPerUser = countPerUser.rightJoin(distPerUser).on(_._1 === _._1).map {case (c, d) => (d._1, d._2, c._2.?)}.list
+//
+//    val usersWithFullMission = aveCountPerUser.filter(_._2.get * 3.28084 > 1000.0)
+//
+//    usersWithFullMission.map{triple => (triple._1, (triple._3.getOrElse(0).toFloat / (triple._2.get * 0.00328084)).toFloat)}
+//  }
 }

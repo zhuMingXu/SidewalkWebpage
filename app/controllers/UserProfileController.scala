@@ -263,10 +263,18 @@ class UserProfileController @Inject() (implicit val env: Environment[User, Sessi
     Future.successful(Ok(json))
   }
 
-  def getAllRegUserAveLabelCounts = UserAwareAction.async { implicit request =>
-    val aveCounts = MissionTable.getRegUserLabelCounts
+  def getAllRegUserLabelCounts = UserAwareAction.async { implicit request =>
+    val aveCounts = MissionTable.getLabelCountsPerRegisteredUser
     val json = Json.arr(aveCounts.map(x => Json.obj(
       "user_id" -> x._1, "count" -> x._2
+    )))
+    Future.successful(Ok(json))
+  }
+
+  def getAllAnonUserLabelCounts = UserAwareAction.async { implicit request =>
+    val aveCounts = MissionTable.getLabelCountsPerAnonUser
+    val json = Json.arr(aveCounts.map(x => Json.obj(
+      "ip_address" -> x._1, "count" -> x._2
     )))
     Future.successful(Ok(json))
   }

@@ -41,7 +41,7 @@
             <div class="tab-content">
             <div class="tab-pane active" id="tabs-1">
                 <div class="row">
-                    <div class="col-lg-7">
+                    <div class="col-lg-9">
                         <h1>Activities</h1>
                         <table class="table table-striped table-condensed">
                             <tr>
@@ -68,54 +68,6 @@
                                 <td>@UserDAOImpl.countAnonymousUsersVisitedToday</td>
                                 <td>@UserDAOImpl.countAnonymousUsersVisitedYesterday</td>
                             </tr>
-                            <tr>
-                                <th>Total Labels</th>
-                                <th>@LabelTable.countLabels</th>
-                                <th>@LabelTable.countTodayLabels</th>
-                                <th>@LabelTable.countYesterdayLabels</th>
-                            </tr>
-                            <tr style="font-size: 90%;">
-                                <td style="padding-left: 30px">Curb Ramp</td>
-                                <td>@LabelTable.countLabelsBasedOnType("CurbRamp")</td>
-                                <td>@LabelTable.countTodayLabelsBasedOnType("CurbRamp")</td>
-                                <td>@LabelTable.countYesterdayLabelsBasedOnType("CurbRamp")</td>
-                            </tr>
-                            <tr style="font-size: 90%;">
-                                <td style="padding-left: 30px">Missing Curb Ramp</td>
-                                <td>@LabelTable.countLabelsBasedOnType("NoCurbRamp")</td>
-                                <td>@LabelTable.countTodayLabelsBasedOnType("NoCurbRamp")</td>
-                                <td>@LabelTable.countYesterdayLabelsBasedOnType("NoCurbRamp")</td>
-                            </tr>
-                            <tr style="font-size: 90%;">
-                                <td style="padding-left: 30px">Obstacle in Path</td>
-                                <td>@LabelTable.countLabelsBasedOnType("Obstacle")</td>
-                                <td>@LabelTable.countTodayLabelsBasedOnType("Obstacle")</td>
-                                <td>@LabelTable.countYesterdayLabelsBasedOnType("Obstacle")</td>
-                            </tr>
-                            <tr style="font-size: 90%;">
-                                <td style="padding-left: 30px">Surface Problem</td>
-                                <td>@LabelTable.countLabelsBasedOnType("SurfaceProblem")</td>
-                                <td>@LabelTable.countTodayLabelsBasedOnType("SurfaceProblem")</td>
-                                <td>@LabelTable.countYesterdayLabelsBasedOnType("SurfaceProblem")</td>
-                            </tr>
-                            <tr style="font-size: 90%;">
-                                <td style="padding-left: 30px">Other</td>
-                                <td>@LabelTable.countLabelsBasedOnType("Other")</td>
-                                <td>@LabelTable.countTodayLabelsBasedOnType("Other")</td>
-                                <td>@LabelTable.countYesterdayLabelsBasedOnType("Other")</td>
-                            </tr>
-                            <tr style="font-size: 90%;">
-                                <td style="padding-left: 30px">Occlusion</td>
-                                <td>@LabelTable.countLabelsBasedOnType("Occlusion")</td>
-                                <td>@LabelTable.countTodayLabelsBasedOnType("Occlusion")</td>
-                                <td>@LabelTable.countYesterdayLabelsBasedOnType("Occlusion")</td>
-                            </tr>
-                            <tr style="font-size: 90%;">
-                                <td style="padding-left: 30px">No Sidewalk</td>
-                                <td>@LabelTable.countLabelsBasedOnType("NoSidewalk")</td>
-                                <td>@LabelTable.countTodayLabelsBasedOnType("NoSidewalk")</td>
-                                <td>@LabelTable.countYesterdayLabelsBasedOnType("NoSidewalk")</td>
-                            </tr>
 
                             <tr>
                                 <th>Audits</th>
@@ -124,8 +76,74 @@
                                 <th>@AuditTaskTable.countCompletedAuditsYesterday</th>
                             </tr>
                         </table>
+
+                        <table class="table table-striped table-condensed">
+                            <tr>
+                                <th></th>
+                                <th>Overall</th>
+                                <th>Overall (sans us)</th>
+                                <th>Anon</th>
+                                <th>Registered (sans us)</th>
+                            </tr>
+                            <tr>
+                                <th>Total Labels</th>
+                                <th>@LabelTable.countLabels</th>
+                                <th>@LabelTable.countNonResearcherLabels</th>
+                                <th>@LabelTable.countAnonUserLabels</th>
+                                <th>@LabelTable.countRegisteredUserSansResearcherLabels</th>
+                            </tr>
+                            <tr style="font-size: 90%;">
+                                <td style="padding-left: 30px">Curb Ramp</td>
+                                <td>@LabelTable.countLabelsBasedOnType("CurbRamp") (@LabelTable.getPercentageOfLabelsBasedOnType("CurbRamp")%)</td>
+                                <td>@LabelTable.countNonResearcherLabelsBasedOnType("CurbRamp") (@LabelTable.getPercentageOfNonResearcherLabelsBasedOnType("CurbRamp")%)</td>
+                                <td>@LabelTable.countAnonUserLabelsBasedOnType("CurbRamp") (@LabelTable.getPercentageOfAnonUserLabelsBasedOnType("CurbRamp")%)</td>
+                                <td>@LabelTable.countRegisteredUserSansResearcherLabelsBasedOnType("CurbRamp") (@LabelTable.getPercentageOfRegisteredUserSansResearcherLabelsBasedOnType("CurbRamp")%)</td>
+                            </tr>
+                            <tr style="font-size: 90%;">
+                                <td style="padding-left: 30px">Missing Curb Ramp</td>
+                                <td>@LabelTable.countLabelsBasedOnType("NoCurbRamp") (@LabelTable.getPercentageOfLabelsBasedOnType("NoCurbRamp")%)</td>
+                                <td>@LabelTable.countNonResearcherLabelsBasedOnType("NoCurbRamp") (@LabelTable.getPercentageOfNonResearcherLabelsBasedOnType("NoCurbRamp")%)</td>
+                                <td>@LabelTable.countAnonUserLabelsBasedOnType("NoCurbRamp") (@LabelTable.getPercentageOfAnonUserLabelsBasedOnType("NoCurbRamp")%)</td>
+                                <td>@LabelTable.countRegisteredUserSansResearcherLabelsBasedOnType("NoCurbRamp") (@LabelTable.getPercentageOfRegisteredUserSansResearcherLabelsBasedOnType("NoCurbRamp")%)</td>
+                            </tr>
+                            <tr style="font-size: 90%;">
+                                <td style="padding-left: 30px">Obstacle in Path</td>
+                                <td>@LabelTable.countLabelsBasedOnType("Obstacle") (@LabelTable.getPercentageOfLabelsBasedOnType("Obstacle")%)</td>
+                                <td>@LabelTable.countNonResearcherLabelsBasedOnType("Obstacle") (@LabelTable.getPercentageOfNonResearcherLabelsBasedOnType("Obstacle")%)</td>
+                                <td>@LabelTable.countAnonUserLabelsBasedOnType("Obstacle") (@LabelTable.getPercentageOfAnonUserLabelsBasedOnType("Obstacle")%)</td>
+                                <td>@LabelTable.countRegisteredUserSansResearcherLabelsBasedOnType("Obstacle") (@LabelTable.getPercentageOfRegisteredUserSansResearcherLabelsBasedOnType("Obstacle")%)</td>
+                            </tr>
+                            <tr style="font-size: 90%;">
+                                <td style="padding-left: 30px">Surface Problem</td>
+                                <td>@LabelTable.countLabelsBasedOnType("SurfaceProblem") (@LabelTable.getPercentageOfLabelsBasedOnType("SurfaceProblem")%)</td>
+                                <td>@LabelTable.countNonResearcherLabelsBasedOnType("SurfaceProblem") (@LabelTable.getPercentageOfNonResearcherLabelsBasedOnType("SurfaceProblem")%)</td>
+                                <td>@LabelTable.countAnonUserLabelsBasedOnType("SurfaceProblem") (@LabelTable.getPercentageOfAnonUserLabelsBasedOnType("SurfaceProblem")%)</td>
+                                <td>@LabelTable.countRegisteredUserSansResearcherLabelsBasedOnType("SurfaceProblem") (@LabelTable.getPercentageOfRegisteredUserSansResearcherLabelsBasedOnType("SurfaceProblem")%)</td>
+                            </tr>
+                            <tr style="font-size: 90%;">
+                                <td style="padding-left: 30px">Other</td>
+                                <td>@LabelTable.countLabelsBasedOnType("Other") (@LabelTable.getPercentageOfLabelsBasedOnType("Other")%)</td>
+                                <td>@LabelTable.countNonResearcherLabelsBasedOnType("Other") (@LabelTable.getPercentageOfNonResearcherLabelsBasedOnType("Other")%)</td>
+                                <td>@LabelTable.countAnonUserLabelsBasedOnType("Other") (@LabelTable.getPercentageOfAnonUserLabelsBasedOnType("Other")%)</td>
+                                <td>@LabelTable.countRegisteredUserSansResearcherLabelsBasedOnType("Other") (@LabelTable.getPercentageOfRegisteredUserSansResearcherLabelsBasedOnType("Other")%)</td>
+                            </tr>
+                            <tr style="font-size: 90%;">
+                                <td style="padding-left: 30px">Occlusion</td>
+                                <td>@LabelTable.countLabelsBasedOnType("Occlusion") (@LabelTable.getPercentageOfLabelsBasedOnType("Occlusion")%)</td>
+                                <td>@LabelTable.countNonResearcherLabelsBasedOnType("Occlusion") (@LabelTable.getPercentageOfNonResearcherLabelsBasedOnType("Occlusion")%)</td>
+                                <td>@LabelTable.countAnonUserLabelsBasedOnType("Occlusion") (@LabelTable.getPercentageOfAnonUserLabelsBasedOnType("Occlusion")%)</td>
+                                <td>@LabelTable.countRegisteredUserSansResearcherLabelsBasedOnType("Occlusion") (@LabelTable.getPercentageOfRegisteredUserSansResearcherLabelsBasedOnType("Occlusion")%)</td>
+                            </tr>
+                            <tr style="font-size: 90%;">
+                                <td style="padding-left: 30px">No Sidewalk</td>
+                                <td>@LabelTable.countLabelsBasedOnType("NoSidewalk") (@LabelTable.getPercentageOfLabelsBasedOnType("NoSidewalk")%)</td>
+                                <td>@LabelTable.countNonResearcherLabelsBasedOnType("NoSidewalk") (@LabelTable.getPercentageOfNonResearcherLabelsBasedOnType("NoSidewalk")%)</td>
+                                <td>@LabelTable.countAnonUserLabelsBasedOnType("NoSidewalk") (@LabelTable.getPercentageOfAnonUserLabelsBasedOnType("NoSidewalk")%)</td>
+                                <td>@LabelTable.countRegisteredUserSansResearcherLabelsBasedOnType("NoSidewalk") (@LabelTable.getPercentageOfRegisteredUserSansResearcherLabelsBasedOnType("NoSidewalk")%)</td>
+                            </tr>
+                        </table>
                     </div>
-                    <div class="col-lg-5">
+                    <div class="col-lg-3">
                         <h1>Coverage</h1>
                         <table class="table table-striped table-condensed">
                             <tr>
@@ -376,14 +394,24 @@
                         <div id="login-count-chart"></div>
                     </div>
 
-                    <h2>Ave Label Counts Per Registered User for 1000ft</h2>
+                    <h2>Label Counts Per Registered User</h2>
                     <div class="col-lg-12">
                         <p>
-                            <span>Standard Deviation: </span><span id="reg-ave-label-count-std"></span><br>
+                            <span>Standard Deviation: </span><span id="reg-label-count-std"></span><br>
                         </p>
                     </div>
                     <div class="col-lg-12">
-                        <div id="reg-ave-label-count-chart"></div>
+                        <div id="reg-label-count-chart"></div>
+                    </div>
+
+                    <h2>Label Counts Per Anonymous User</h2>
+                    <div class="col-lg-12">
+                        <p>
+                            <span>Standard Deviation: </span><span id="anon-label-count-std"></span><br>
+                        </p>
+                    </div>
+                    <div class="col-lg-12">
+                        <div id="anon-label-count-chart"></div>
                     </div>
 
                 </div>
