@@ -595,7 +595,8 @@ function Admin(_, $, c3, turf) {
                         "color": {
                             "field": "stat", "type": "nominal", "scale": {"range": ["pink", "orange"]},
                             "legend": {
-                                "title": "Summary Stats"
+                                "title": "Summary Stats",
+                                "values": ["mean: " + mean.toFixed(2), "median: " + median.toFixed(2)]
                             }
                         },
                         "size": {
@@ -745,10 +746,10 @@ function Admin(_, $, c3, turf) {
                     else bounceCount++;
                 }
                 var bounceRate = bounceCount / (bounceCount + onboardingTimes.length);
-                $("#onboarding-bounce-rate").html((bounceRate * 100).toFixed(1) + "%");
+                $("#onboarding-bounce-rate").html((bounceRate * 100).toFixed(2) + "%");
 
                 var stats = getSummaryStats(onboardingTimes, "duration");
-                $("#onboarding-std").html((stats.std).toFixed(1) + " minutes");
+                $("#onboarding-std").html((stats.std).toFixed(2) + " minutes");
 
                 var histOpts = {col:"binned", xAxisTitle:"Onboarding Completion Time (minutes)", xDomain:[0, 10],
                                 width:400, height:250, binStep:1};
@@ -837,7 +838,7 @@ function Admin(_, $, c3, turf) {
                     data[j].rate *= 100.0; // change from proportion to percent
                 }
                 var stats = getSummaryStats(data, "rate");
-                $("#neighborhood-std").html((stats.std).toFixed(1) + "%");
+                $("#neighborhood-std").html((stats.std).toFixed(2) + "%");
 
                 var coverageRateChartSortedByCompletion = {
                     "width": 810,
@@ -909,7 +910,7 @@ function Admin(_, $, c3, turf) {
             $.getJSON("/contribution/auditCounts/all", function (data) {
                 var stats = getSummaryStats(data[0], "count");
 
-                $("#audit-std").html((stats.std).toFixed(1) + " Street Audits");
+                $("#audit-std").html((stats.std).toFixed(2) + " Street Audits");
 
                 var histOpts = {xAxisTitle:"# Street Audits per Day", xDomain:[0, stats.max], width:250, binStep:50};
                 var hist = getVegaLiteHistogram(data[0], stats.mean, stats.median, histOpts);
@@ -973,7 +974,7 @@ function Admin(_, $, c3, turf) {
             });
             $.getJSON("/userapi/labelCounts/all", function (data) {
                 var stats = getSummaryStats(data[0], "count");
-                $("#label-std").html((stats.std).toFixed(1) + " Labels");
+                $("#label-std").html((stats.std).toFixed(2) + " Labels");
 
                 var histOpts = {xAxisTitle:"# Labels per Day", xDomain:[0, stats.max], width:250, binStep:200};
                 var hist = getVegaLiteHistogram(data[0], stats.mean, stats.median, histOpts);
@@ -1038,7 +1039,7 @@ function Admin(_, $, c3, turf) {
             $.getJSON("/adminapi/anonUserMissionCounts", function (data) {
                 var stats = getSummaryStats(data[0], "count");
 
-                $("#anon-missions-std").html((stats.std).toFixed(1) + " Missions");
+                $("#anon-missions-std").html((stats.std).toFixed(2) + " Missions");
 
                 var histOpts = {xAxisTitle:"# Missions per Anon User", xDomain:[0, stats.max], width:300, binStep:1};
                 var chart = getVegaLiteHistogram(data[0], stats.mean, stats.median, histOpts);
@@ -1051,14 +1052,14 @@ function Admin(_, $, c3, turf) {
                 var histOpts = {xAxisTitle:"# Missions per Registered User", xDomain:[0, stats.max], binStep:10};
                 var chart = getVegaLiteHistogram(data[0], stats.mean, stats.median, histOpts);
 
-                $("#missions-std").html((stats.std).toFixed(1) + " Missions");
+                $("#missions-std").html((stats.std).toFixed(2) + " Missions");
 
                 vega.embed("#mission-count-chart", chart, opt, function(error, results) {});
             });
             $.getJSON("/adminapi/allSignInCounts", function (data) {
                 stats = getSummaryStats(data[0], "count");
 
-                $("#login-count-std").html((stats.std).toFixed(1) + " Logins");
+                $("#login-count-std").html((stats.std).toFixed(2) + " Logins");
                 var histOpts = {xAxisTitle:"# Logins per Registered User", binStep:5};
                 var chart = getVegaLiteHistogram(data[0], stats.mean, stats.median, histOpts);
 
