@@ -268,6 +268,76 @@ object StreetEdgeTable {
   }
 
   /**
+    * Computes street distance audited per day.
+    *
+    * author: Mikey Saugstad
+    * date: 06/16/2017
+    *
+    * @param auditCount
+    * @return List[(String,Float)] representing dates and distances
+    */
+  def streetDistanceAuditedByNonResearchersByDate(auditCount: Int): Seq[(String, Float)] = db.withSession { implicit session =>
+    // join the street edges and audit tasks
+    // TODO figure out how to do this w/out doing the join twice
+    // Jon, Kotaro, Mikey, Soheil, Manaswi, Teja, Aditya, Chirag, Sage, Anthony, Ryan H, Ladan, Ji Hyuk Bae, Maria Furman,
+    // Zadorozhnyy, Alexander Zhang, Zachary Lawrence, test5, Manaswi again, test4, test6, test7, test8, test_0830
+    val researcherIds: List[String] = List("49787727-e427-4835-a153-9af6a83d1ed1", "25b85b51-574b-436e-a9c4-339eef879e78",
+      "9efaca05-53bb-492e-83ab-2b47219ee863", "5473abc6-38fc-4807-a515-e44cdfb92ca2", "0c6cb637-05b7-4759-afb2-b0a25b615597",
+      "9c828571-eb9d-4723-9e8d-2c00289a6f6a", "6acde11f-d9a2-4415-b73e-137f28eaa4ab", "0082be2e-c664-4c05-9881-447924880e2e",
+      "ae8fc440-b465-4a45-ab49-1964a7f1dcee", "c4ba8834-4722-4ee1-8f71-4e3fe9af38eb", "41804389-8f0e-46b1-882c-477e060dbe95",
+      "d8862038-e4dd-48a4-a6d0-69042d9e247a", "43bd82ab-bc7d-4be7-a637-99c92f566ba5", "0bfed786-ce24-43f9-9c58-084ae82ad175",
+      "b65c0864-7c3a-4ba7-953b-50743a2634f6", "b6049113-7e7a-4421-a966-887266200d72", "395abc5a-14ea-443c-92f8-85e87fa002be",
+      "a6611125-51d0-41d1-9868-befcf523e131", "1dc2f78e-f722-4450-b14e-b21b232ecdef", "ee570f03-7bca-471e-a0dc-e7924dac95a4",
+      "1dc2f78e-f722-4450-b14e-b21b232ecdef", "23fce322-9f64-4e95-90fc-7141f755b2a1", "c846ef76-39c1-4a53-841c-6588edaac09b",
+      "74b56671-c9b0-4052-956e-02083cbb5091", "fe724938-797a-48af-84e9-66b6b86b6245")
+    val completedTasksSansResearchers = completedAuditTasks.filterNot(_.userId inSet researcherIds)
+    val edges = for {
+//      (_streetEdges, _auditTasks) <- streetEdgesWithoutDeleted.innerJoin(completedTasksSansResearchers).on(_.streetEdgeId === _.streetEdgeId)
+      (_streetEdges, _auditTasks) <- streetEdgesWithoutDeleted.innerJoin(completedAuditTasks).on(_.streetEdgeId === _.streetEdgeId)
+    } yield _streetEdges
+    val audits = for {
+//      (_streetEdges, _auditTasks) <- streetEdgesWithoutDeleted.innerJoin(completedTasksSansResearchers).on(_.streetEdgeId === _.streetEdgeId)
+      (_streetEdges, _auditTasks) <- streetEdgesWithoutDeleted.innerJoin(completedAuditTasks).on(_.streetEdgeId === _.streetEdgeId)
+    } yield _auditTasks
+
+    // get distances of street edges associated with their edgeId
+    val edgeDists: Map[Int, Float] = edges.groupBy(x => x).map(g => (g._1.streetEdgeId, g._1.geom.transform(26918).length)).list.toMap
+
+    // Filter out group of edges with the size less than the passed `auditCount`, picking 1 rep from each group
+    // TODO pick audit with earliest timestamp
+    val uniqueEdgeDists: List[(Option[Timestamp], Option[Float])] = (for ((eid, groupedAudits) <- audits.list.groupBy(_.streetEdgeId)) yield {
+      if (auditCount > 0 && groupedAudits.size >= auditCount) {
+        Some((groupedAudits.head.taskEnd, edgeDists.get(eid)))
+      } else {
+        None
+      }
+    }).toList.flatten
+
+    // round the timestamps down to just the date (year-month-day)
+    val dateRoundedDists: List[(Calendar, Double)] = uniqueEdgeDists.map({
+      pair => {
+        var c : Calendar = Calendar.getInstance()
+        c.setTimeInMillis(pair._1.get.getTime)
+        c.set(Calendar.HOUR_OF_DAY, 0)
+        c.set(Calendar.MINUTE, 0)
+        c.set(Calendar.SECOND, 0)
+        c.set(Calendar.MILLISECOND, 0)
+        (c, pair._2.get * 0.000621371)
+      }})
+
+    // sum the distances by date
+    val distsPerDay: List[(Calendar, Double)] = dateRoundedDists.groupBy(_._1).mapValues(_.map(_._2).sum).view.force.toList
+
+    // sort the list by date
+    val sortedEdges: Seq[(Calendar, Double)] =
+      scala.util.Sorting.stableSort(distsPerDay, (e1: (Calendar,Double), e2: (Calendar, Double)) => e1._1.getTimeInMillis < e2._1.getTimeInMillis).toSeq
+
+    // format the calendar date in the correct format and return the (date,distance) pair
+    val format1 = new SimpleDateFormat("yyyy-MM-dd")
+    sortedEdges.map(pair => (format1.format(pair._1.getTime), pair._2.toFloat))
+  }
+
+  /**
     * Count the number of streets that have been audited at least a given number of times
     *
     * @param auditCount

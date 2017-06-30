@@ -950,6 +950,74 @@ function Admin(_, $, c3, turf) {
                 vega.embed("#neighborhood-completed-distance", coverageRateHist, opt, function(error, results) {});
 
             });
+            $.getJSON("/adminapi/nonResearcherAuditDistByDate", function (data) {
+                var stats = getSummaryStats(data[0], "distance");
+
+                $("#audit-dist-std").html((stats.std).toFixed(2) + " Miles");
+
+                var histOpts = {xAxisTitle:"Miles Audited per Day", xDomain:[0, stats.max], width:250, col:"distance", binStep:5};
+                var hist = getVegaLiteHistogram(data[0], stats.mean, stats.median, histOpts);
+
+                var chart = {
+                    "data": {"values": data[0]},
+                    "vconcat": [
+                        {
+                            "height": 500,
+                            "width": 900,
+                            // "layer": [
+                            //     {
+                                    "mark": "bar",
+                                    "encoding": {
+                                        "x": {
+                                            "field": "date",
+                                            "type": "temporal",
+                                            "timeUnit": "yearmonth",
+                                            "axis": {"title": "Date", "labelAngle": 0, "tickExtra": true, "tickCount": 10, "format":"%d/%m/%y"}
+                                        },
+                                        "y": {
+                                            "aggregate": "sum",
+                                            "field": "distance",
+                                            "type": "quantitative",
+                                            // "scale": {"type": "log"},
+                                            "axis": {
+                                                "title": "Miles Audited per Day"
+                                            }
+                                        }
+                                    }
+                                // }//,
+                            //     { // creates lines marking summary statistics
+                            //         "data": {"values": [
+                            //             {"stat": "mean", "value": stats.mean}, {"stat": "median", "value": stats.median}]
+                            //         },
+                            //         "mark": "rule",
+                            //         "encoding": {
+                            //             "y": {
+                            //                 "field": "value", "type": "quantitative",
+                            //                 "axis": {"labels": false, "ticks": false, "title": ""},
+                            //                 "scale": {"domain": [0, 45]}
+                            //             },
+                            //             "color": {
+                            //                 "field": "stat", "type": "nominal", "scale": {"range": ["pink", "orange"]},
+                            //                 "legend": false
+                            //             },
+                            //             "size": {
+                            //                 "value": 1
+                            //             }
+                            //         }
+                            //     }
+                            // ],
+                            // "resolve": {"y": {"scale": "independent"}}
+                        },
+                        hist
+                    ],
+                    "config": {
+                        "axis": {
+                            "titleFontSize": 16, "shortTimeLabels": true
+                        }
+                    }
+                };
+                vega.embed("#audit-dist-chart", chart, opt, function(error, results) {});
+            });
             $.getJSON("/contribution/auditCounts/all", function (data) {
                 var stats = getSummaryStats(data[0], "count");
 
