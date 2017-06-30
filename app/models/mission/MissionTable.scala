@@ -81,8 +81,11 @@ object MissionTable {
 
   val auditTaskTable = TableQuery[AuditTaskTable]
   val completedAudits = auditTaskTable.filter(_.completed === true)
-  val nonResearcherCompletedAudits = auditTaskTable.filterNot(_.userId inSet researcherIds).filter(_.completed === true)
+  val nonResearcherCompletedAudits = completedAudits.filterNot(_.userId inSet researcherIds)
   val usersWithAnAudit = nonResearcherCompletedAudits.groupBy(x => x.userId).map {
+    case (userId, group) => userId
+  }
+  val allUsersWithAnAudit = completedAudits.groupBy(x => x.userId).map {
     case (userId, group) => userId
   }
 
@@ -273,11 +276,13 @@ val anonIps = anonUsers.groupBy(_._1).map{case(ip,group)=>ip}
       (_missions, _missionUsers) <- missionsWithoutDeleted.innerJoin(missionUsers).on(_.missionId === _.missionId)
     } yield _missionUsers.userId
 
-    val nonResearcherMissions = _missions.filterNot(_ inSet researcherIds)
+//    val nonResearcherMissions2 = _missions.filterNot(_ inSet researcherIds)
+//val nonResearcherMissions = nonResearcherMissions2.filterNot(_ === "97760883-8ef0-4309-9a5e-0c086ef27573")
+    val nonResearcherMissions = _missions.filterNot(_ === "97760883-8ef0-4309-9a5e-0c086ef27573")
 
     val missionCounts = nonResearcherMissions.groupBy(m => m).map{ case(id, group) => (id, group.length)}
 
-    val fullMissionCounts: List[(String, Option[Int])] = missionCounts.rightJoin(usersWithAnAudit).on(_._1 === _).map {case (mc, uwaa) => (uwaa, mc._2.?)}.list
+    val fullMissionCounts: List[(String, Option[Int])] = missionCounts.rightJoin(allUsersWithAnAudit).on(_._1 === _).map {case (mc, uwaa) => (uwaa, mc._2.?)}.list
 
     fullMissionCounts.map{pair => (pair._1, pair._2.getOrElse(0))}
   }
@@ -287,7 +292,8 @@ val anonIps = anonUsers.groupBy(_._1).map{case(ip,group)=>ip}
     */
   def getLabelCountsPerRegisteredUser: List[(String, Int)] = db.withSession { implicit session =>
 
-    val regUserAudits = nonResearcherCompletedAudits.filterNot(_.userId === "97760883-8ef0-4309-9a5e-0c086ef27573")
+//    val regUserAudits = nonResearcherCompletedAudits.filterNot(_.userId === "97760883-8ef0-4309-9a5e-0c086ef27573")
+    val regUserAudits = completedAudits.filterNot(_.userId === "97760883-8ef0-4309-9a5e-0c086ef27573")
 
     val _labels = for {
       (_tasks, _labels) <- regUserAudits.innerJoin(labelsWithoutDeleted).on(_.auditTaskId === _.auditTaskId)
