@@ -1,5 +1,6 @@
 package models.mission
 
+import java.sql.Timestamp
 import java.util.UUID
 
 import models.daos.slick.DBTableDefinitions.UserTable
@@ -13,7 +14,6 @@ import models.street.StreetEdgeTable
 
 import scala.slick.lifted.ForeignKeyQuery
 import scala.slick.jdbc.{GetResult, StaticQuery => Q}
-
 import play.api.Play.current
 import play.api.libs.json.{JsObject, Json}
 
@@ -96,9 +96,10 @@ object MissionTable {
 
   val streetEdges = TableQuery[StreetEdgeTable].filter(_.deleted === false)
 
+  val anonId = "97760883-8ef0-4309-9a5e-0c086ef27573"
   val anonUsers = for {
     (_ate, _at) <- auditTaskEnvironmentTable.innerJoin(auditTaskTable).on(_.auditTaskId === _.auditTaskId)
-    if _at.userId === "97760883-8ef0-4309-9a5e-0c086ef27573" && _at.completed === true
+    if _at.userId === anonId && _at.completed === true
   } yield (_ate.ipAddress, _ate.auditTaskId, _at.taskStart, _at.taskEnd)
 
 val anonIps = anonUsers.groupBy(_._1).map{case(ip,group)=>ip}
@@ -337,6 +338,28 @@ val anonIps = anonUsers.groupBy(_._1).map{case(ip,group)=>ip}
     } yield (_tasks.userId, _streets.geom.transform(26918).length)
 
     _dists.groupBy(d => d).map{ case (self, group) => (self._1, group.map(_._2).max)}
+  }
+
+  /**
+    * Select average speed (in minutes per 1000ft) per registered user
+    */
+  def selectAveSpeedPerUser: List[(String, Float)] = db.withSession { implicit session =>
+    val tasks = nonResearcherCompletedAudits.filterNot(audit => (audit.taskEnd.isEmpty || audit.userId === anonId))
+    val tasksWithDistQuery = for {
+      (_tasks, _edges) <- tasks.innerJoin(streetEdges).on(_.streetEdgeId === _.streetEdgeId)
+    } yield (_tasks.userId, _tasks.taskStart, _tasks.taskEnd, _edges.geom.transform(26918).length)// * 0.032467)
+    val tasksWithDist: List[(String, Timestamp, Option[Timestamp], Float)] = tasksWithDistQuery.list
+    val tasksWithDuration: List[(String, Float, Float)] = tasksWithDist.map(x => (x._1, (x._3.get.getTime - x._2.getTime) * 0.000016667.toFloat, x._4))
+    val filteredTasks = tasksWithDuration.filter(x => x._2 < 20.0) // filter out audit tasks that took over 20 minutes
+    (for ((userId, taskList) <- filteredTasks.groupBy(_._1)) yield {
+      // only include if the user audited at least 1000ft
+      val totalDist = taskList.map(_._3).sum * 0.00328084
+      if (totalDist >= 1) {
+        Some((userId, (taskList.map(_._2).sum / totalDist).toFloat))
+      } else {
+        None
+      }
+    }).toList.flatten
   }
 
   /**

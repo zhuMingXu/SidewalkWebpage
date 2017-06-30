@@ -1158,7 +1158,7 @@ function Admin(_, $, c3, turf) {
                 vega.embed("#anon-missions-chart", chart, opt, function(error, results) {});
             });
             $.getJSON("/userapi/completedMissionCounts/all", function (data) {
-                stats = getSummaryStats(data[0], "count");
+                var stats = getSummaryStats(data[0], "count");
 
                 var histOpts = {xAxisTitle:"# Missions per Registered User", xDomain:[0, stats.max], binStep:10};
                 var chart = getVegaLiteHistogram(data[0], stats.mean, stats.median, histOpts);
@@ -1168,7 +1168,7 @@ function Admin(_, $, c3, turf) {
                 vega.embed("#mission-count-chart", chart, opt, function(error, results) {});
             });
             $.getJSON("/adminapi/allSignInCounts", function (data) {
-                stats = getSummaryStats(data[0], "count");
+                var stats = getSummaryStats(data[0], "count");
 
                 $("#login-count-std").html((stats.std).toFixed(2) + " Logins");
                 var histOpts = {xAxisTitle:"# Logins per Registered User", binStep:5};
@@ -1177,7 +1177,7 @@ function Admin(_, $, c3, turf) {
                 vega.embed("#login-count-chart", chart, opt, function(error, results) {});
             });
             $.getJSON("/userapi/regUserLabelCounts/all", function (data) {
-                stats = getSummaryStats(data[0], "count");
+                var stats = getSummaryStats(data[0], "count");
 
                 $("#reg-label-count-std").html((stats.std).toFixed(2) + " labels");
                 var histOpts = {xAxisTitle:"Mean # Labels per Registered User", binStep:500};
@@ -1186,13 +1186,24 @@ function Admin(_, $, c3, turf) {
                 vega.embed("#reg-label-count-chart", chart, opt, function(error, results) {});
             });
             $.getJSON("/userapi/anonUserLabelCounts/all", function (data) {
-                stats = getSummaryStats(data[0], "count");
+                var stats = getSummaryStats(data[0], "count");
 
                 $("#anon-label-count-std").html((stats.std).toFixed(2) + " labels");
                 var histOpts = {xAxisTitle:"Mean # Labels per Anonymous User", binStep:500};
                 var chart = getVegaLiteHistogram(data[0], stats.mean, stats.median, histOpts);
 
                 vega.embed("#anon-label-count-chart", chart, opt, function(error, results) {});
+            });
+            $.getJSON("/adminapi/allUserSpeeds", function (data) {
+                var stats = getSummaryStats(data[0], "speed");
+                console.log(data);
+                console.log(stats);
+
+                $("#user-speed-std").html((stats.std).toFixed(2) + " minutes/1000ft");
+                var histOpts = {xAxisTitle:"Mean Time to Audit 1000ft per User", binStep:5, col:"speed"};
+                var chart = getVegaLiteHistogram(data[0], stats.mean, stats.median, histOpts);
+
+                vega.embed("#user-speed-chart", chart, opt, function(error, results) {});
             });
             self.graphsLoaded = true;
         }

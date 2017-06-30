@@ -228,7 +228,7 @@ object StreetEdgeTable {
 
     // Filter out group of edges with the size less than the passed `auditCount`, picking 1 rep from each group
     // TODO pick audit with earliest timestamp
-    val uniqueEdgeDists: List[(Option[Timestamp], Option[Float])] = (for ((eid, groupedAudits) <- audits.list.groupBy(_.streetEdgeId)) yield {
+    val uniqueEdgeDists: List[(Option[Timestamp], Option[Float])] = (for ((eid, groupedAudits) <- audits.list.groupBy(_.streetEdgeId))  yield {
       if (auditCount > 0 && groupedAudits.size >= auditCount) {
         Some((groupedAudits.head.taskEnd, edgeDists.get(eid)))
       } else {

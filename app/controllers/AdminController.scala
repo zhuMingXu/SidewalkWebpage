@@ -181,6 +181,23 @@ class AdminController @Inject() (implicit val env: Environment[User, SessionAuth
     }
   }
 
+  /**
+    * Gets average speed per user (in minutes per 1000ft)
+    *
+    * @return
+    */
+  def getAllUserAveSpeeds = UserAwareAction.async {implicit request =>
+    if (isAdmin(request.identity)) {
+      val userSpeeds: List[(String, Float)] = MissionTable.selectAveSpeedPerUser
+      val jsonArray = Json.arr(userSpeeds.map(x => {
+        Json.obj("user_id" -> x._1, "speed" -> x._2)
+      }))
+      Future.successful(Ok(jsonArray))
+    } else {
+      Future.successful(Redirect("/"))
+    }
+  }
+
 
   /**
     * Returns DC coverage percentage by Date
