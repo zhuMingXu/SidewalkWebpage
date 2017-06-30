@@ -33,6 +33,7 @@ GET     /adminapi/neighborhoodCompletionRate    @controllers.AdminController.get
 GET     /adminapi/anonUserMissionCounts         @controllers.AdminController.getAllAnonUserCompletedMissionCounts
 GET     /adminapi/allSignInCounts               @controllers.AdminController.getAllUserSignInCounts
 GET     /adminapi/allUserSpeeds                 @controllers.AdminController.getAllUserAveSpeeds
+GET     /adminapi/allUserAuditDistances         @controllers.AdminController.getAllUserAuditedDistances
 GET     /adminapi/completionRateByDate          @controllers.AdminController.getCompletionRateByDate
 GET     /adminapi/nonResearcherAuditDistByDate  @controllers.AdminController.getNonResearcherAuditedDistByDate
 GET     /adminapi/tasks/:username               @controllers.AdminController.getSubmittedTasksWithLabels(username: String)

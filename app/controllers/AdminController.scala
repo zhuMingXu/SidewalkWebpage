@@ -198,6 +198,23 @@ class AdminController @Inject() (implicit val env: Environment[User, SessionAuth
     }
   }
 
+  /**
+    * Gets distance audited by each non-researcher user (in miles)
+    *
+    * @return
+    */
+  def getAllUserAuditedDistances = UserAwareAction.async {implicit request =>
+    if (isAdmin(request.identity)) {
+      val userSpeeds: List[(String, Float)] = MissionTable.selectAuditDistancePerUser
+      val jsonArray = Json.arr(userSpeeds.map(x => {
+        Json.obj("user_id" -> x._1, "distance" -> x._2)
+      }))
+      Future.successful(Ok(jsonArray))
+    } else {
+      Future.successful(Redirect("/"))
+    }
+  }
+
 
   /**
     * Returns DC coverage percentage by Date

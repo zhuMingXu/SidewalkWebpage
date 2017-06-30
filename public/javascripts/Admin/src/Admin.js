@@ -1196,14 +1196,23 @@ function Admin(_, $, c3, turf) {
             });
             $.getJSON("/adminapi/allUserSpeeds", function (data) {
                 var stats = getSummaryStats(data[0], "speed");
-                console.log(data);
-                console.log(stats);
 
                 $("#user-speed-std").html((stats.std).toFixed(2) + " minutes/1000ft");
                 var histOpts = {xAxisTitle:"Mean Time to Audit 1000ft per User", binStep:5, col:"speed"};
                 var chart = getVegaLiteHistogram(data[0], stats.mean, stats.median, histOpts);
 
                 vega.embed("#user-speed-chart", chart, opt, function(error, results) {});
+            });
+            $.getJSON("/adminapi/allUserAuditDistances", function (data) {
+                var stats = getSummaryStats(data[0], "distance");
+                console.log(data);
+                console.log(stats);
+
+                $("#user-distance-std").html((stats.std).toFixed(2) + " miles");
+                var histOpts = {xAxisTitle:"Miles Audited per User", binStep:5, col:"distance"};
+                var chart = getVegaLiteHistogram(data[0], stats.mean, stats.median, histOpts);
+
+                vega.embed("#user-distance-chart", chart, opt, function(error, results) {});
             });
             self.graphsLoaded = true;
         }

@@ -363,6 +363,17 @@ val anonIps = anonUsers.groupBy(_._1).map{case(ip,group)=>ip}
   }
 
   /**
+    * Gets distance audited by each user that is not a researcher (in miles)
+    */
+  def selectAuditDistancePerUser: List[(String, Float)] = db.withSession {implicit session =>
+    val tasks = completedAudits.filterNot(audit => (audit.taskEnd.isEmpty || audit.userId === anonId))
+    val _tasksWithDists = for {
+      (_tasks, _edges) <- tasks.innerJoin(streetEdges).on(_.streetEdgeId === _.streetEdgeId)
+    } yield (_tasks.userId, _edges.geom.transform(26918).length)
+    _tasksWithDists.groupBy(_._1).map{ case (uid,group) => (uid, group.map(_._2).sum.getOrElse(0.0.toFloat) * 0.000621371.toFloat)}.list
+  }
+
+  /**
     * Select average label counts per 1000ft, per registered user
     */
 //  def getRegUserLabelCounts: List[(String, Float)] = db.withSession { implicit session =>
