@@ -343,8 +343,8 @@ function Admin(_, $, c3, turf) {
                 style: function (feature) {
                     var style = $.extend(true, {}, streetLinestringStyle);
                     var randomInt = Math.floor(Math.random() * 5);
-                    style.color = "#000";
-                    style["stroke-width"] = 3;
+                    style.color = "#00f";
+                    style["stroke-width"] = 1;
                     style.opacity = 0.75;
                     style.weight = 3;
 
@@ -1156,6 +1156,27 @@ function Admin(_, $, c3, turf) {
                 var chart = getVegaLiteHistogram(data[0], stats.mean, stats.median, histOpts);
 
                 vega.embed("#anon-missions-chart", chart, opt, function(error, results) {});
+
+                $.getJSON("/userapi/completedMissionCounts/all", function (data2) {
+                    var data3 = [];
+                    for (var i = 0; i < data[0].length; i++) {
+                        data3.push({count:data[0][i].count, user:data[0][i].ip_address})
+                    }
+                    for (var i = 0; i < data2[0].length; i++) {
+                        data3.push({count:data2[0][i].count, user:data2[0][i].user_id})
+                    }
+                    console.log(data);
+                    console.log(data2);
+                    console.log(data3);
+                    var stats3 = getSummaryStats(data3, "count");
+
+                    var histOpts = {xAxisTitle:"# Missions per User (all)", xDomain:[0, stats3.max], binStep:10};
+                    var chart = getVegaLiteHistogram(data3, stats3.mean, stats3.median, histOpts);
+
+                    $("#all-missions-std").html((stats3.std).toFixed(2) + " Missions");
+
+                    vega.embed("#all-mission-count-chart", chart, opt, function(error, results) {});
+                });
             });
             $.getJSON("/userapi/completedMissionCounts/all", function (data) {
                 var stats = getSummaryStats(data[0], "count");

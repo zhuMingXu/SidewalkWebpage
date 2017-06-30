@@ -370,7 +370,18 @@ val anonIps = anonUsers.groupBy(_._1).map{case(ip,group)=>ip}
     val _tasksWithDists = for {
       (_tasks, _edges) <- tasks.innerJoin(streetEdges).on(_.streetEdgeId === _.streetEdgeId)
     } yield (_tasks.userId, _edges.geom.transform(26918).length)
-    _tasksWithDists.groupBy(_._1).map{ case (uid,group) => (uid, group.map(_._2).sum.getOrElse(0.0.toFloat) * 0.000621371.toFloat)}.list
+    val regUserDists = _tasksWithDists.groupBy(_._1).map{ case (uid,group) => (uid, group.map(_._2).sum.getOrElse(0.0.toFloat) * 0.000621371.toFloat)}.list
+
+    val _anonAudits = for {
+      (_ate, _at) <- auditTaskEnvironmentTable.innerJoin(completedAudits).on(_.auditTaskId === _.auditTaskId)
+      if _at.userId === "97760883-8ef0-4309-9a5e-0c086ef27573"
+    } yield (_ate.ipAddress, _ate.auditTaskId, _at.streetEdgeId)
+    val _anonTasksWithDist = for {
+      (_tasks, _edges) <- _anonAudits.innerJoin(streetEdges).on(_._3 === _.streetEdgeId)
+    } yield (_tasks._1, _edges.geom.transform(26918).length)
+    val anonUserDists: List[(String, Float)] = _anonTasksWithDist.groupBy(_._1).map{ case (uid,group) => (uid.toString, group.map(_._2).sum.getOrElse(0.0.toFloat) * 0.000621371.toFloat)}.list
+
+    regUserDists ::: anonUserDists
   }
 
   /**
