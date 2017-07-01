@@ -346,9 +346,9 @@ function Admin(_, $, c3, turf) {
                 style: function (feature) {
                     var style = $.extend(true, {}, streetLinestringStyle);
                     var randomInt = Math.floor(Math.random() * 5);
-                    style.color = "#999999";
+                    style.color = "#BFBFBF";
                     style["stroke-width"] = 2;
-                    style.opacity = 1.0;
+                    style.opacity = 0.65;
                     style.weight = 2;
 
                     return style;
