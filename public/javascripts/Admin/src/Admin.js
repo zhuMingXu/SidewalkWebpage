@@ -32,7 +32,8 @@ function Admin(_, $, c3, turf) {
 
     self.auditedStreetLayer = null;
 
-    L.mapbox.accessToken = 'pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA';
+    // L.mapbox.accessToken = 'pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA';
+    L.mapbox.accessToken = 'pk.eyJ1IjoibWlzYXVnc3RhZCIsImEiOiJjajN2dTV2Mm0wMDFsMndvMXJiZWcydDRvIn0.IXE8rQNF--HikYDjccA7Ug';
 
     // Construct a bounding box for these maps that the user cannot move out of
     // https://www.mapbox.com/mapbox.js/example/v1.0.0/maxbounds/
@@ -41,20 +42,22 @@ function Admin(_, $, c3, turf) {
     var bounds = L.latLngBounds(southWest, northEast);
 
     // var tileUrl = "https://a.tiles.mapbox.com/v4/kotarohara.mmoldjeh/page.html?access_token=pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA#13/38.8998/-77.0638";
-    var tileUrl = "https:\/\/a.tiles.mapbox.com\/v4\/kotarohara.8e0c6890\/{z}\/{x}\/{y}.png?access_token=pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA";
-    var mapboxTiles = L.tileLayer(tileUrl, {
-        attribution: '<a href="http://www.mapbox.com/about/maps/" target="_blank">Terms &amp; Feedback</a>'
-    });
+    // var tileUrl = "https:\/\/a.tiles.mapbox.com\/v4\/kotarohara.8e0c6890\/{z}\/{x}\/{y}.png?access_token=pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA";
+    // var mapboxTiles = L.tileLayer(tileUrl, {
+    //     attribution: '<a href="http://www.mapbox.com/about/maps/" target="_blank">Terms &amp; Feedback</a>'
+    // });
     var map = L.mapbox.map('admin-map', "kotarohara.8e0c6890", {
         // set that bounding box as maxBounds to restrict moving the map
         // see full maxBounds documentation:
         // http://leafletjs.com/reference.html#map-maxbounds
         maxBounds: bounds,
+        zoomControl: false,
         maxZoom: 19,
         minZoom: 9
     })
         .fitBounds(bounds)
         .setView([38.892, -77.038], 12);
+    L.mapbox.styleLayer('mapbox://styles/mapbox/light-v9').addTo(map);
 
     // a grayscale tileLayer for the choropleth
     L.mapbox.accessToken = 'pk.eyJ1IjoibWlzYXVnc3RhZCIsImEiOiJjajN2dTV2Mm0wMDFsMndvMXJiZWcydDRvIn0.IXE8rQNF--HikYDjccA7Ug';
@@ -93,7 +96,7 @@ function Admin(_, $, c3, turf) {
             }]
         };
         var layer = L.geoJson(overlayPolygon);
-        layer.setStyle({color: "#ccc", fillColor: "#ccc"});
+        layer.setStyle({color: "#F5F5F5", fillColor: "#F2F2F2", fillOpacity: 0.75});
         layer.addTo(map);
     }
 
@@ -321,7 +324,7 @@ function Admin(_, $, c3, turf) {
             streetLinestringStyle = {
                 color: "black",
                 weight: 3,
-                opacity: 0.75
+                opacity: 1.0
             };
 
         function onEachStreetFeature(feature, layer) {
@@ -335,6 +338,34 @@ function Admin(_, $, c3, turf) {
             })
         }
 
+        $.getJSON("/contribution/streetsNotDone/all", function (data) {
+
+            // Render audited street segments
+            self.auditedStreetLayer = L.geoJson(data, {
+                pointToLayer: L.mapbox.marker.style,
+                style: function (feature) {
+                    var style = $.extend(true, {}, streetLinestringStyle);
+                    var randomInt = Math.floor(Math.random() * 5);
+                    style.color = "#999999";
+                    style["stroke-width"] = 2;
+                    style.opacity = 1.0;
+                    style.weight = 2;
+
+                    return style;
+                },
+                onEachFeature: onEachStreetFeature
+            })
+                .addTo(map);
+
+            self.auditedStreetLayer.bringToFront();
+
+            // Calculate total distance audited in (km)
+            // for (var i = data.features.length - 1; i >= 0; i--) {
+            //     distanceAudited += turf.lineDistance(data.features[i]);
+            // }
+            // document.getElementById("td-total-distance-audited").innerHTML = distanceAudited.toPrecision(2) + " km";
+        });
+
         $.getJSON("/contribution/streets/all", function (data) {
 
             // Render audited street segments
@@ -343,16 +374,18 @@ function Admin(_, $, c3, turf) {
                 style: function (feature) {
                     var style = $.extend(true, {}, streetLinestringStyle);
                     var randomInt = Math.floor(Math.random() * 5);
-                    style.color = "#00f";
-                    style["stroke-width"] = 1;
-                    style.opacity = 0.75;
-                    style.weight = 3;
+                    style.color = "#FF7F50";
+                    style["stroke-width"] = 2;
+                    style.opacity = 1.0;
+                    style.weight = 2;
 
                     return style;
                 },
                 onEachFeature: onEachStreetFeature
             })
                 .addTo(map);
+
+            self.auditedStreetLayer.bringToFront();
 
             // Calculate total distance audited in (km)
             for (var i = data.features.length - 1; i >= 0; i--) {
@@ -619,8 +652,8 @@ function Admin(_, $, c3, turf) {
             initializeOverlayPolygon(map);
             initializeNeighborhoodPolygons(map);
             initializeAuditedStreets(map);
-            initializeSubmittedLabels(map);
-            initializeAdminGSVLabelView();
+            // initializeSubmittedLabels(map);
+            // initializeAdminGSVLabelView();
             setTimeout(function () {
                 map.invalidateSize(false);
             }, 1);
@@ -771,10 +804,6 @@ function Admin(_, $, c3, turf) {
                 var noCurbRampStats = getSummaryStats(noCurbRamps, "severity");
                 var surfaceProblemStats = getSummaryStats(surfaceProblems, "severity");
                 var obstacleStats = getSummaryStats(obstacles, "severity");
-                console.log(curbRampStats);
-                console.log(noCurbRampStats);
-                console.log(surfaceProblemStats);
-                console.log(obstacleStats);
 
                 var subPlotHeight = 200;
                 var subPlotWidth = 199;
@@ -942,7 +971,6 @@ function Admin(_, $, c3, turf) {
                 document.getElementById("neighborhood-alphabetical-sort-button").addEventListener("click", function() {
                     vega.embed("#neighborhood-completion-rate", coverageRateChartSortedAlphabetically, opt, function(error, results) {});
                 });
-    console.log(data);
                 var histOpts = {col: "rate", xAxisTitle:"Neighborhood Completion (%)", xDomain:[0, 100],
                                 width:400, height:250, binStep:10};
                 var coverageRateHist = getVegaLiteHistogram(data, stats.mean, stats.median, histOpts);
@@ -1165,9 +1193,6 @@ function Admin(_, $, c3, turf) {
                     for (var i = 0; i < data2[0].length; i++) {
                         data3.push({count:data2[0][i].count, user:data2[0][i].user_id})
                     }
-                    console.log(data);
-                    console.log(data2);
-                    console.log(data3);
                     var stats3 = getSummaryStats(data3, "count");
 
                     var histOpts = {xAxisTitle:"# Missions per User (all)", xDomain:[0, stats3.max], binStep:10};
@@ -1226,8 +1251,6 @@ function Admin(_, $, c3, turf) {
             });
             $.getJSON("/adminapi/allUserAuditDistances", function (data) {
                 var stats = getSummaryStats(data[0], "distance");
-                console.log(data);
-                console.log(stats);
 
                 $("#user-distance-std").html((stats.std).toFixed(2) + " miles");
                 var histOpts = {xAxisTitle:"Miles Audited per User", binStep:5, col:"distance"};
@@ -1239,15 +1262,15 @@ function Admin(_, $, c3, turf) {
         }
     });
 
-    initializeLabelTable();
-    initializeAdminGSVLabelView();
+    // initializeLabelTable();
+    // initializeAdminGSVLabelView();
 
     self.clearMap = clearMap;
-    self.redrawLabels = redrawLabels;
-    self.clearAuditedStreetLayer = clearAuditedStreetLayer;
+    // self.redrawLabels = redrawLabels;
+    // self.clearAuditedStreetLayer = clearAuditedStreetLayer;
     self.redrawAuditedStreetLayer = redrawAuditedStreetLayer;
-    self.toggleLayers = toggleLayers;
-    self.toggleAuditedStreetLayer = toggleAuditedStreetLayer;
+    // self.toggleLayers = toggleLayers;
+    // self.toggleAuditedStreetLayer = toggleAuditedStreetLayer;
 
     return self;
 }

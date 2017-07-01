@@ -262,6 +262,17 @@ object AuditTaskTable {
   }
 
   /**
+    * Return street edges that have NOT been audited
+    *
+    * @return
+    */
+  def selectStreetsNotAudited: List[StreetEdge] = db.withSession { implicit session =>
+    val completedTasks: List[Int] = auditTasks.filter(_.completed === true).map(_.streetEdgeId).list
+    val _streetEdges = streetEdges.filter(_.deleted === false).filterNot(_.streetEdgeId inSet completedTasks)
+    _streetEdges.list.groupBy(_.streetEdgeId).map(_._2.head).toList  // Filter out the duplicated street edge
+  }
+
+  /**
    * Return street edges audited by the given user
    *
    * @param userId User Id

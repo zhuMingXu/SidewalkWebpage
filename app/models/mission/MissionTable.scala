@@ -309,9 +309,9 @@ val anonIps = anonUsers.groupBy(_._1).map{case(ip,group)=>ip}
   def getLabelCountsPerAnonUser: List[(String, Int)] = db.withSession { implicit session =>
 
     val _anonAudits = for {
-      (_ate, _at) <- auditTaskEnvironmentTable.innerJoin(auditTaskTable).on(_.auditTaskId === _.auditTaskId)
-      if _at.userId === "97760883-8ef0-4309-9a5e-0c086ef27573"
-    } yield (_ate.ipAddress, _ate.auditTaskId)
+      (_environment, _task) <- auditTaskEnvironmentTable.innerJoin(auditTaskTable).on(_.auditTaskId === _.auditTaskId)
+      if _task.userId === "97760883-8ef0-4309-9a5e-0c086ef27573"
+    } yield (_environment.ipAddress, _environment.auditTaskId)
 
     val _labels = for {
       (_tasks, _labels) <- _anonAudits.innerJoin(labelsWithoutDeleted).on(_._2 === _.auditTaskId)
