@@ -63,8 +63,8 @@ try:
     # Connect to PostgreSQL database
     conn, engine = connect_to_db()
 except Exception as e:
-    print "I am unable to connect to the database"
-    print "Error: ", e
+    print ("I am unable to connect to the database")
+    print ("Error: ", e)
 
 cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
@@ -84,7 +84,7 @@ rows = cur.fetchall()
 # The keys correspond to column names.
 # source and target may be stored as float. Need to be converted to int.
 if False:
-    print rows[0]
+    print (rows[0])
 
 
 # Calculate length of each edge using the geopy library's great_circle
@@ -173,7 +173,7 @@ for index, edge in edges_csubset.iterrows():
 
 # Show all the nodes connected to node 13103 with their distance
 if False:
-    print adjacency_list_streetedge[13103]
+    print (adjacency_list_streetedge[13103])
 
 
 # In[ ]:
@@ -251,14 +251,14 @@ def find_path(seed_edge, adjacency_list, adjacency_list_region,
                     #print "Jumped here"
                     random_jump_edges = edges_csubset[edges_csubset['region_id'].isin([seed_edge['region_id']]) & ~edges_csubset['source'].isin(visited_nodes) & ~edges_csubset['target'].isin(visited_nodes)]
                     #print random_jump_edges
-                    
+
                     if(random_jump_edges.empty):
                         path_exists = False
                         current_path_length = 0
                         return ([{'street_edge_id':seed_edge['street_edge_id'],'region_id':seed_edge['region_id'],'target':seed_edge['target'],'source':seed_edge['source'],'length':seed_edge['length']}],path_exists,seed_edge['length'])
                     else:
                         random_jump_edge = dict(random_jump_edges.sample(1).iloc[0])
-                    
+
                     current_source = random_jump_edge['source']
                     current_target = random_jump_edge['target']
                     current_edge_length = adjacency_list[current_source][current_target]
@@ -266,23 +266,23 @@ def find_path(seed_edge, adjacency_list, adjacency_list_region,
                     current_path_length = current_path_length + current_edge_length
                     if(len(path)>0):
                         path[-1]['next_street_edge_id'] = current_street_edge_id
-            
+
                     path.append(random_jump_edge)
                     visited_nodes.add(current_source)
                     visited_nodes.add(current_target)
                     current_source = current_target
-                    
+
                 else:
                     # Try going back to the previous source and try another edge.
                     # This will give us continuous routes if the adjacency network is correct
-                    # Sometime the database may exchange source and target values for an edge. This seems to be the case for the sidewalk dc data 
+                    # Sometime the database may exchange source and target values for an edge. This seems to be the case for the sidewalk dc data
                     previous_edge = path.pop()
                     #print path
                     current_source = previous_edge['source'] # update current_source
                     current_path_length = current_path_length - previous_edge['length'] # update current_path_length
 
         else:
-            print "Error. Number of unvisited nodes is -ve!!"
+            print ("Error. Number of unvisited nodes is -ve!!")
 
         if(check_distance_constraint(current_path_length)):
             # Current path length meets our constraint
@@ -306,11 +306,11 @@ def find_path(seed_edge, adjacency_list, adjacency_list_region,
 # We can dynamically vary d_del to get the path that has the least
 # deviation from the mission distance
 if False:
-    print adjacency_list_streetedge[13103][13077]
-    print find_path({'street_edge_id': 11326, 'source': 13103, 'target': 13077,
+    print (adjacency_list_streetedge[13103][13077])
+    print (find_path({'street_edge_id': 11326, 'source': 13103, 'target': 13077,
                      'length': 0.10199468383820903, 'region_id': 219}, adjacency_list,
                     adjacency_list_region, adjacency_list_streetedge, d_m=1.0,
-                    d_del_high=0.04)
+                    d_del_high=0.04))
 
 
 # Generate a random sample of N unique starting edges and find N paths
@@ -355,7 +355,7 @@ for index, seed_edge in edges_sample.iterrows():
         # print path_df
         valid_path_count = valid_path_count + 1
 
-print "Number of valid paths generated: ", valid_path_count
+print ("Number of valid paths generated: ", valid_path_count)
 
 
 # Calculate the Jaccard distance matrix between the paths and apply the
@@ -406,10 +406,10 @@ num_valid = len(valid_paths) - len(invalid_path_indices)
 num_invalid = len(invalid_path_indices)
 overall_percentage_valid = float(num_valid) * 100 / N
 
-print "Number of valid paths", num_valid
-print "Number of invalid paths", num_invalid
-print "Percentage of seed edges that have generated paths obeying the distance, regionality and overlap constrains: ",
-print overall_percentage_valid, "%"
+print ("Number of valid paths", num_valid)
+print ("Number of invalid paths", num_invalid)
+print ("Percentage of seed edges that have generated paths obeying the distance, regionality and overlap constrains: ")
+print  (overall_percentage_valid, "%")
 # print "Invalid path indices", invalid_path_indices
 # Should have weeded out a lot of paths
 
@@ -424,7 +424,7 @@ for index in sorted(invalid_path_indices, reverse=True):
 # In[ ]:
 
 if False:
-    print valid_paths[0]
+    print (valid_paths[0])
 
 
 # In[ ]:
@@ -477,13 +477,13 @@ for column in delete_column_names:
 
 # Clean duplicate ids entries that already exist in the table
 # Get all the current route_ids in  sidewalk.route
-cur.execute("""SELECT route_id, region_id from sidewalk.route order by street_count desc""")
-route_rows = cur.fetchall()
-routes = map(lambda x: x["route_id"], route_rows)
-
-new_route_table_df = route_table[route_table.index.map(lambda x: x[0] not in routes)]
+# cur.execute("""SELECT route_id, region_id from sidewalk.route order by street_count desc""")
+# route_rows = cur.fetchall()
+# routes = map(lambda x: x["route_id"], route_rows)
+#
+# new_route_table_df = route_table[route_table.index.map(lambda x: x[0] not in routes)]
 
 
 # Write route_table and route_street_table to postgres sidewalk database
-new_route_table_df.to_sql('route', engine, if_exists='append')
+route_table.to_sql('route', engine, if_exists='append')
 route_street_table.to_sql('route_street', engine, if_exists='append', index=True)

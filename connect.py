@@ -30,7 +30,7 @@ def connect_to_mturk():
                          )
 
     # Sample line of code to get account balance [$10,000.00]
-    print mturk.get_account_balance()['AvailableBalance']
+    print (mturk.get_account_balance()['AvailableBalance'])
 
     return mturk
 
@@ -55,7 +55,7 @@ def connect_to_db():
         # Format of the connection string: dialect+driver://username:password@host:port/database
         connection_str = ('postgresql://' + dbuser + ':' + dbpass +
                           '@' + dbhost + ':' + dbport + '/' + dbname)
-        print connection_str
+        print (connection_str)
         engine = create_engine(connection_str)
         conn = psycopg2.connect("dbname=" + dbname +
                                 " user=" + dbuser +
