@@ -26,6 +26,21 @@
                 background: url('/assets/images/loader.gif') center no-repeat #fff ;
             }
     </style>
+
+    <script>
+    $(document).ready(function(){
+      $('#generated_street').click(function(){
+        var check = document.getElementById("generated_street").checked;
+        if (check == true){
+          $("path[stroke-opacity='0.75']").show();
+        }
+        if (check == false){
+          $("path[stroke-opacity='0.75']").hide();
+        }
+      });
+
+    });
+    </script>
     <div class="loader"></div>
     <div class="container-fluid">
       <div id="row">
@@ -40,7 +55,7 @@
                         <tr>
                             <td id="map-legend-audited-street"></td>
                             <td>Generated Route</td>
-                            <td><input type="checkbox" value="displaylabel" id="auditedstreet" checked="true" onclick="admin.toggleAuditedStreetLayer();"></td>
+                            <td><input type="checkbox" value="displaylabel" id="generated_street" checked="true"></td>
                         </tr>
                         <tr>
                             <td></td>
