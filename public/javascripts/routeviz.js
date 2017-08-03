@@ -500,6 +500,7 @@ function RouteViz(_, $, c3, turf, difficultRegionIds) {
     // takes an array of objects and the name of a property of the objects, returns summary stats for that property
     function getSummaryStats(data, col, options) {
         options = options || {};
+
         var excludeResearchers = options.excludeResearchers || false;
 
         var sum = 0;
