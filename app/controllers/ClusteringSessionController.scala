@@ -95,7 +95,7 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     */
   def postClusteringResults(routeId: String, threshold: String) = UserAwareAction.async(BodyParsers.parse.json) {implicit request =>
     // Validation https://www.playframework.com/documentation /2.3.x/ScalaJson
-    val submission = request.body.validate[List[ClusteringFormats.Lab]]
+    val submission = request.body.validate[List[ClusteringFormats.ClusteredLabel]]
     submission.fold(
       errors => {
         println("bleepbloop how does parse")

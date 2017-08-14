@@ -13,12 +13,12 @@ import play.api.libs.functional.syntax._
 //}
 object ClusteringFormats {
 
-  case class Lab(labelId: Int, labelType: String, clusterNum: Int)
+  case class ClusteredLabel(labelId: Int, labelType: String, clusterNum: Int)
 
 
-  implicit val labReads: Reads[Lab] = (
+  implicit val clusteredLabelReads: Reads[ClusteredLabel] = (
     (JsPath \ "label_id").read[Int] and
       (JsPath \ "label_type").read[String] and
       (JsPath \ "cluster").read[Int]
-    )(Lab.apply _)
+    )(ClusteredLabel.apply _)
 }
