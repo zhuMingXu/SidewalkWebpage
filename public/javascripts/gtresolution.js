@@ -286,16 +286,14 @@ $(document).ready(function () {
         var labelIndex = pano.labels.findIndex(lbl => lbl.label_id === data.label_id );
         var markerElement = $("#label-id-" + data.label_id);
         //create popup
-        markerElement
-            .attr('data-toggle', 'popover')
-            .attr('data-placement', 'top')
-            .attr('data-content',
-                '<p style="text-align:center; margin-bottom:2px"><b>Labeler:</b>&nbsp;' + data.turker_id + ', <b>Severity:</b>&nbsp;' + data.severity + ', <b>Temporary:</b>&nbsp;' + data.temporary
+        markerElement.popover({
+              placement: 'top',
+              content: '<p style="text-align:center; margin-bottom:2px"><b>Labeler:</b>&nbsp;' + data.turker_id + ', <b>Severity:</b>&nbsp;' + data.severity + ', <b>Temporary:</b>&nbsp;' + data.temporary
                 + '</p>' +
                 'Ground Truth: <input type="button" id="commit' + data.label_id + '" style="margin-top:1px" value="Yes"></input>' +
                 '<input type="button" id="noCommit' + data.label_id + '" style="margin-top:4px" value="No"></input>' +
-                '<input type="button" id="sendToBack' + data.label_id + '" style="margin-top:4px; margin-left:8px" value="Send to Back"></input>') // 9eba9e
-            .popover({html: true});
+                '<input type="button" id="sendToBack' + data.label_id + '" style="margin-top:4px; margin-left:8px" value="Send to Back"></input>', // 9eba9e
+                html: true});
         //clicking yes for ground truth hides popover and calls yesGroundTruth
         $(document).on("click", '.popover #commit' + data.label_id , function(){
             $("#label-id-" + data.label_id).popover('hide');
@@ -503,7 +501,8 @@ $(document).ready(function () {
         }
         //if there are no unresolved labels yet, alert user
         else if(document.getElementById("remainingCounter").innerHTML === "REMAINING LABELS: " + 0){
-            alert("No More Remaining Labels (in this case I would have a button appear that lets you submit your ground truth labels to be stored in the database)");
+            alert("All Labels Complete: Submission Allowed");
+            document.getElementById("hiddenColumn").style.display = "inline-block";
         }
         //otherwise, go to next cluster
         else{
@@ -570,8 +569,8 @@ $(document).ready(function () {
                 //check if all labelers are different
                 if(!((cluster_data[0].turker_id === cluster_data[1].turker_id) || (cluster_data[0].turker_id === cluster_data[2].turker_id) || (cluster_data[1].turker_id === cluster_data[2].turker_id))){
                     //check if severities are all the same
-                    var sameSeverity = (cluster_data[0].severity === cluster_data[1].severity && cluster_data[0].severity === cluster_data[2].severity);
-                    var sameTemp = !(cluster_data[0].severity === null && cluster_data[1].severity === null && cluster_data[2].severity === null) && (cluster_data[0].temporary === cluster_data[1].temporary && cluster_data[0].temporary === cluster_data[2].temporary);
+                    var sameSeverity = !(cluster_data[0].severity === null && cluster_data[1].severity === null && cluster_data[2].severity === null) && (cluster_data[0].severity === cluster_data[1].severity && cluster_data[0].severity === cluster_data[2].severity);
+                    var sameTemp = (cluster_data[0].temporary === cluster_data[1].temporary && cluster_data[0].temporary === cluster_data[2].temporary);
                     //calculate middle label
                     middle = chooseMiddle(cluster_data);
                     if(!(sameSeverity && sameTemp)){
@@ -758,6 +757,30 @@ $(document).ready(function () {
         document.getElementById("clear4").onclick = function () {
             clearCanvas(3);
         };
+        document.getElementById("gtSubmit").onclick = function () {
+              async = true;
+              var data = [];
+              for(var i = 0; i < ground_truth_labels.length; i++){
+                var toSubmit = ground_truth_labels[i];
+                toSubmit.label_type = 0;
+                delete toSubmit.turker_id;
+                data.push(toSubmit);
+              }
+              $.ajax({
+                  async: true,
+                  contentType: 'application/json; charset=utf-8',
+                  url: "/gtresolution/results",
+                  type: 'post',
+                  data: JSON.stringify(toSubmit),
+                  dataType: 'json',
+                  success: function (result) {
+                      console.log(result)
+                  },
+                  error: function (result) {
+                      console.error(result);
+                  }
+              });
+        }
         //when cluster is submitted
         document.getElementById("submitClusterSessionId").onclick = function () {
             //execute query
@@ -776,23 +799,23 @@ $(document).ready(function () {
             //});
         };
         //reduce filler at bottom of page (styling purposes)
-        document.getElementById("filler").style.minHeight = "10px";
+        document.getElementById("filler").style.minHeight = "5px";
     }//end of initialize
 
     //test data
     var gtTestData = [
-        {"label_id":73253,"turker_id":"Ryan","cluster_id":11,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":9873,"sv_image_y":-612,"sv_canvas_x":421,"sv_canvas_y":121,"heading":257.4910583496094,"pitch":-35.0,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95965576171875,"lng":-77.07019805908203,"description":null,"severity":null,"temporary":false},
-        {"label_id":73287,"turker_id":"Mikey","cluster_id":11,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":9868,"sv_image_y":-572,"sv_canvas_x":399,"sv_canvas_y":212,"heading":260.75,"pitch":-20.75,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95965576171875,"lng":-77.07020568847656,"description":null,"severity":null,"temporary":false},
-        {"label_id":73270,"turker_id":"Steven","cluster_id":11,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":9898,"sv_image_y":-571,"sv_canvas_x":255,"sv_canvas_y":228,"heading":284.5625,"pitch":-18.875,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95965576171875,"lng":-77.0702133178711,"description":null,"severity":null,"temporary":false},
-        {"label_id":73251,"turker_id":"Ryan","cluster_id":12,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":4282,"sv_image_y":-884,"sv_canvas_x":482,"sv_canvas_y":103,"heading":105.47321319580078,"pitch":-35.0,"zoom":2,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95963668823242,"lng":-77.07002258300781,"description":null,"severity":1,"temporary":false},
-        {"label_id":73250,"turker_id":"Mikey","cluster_id":12,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":3502,"sv_image_y":-805,"sv_canvas_x":544,"sv_canvas_y":119,"heading":79.84821319580078,"pitch":-32.61606979370117,"zoom":2,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95965576171875,"lng":-77.07000732421875,"description":null,"severity":1,"temporary":false},
-        {"label_id":73290,"turker_id":"Steven","cluster_id":12,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":3487,"sv_image_y":-802,"sv_canvas_x":269,"sv_canvas_y":211,"heading":109.625,"pitch":-27.125,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95965576171875,"lng":-77.07000732421875,"description":null,"severity":1,"temporary":false},
-        {"label_id":73271,"turker_id":"Ryan","cluster_id":12,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":3540,"sv_image_y":-819,"sv_canvas_x":451,"sv_canvas_y":214,"heading":80.375,"pitch":-27.3125,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.959651947021484,"lng":-77.07000732421875,"description":null,"severity":null,"temporary":false},
-        {"label_id":73289,"turker_id":"Mikey","cluster_id":12,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":4270,"sv_image_y":-853,"sv_canvas_x":395,"sv_canvas_y":216,"heading":109.625,"pitch":-27.125,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.959632873535156,"lng":-77.07002258300781,"description":null,"severity":1,"temporary":false},
-        {"label_id":73264,"turker_id":"Steven","cluster_id":12,"pano_id":"DzLYGtZS81sv0TFPrXYEJw","label_type":"CurbRamp","sv_image_x":901,"sv_image_y":-766,"sv_canvas_x":529,"sv_canvas_y":221,"heading":357.6875,"pitch":-26.1875,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.959617614746094,"lng":-77.07002258300781,"description":null,"severity":1,"temporary":false},
-        {"label_id":73244,"turker_id":"Ryan","cluster_id":10,"pano_id":"430ykj3atJBO-QWkuR5BZQ","label_type":"CurbRamp","sv_image_x":4527,"sv_image_y":-454,"sv_canvas_x":434,"sv_canvas_y":143,"heading":116.14286041259766,"pitch":-20.109375,"zoom":2,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.959007263183594,"lng":-77.0699462890625,"description":null,"severity":null,"temporary":false},
-        {"label_id":73279,"turker_id":"Mikey","cluster_id":10,"pano_id":"430ykj3atJBO-QWkuR5BZQ","label_type":"CurbRamp","sv_image_x":4514,"sv_image_y":-448,"sv_canvas_x":454,"sv_canvas_y":160,"heading":107.75,"pitch":-25.375,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.959007263183594,"lng":-77.0699462890625,"description":null,"severity":1,"temporary":false},
-        {"label_id":73261,"turker_id":"Steven","cluster_id":10,"pano_id":"430ykj3atJBO-QWkuR5BZQ","label_type":"CurbRamp","sv_image_x":4496,"sv_image_y":-450,"sv_canvas_x":179,"sv_canvas_y":112,"heading":147.6875,"pitch":-33.3125,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95901107788086,"lng":-77.0699462890625,"description":null,"severity":1,"temporary":false},
+        {"label_id":73253,"turker_id":"Ryan","cluster_id":1,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":9873,"sv_image_y":-612,"sv_canvas_x":421,"sv_canvas_y":121,"heading":257.4910583496094,"pitch":-35.0,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95965576171875,"lng":-77.07019805908203,"description":null,"severity":1,"temporary":false},
+        {"label_id":73287,"turker_id":"Mikey","cluster_id":1,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":9868,"sv_image_y":-572,"sv_canvas_x":399,"sv_canvas_y":212,"heading":260.75,"pitch":-20.75,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95965576171875,"lng":-77.07020568847656,"description":null,"severity":1,"temporary":false},
+        {"label_id":73270,"turker_id":"Steven","cluster_id":1,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":9898,"sv_image_y":-571,"sv_canvas_x":255,"sv_canvas_y":228,"heading":284.5625,"pitch":-18.875,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95965576171875,"lng":-77.0702133178711,"description":null,"severity":2,"temporary":false},
+        /*{"label_id":73251,"turker_id":"Ryan","cluster_id":2,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":4282,"sv_image_y":-884,"sv_canvas_x":482,"sv_canvas_y":103,"heading":105.47321319580078,"pitch":-35.0,"zoom":2,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95963668823242,"lng":-77.07002258300781,"description":null,"severity":1,"temporary":false},
+        {"label_id":73250,"turker_id":"Mikey","cluster_id":2,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":3502,"sv_image_y":-805,"sv_canvas_x":544,"sv_canvas_y":119,"heading":79.84821319580078,"pitch":-32.61606979370117,"zoom":2,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95965576171875,"lng":-77.07000732421875,"description":null,"severity":1,"temporary":false},
+        {"label_id":73290,"turker_id":"Steven","cluster_id":2,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":3487,"sv_image_y":-802,"sv_canvas_x":269,"sv_canvas_y":211,"heading":109.625,"pitch":-27.125,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95965576171875,"lng":-77.07000732421875,"description":null,"severity":1,"temporary":false},
+        {"label_id":73271,"turker_id":"Ryan","cluster_id":2,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":3540,"sv_image_y":-819,"sv_canvas_x":451,"sv_canvas_y":214,"heading":80.375,"pitch":-27.3125,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.959651947021484,"lng":-77.07000732421875,"description":null,"severity":null,"temporary":false},
+        {"label_id":73289,"turker_id":"Mikey","cluster_id":2,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":4270,"sv_image_y":-853,"sv_canvas_x":395,"sv_canvas_y":216,"heading":109.625,"pitch":-27.125,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.959632873535156,"lng":-77.07002258300781,"description":null,"severity":1,"temporary":false},
+        {"label_id":73264,"turker_id":"Steven","cluster_id":2,"pano_id":"DzLYGtZS81sv0TFPrXYEJw","label_type":"CurbRamp","sv_image_x":901,"sv_image_y":-766,"sv_canvas_x":529,"sv_canvas_y":221,"heading":357.6875,"pitch":-26.1875,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.959617614746094,"lng":-77.07002258300781,"description":null,"severity":1,"temporary":false},
+        {"label_id":73244,"turker_id":"Ryan","cluster_id":3,"pano_id":"430ykj3atJBO-QWkuR5BZQ","label_type":"CurbRamp","sv_image_x":4527,"sv_image_y":-454,"sv_canvas_x":434,"sv_canvas_y":143,"heading":116.14286041259766,"pitch":-20.109375,"zoom":2,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.959007263183594,"lng":-77.0699462890625,"description":null,"severity":null,"temporary":false},
+        {"label_id":73279,"turker_id":"Mikey","cluster_id":3,"pano_id":"430ykj3atJBO-QWkuR5BZQ","label_type":"CurbRamp","sv_image_x":4514,"sv_image_y":-448,"sv_canvas_x":454,"sv_canvas_y":160,"heading":107.75,"pitch":-25.375,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.959007263183594,"lng":-77.0699462890625,"description":null,"severity":1,"temporary":false},
+        {"label_id":73261,"turker_id":"Steven","cluster_id":3,"pano_id":"430ykj3atJBO-QWkuR5BZQ","label_type":"CurbRamp","sv_image_x":4496,"sv_image_y":-450,"sv_canvas_x":179,"sv_canvas_y":112,"heading":147.6875,"pitch":-33.3125,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95901107788086,"lng":-77.0699462890625,"description":null,"severity":1,"temporary":false},
         {"label_id":73265,"turker_id":"Ryan","cluster_id":2,"pano_id":"DzLYGtZS81sv0TFPrXYEJw","label_type":"CurbRamp","sv_image_x":11721,"sv_image_y":-556,"sv_canvas_x":185,"sv_canvas_y":181,"heading":343.8125,"pitch":-26.0,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95962905883789,"lng":-77.07014465332031,"description":null,"severity":1,"temporary":false},
         {"label_id":73252,"turker_id":"Mikey","cluster_id":2,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":8782,"sv_image_y":-956,"sv_canvas_x":242,"sv_canvas_y":191,"heading":257.4910583496094,"pitch":-35.0,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.959632873535156,"lng":-77.07014465332031,"description":null,"severity":1,"temporary":false},
         {"label_id":73288,"turker_id":"Steven","cluster_id":2,"pano_id":"SMyugdyfFAGEa7A3XqGH-g","label_type":"CurbRamp","sv_image_x":8699,"sv_image_y":-912,"sv_canvas_x":207,"sv_canvas_y":284,"heading":260.75,"pitch":-20.75,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95962905883789,"lng":-77.07014465332031,"description":null,"severity":1,"temporary":false},
@@ -806,9 +829,9 @@ $(document).ready(function () {
         {"label_id":73291,"turker_id":"Ryan","cluster_id":8,"pano_id":"2ERk_Lrj9z9q740PESLAQQ","label_type":"SurfaceProblem","sv_image_x":5797,"sv_image_y":-903,"sv_canvas_x":450,"sv_canvas_y":197,"heading":141.125,"pitch":-32.9375,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95964050292969,"lng":-77.06929779052734,"description":null,"severity":2,"temporary":false},
         {"label_id":73272,"turker_id":"Mikey","cluster_id":8,"pano_id":"2ERk_Lrj9z9q740PESLAQQ","label_type":"SurfaceProblem","sv_image_x":5813,"sv_image_y":-902,"sv_canvas_x":417,"sv_canvas_y":181,"heading":147.875,"pitch":-34.625,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95964050292969,"lng":-77.06929779052734,"description":null,"severity":null,"temporary":false},
         {"label_id":73255,"turker_id":"Steven","cluster_id":8,"pano_id":"2ERk_Lrj9z9q740PESLAQQ","label_type":"SurfaceProblem","sv_image_x":5760,"sv_image_y":-896,"sv_canvas_x":552,"sv_canvas_y":166,"heading":139.92857360839844,"pitch":-31.625,"zoom":2,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95964050292969,"lng":-77.06929779052734,"description":null,"severity":4,"temporary":false},
-        {"label_id":73292,"turker_id":"Ryan","cluster_id":6,"pano_id":"6eKYbults526suETEEj54Q","label_type":"SurfaceProblem","sv_image_x":6656,"sv_image_y":-858,"sv_canvas_x":613,"sv_canvas_y":213,"heading":141.125,"pitch":-33.125,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95963668823242,"lng":-77.06857299804688,"description":null,"severity":3,"temporary":false},
-        {"label_id":73274,"turker_id":"Steven","cluster_id":6,"pano_id":"6eKYbults526suETEEj54Q","label_type":"SurfaceProblem","sv_image_x":6669,"sv_image_y":-849,"sv_canvas_x":526,"sv_canvas_y":211,"heading":153.5,"pitch":-30.5,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.959632873535156,"lng":-77.06857299804688,"description":null,"severity":3,"temporary":false},
-        {"label_id":73262,"turker_id":"Ryan","cluster_id":4,"pano_id":"430ykj3atJBO-QWkuR5BZQ","label_type":"CurbRamp","sv_image_x":7043,"sv_image_y":-610,"sv_canvas_x":678,"sv_canvas_y":170,"heading":147.6875,"pitch":-33.3125,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.958980560302734,"lng":-77.0700912475586,"description":null,"severity":1,"temporary":false},
+        */{"label_id":73292,"turker_id":"Ryan","cluster_id":2,"pano_id":"6eKYbults526suETEEj54Q","label_type":"SurfaceProblem","sv_image_x":6656,"sv_image_y":-858,"sv_canvas_x":613,"sv_canvas_y":213,"heading":141.125,"pitch":-33.125,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95963668823242,"lng":-77.06857299804688,"description":null,"severity":3,"temporary":false},
+        {"label_id":73274,"turker_id":"Steven","cluster_id":2,"pano_id":"6eKYbults526suETEEj54Q","label_type":"SurfaceProblem","sv_image_x":6669,"sv_image_y":-849,"sv_canvas_x":526,"sv_canvas_y":211,"heading":153.5,"pitch":-30.5,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.959632873535156,"lng":-77.06857299804688,"description":null,"severity":3,"temporary":false},
+        /*{"label_id":73262,"turker_id":"Ryan","cluster_id":4,"pano_id":"430ykj3atJBO-QWkuR5BZQ","label_type":"CurbRamp","sv_image_x":7043,"sv_image_y":-610,"sv_canvas_x":678,"sv_canvas_y":170,"heading":147.6875,"pitch":-33.3125,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.958980560302734,"lng":-77.0700912475586,"description":null,"severity":1,"temporary":false},
         {"label_id":73245,"turker_id":"Ryan","cluster_id":4,"pano_id":"430ykj3atJBO-QWkuR5BZQ","label_type":"CurbRamp","sv_image_x":7077,"sv_image_y":-602,"sv_canvas_x":445,"sv_canvas_y":118,"heading":184.17857360839844,"pitch":-26.180803298950195,"zoom":2,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.958984375,"lng":-77.07009887695312,"description":null,"severity":1,"temporary":false},
         {"label_id":73280,"turker_id":"Steven","cluster_id":4,"pano_id":"430ykj3atJBO-QWkuR5BZQ","label_type":"CurbRamp","sv_image_x":7038,"sv_image_y":-584,"sv_canvas_x":314,"sv_canvas_y":122,"heading":197.9375,"pitch":-34.5625,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95897674560547,"lng":-77.07009887695312,"description":null,"severity":1,"temporary":false},
         {"label_id":73281,"turker_id":"Ryan","cluster_id":1,"pano_id":"430ykj3atJBO-QWkuR5BZQ","label_type":"CurbRamp","sv_image_x":11018,"sv_image_y":-1192,"sv_canvas_x":651,"sv_canvas_y":291,"heading":250.25,"pitch":-35.0,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95909118652344,"lng":-77.07012176513672,"description":null,"severity":1,"temporary":false},
@@ -826,7 +849,7 @@ $(document).ready(function () {
         {"label_id":73293,"turker_id":"Ryan","cluster_id":7,"pano_id":"YNmEhIe_uUD-XFdPFxoRVg","label_type":"CurbRamp","sv_image_x":1870,"sv_image_y":-972,"sv_canvas_x":35,"sv_canvas_y":287,"heading":98.5625,"pitch":-29.1875,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95973205566406,"lng":-77.06816864013672,"description":null,"severity":1,"temporary":false},
         {"label_id":73275,"turker_id":"Mikey","cluster_id":7,"pano_id":"YNmEhIe_uUD-XFdPFxoRVg","label_type":"CurbRamp","sv_image_x":1802,"sv_image_y":-944,"sv_canvas_x":85,"sv_canvas_y":295,"heading":90.3125,"pitch":-24.5,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.95973205566406,"lng":-77.06816864013672,"description":null,"severity":3,"temporary":false},
         {"label_id":73256,"turker_id":"Steven","cluster_id":7,"pano_id":"SDYdT4bmhG8e4g1SwBxehg","label_type":"CurbRamp","sv_image_x":12670,"sv_image_y":-1263,"sv_canvas_x":287,"sv_canvas_y":246,"heading":356.1160583496094,"pitch":-34.8125,"zoom":1,"canvas_height":480,"canvasWidth":720,"alpha_x":4.599999904632568,"alpha_y":-4.650000095367432,"lat":38.959739685058594,"lng":-77.06815338134766,"description":null,"severity":1,"temporary":false}
-    ];
+    */];
 
     initialize();
 });
