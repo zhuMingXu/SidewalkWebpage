@@ -19,7 +19,6 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
 case class Lab(labelId: Int, labelType: String, clusterNum: Int)
-case class Bleep(labelId: Int, labelType: String)
 
 class ClusteringSessionController @Inject()(implicit val env: Environment[User, SessionAuthenticator])
   extends Silhouette[User, SessionAuthenticator] with ProvidesHeader {
