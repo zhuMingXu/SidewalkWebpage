@@ -6,6 +6,7 @@ import javax.inject.Inject
 import com.mohiva.play.silhouette.api.{Environment, Silhouette}
 import com.mohiva.play.silhouette.impl.authenticators.SessionAuthenticator
 import controllers.headers.ProvidesHeader
+import formats.json.ClusteringFormats
 import models.clustering_session._
 import models.daos.slick.DBTableDefinitions.{DBUser, UserTable}
 import models.user.User
@@ -18,16 +19,9 @@ import scala.sys.process._
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
-case class Lab(labelId: Int, labelType: String, clusterNum: Int)
 
 class ClusteringSessionController @Inject()(implicit val env: Environment[User, SessionAuthenticator])
   extends Silhouette[User, SessionAuthenticator] with ProvidesHeader {
-
-  implicit val labReads: Reads[Lab] = (
-    (JsPath \ "label_id").read[Int] and
-      (JsPath \ "label_type").read[String] and
-        (JsPath \ "cluster").read[Int]
-    )(Lab.apply _)
 
   // Helper methods
   def isAdmin(user: Option[User]): Boolean = user match {
@@ -101,7 +95,7 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     */
   def postClusteringResults(routeId: String, threshold: String) = UserAwareAction.async(BodyParsers.parse.json) {implicit request =>
     // Validation https://www.playframework.com/documentation /2.3.x/ScalaJson
-    val submission = request.body.validate[List[Lab]]
+    val submission = request.body.validate[List[ClusteringFormats.Lab]]
     submission.fold(
       errors => {
         println("bleepbloop how does parse")
