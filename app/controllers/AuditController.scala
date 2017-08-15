@@ -40,7 +40,7 @@ class AuditController @Inject() (implicit val env: Environment[User, SessionAuth
   val anonymousUser: DBUser = UserTable.find("anonymous").get
 
   /**
-    * Returns an audit page.
+    * Returns an audit page with an available condition assigned automatically.
     *
     * @return
     */
@@ -160,6 +160,12 @@ class AuditController @Inject() (implicit val env: Environment[User, SessionAuth
         }
     }
   }
+
+  /**
+    * Returns an audit page where the condition to be assigned to the user specified manually in the query string.
+    *
+    * @return
+    */
 
   def auditCondition = UserAwareAction.async { implicit request =>
     val now = new DateTime(DateTimeZone.UTC)
