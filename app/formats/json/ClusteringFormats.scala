@@ -14,7 +14,7 @@ import play.api.libs.functional.syntax._
 object ClusteringFormats {
 
   case class ClusteredLabelSubmission(labelId: Int, labelType: String, clusterNum: Int)
-  case class GTLabelSubmission(labelId: Int, clusterId: Int, gsvPanoId: String, labelType: Int, svImageX: Int,
+  case class GTLabelSubmission(labelId: Option[Int], clusterId: Int, gsvPanoId: String, labelType: Int, svImageX: Int,
                                svImageY: Int, svCanvasX: Int, svCanvasY: Int, heading: Float, pitch: Float, zoom: Int,
                                canvasHeight: Int, canvasWidth: Int, alphaX: Float, alphaY: Float, lat: Option[Float],
                                lng: Option[Float], description: String, severity: Int, temporary: Boolean)
@@ -27,7 +27,7 @@ object ClusteringFormats {
     )(ClusteredLabelSubmission.apply _)
 
   implicit val gtLabelSubmissionReads: Reads[GTLabelSubmission] = (
-    (JsPath \ "label_id").read[Int] and
+    (JsPath \ "label_id").readNullable[Int] and
       (JsPath \ "cluster_id").read[Int] and
       (JsPath \ "pano_id").read[String] and
       (JsPath \ "label_type").read[Int] and

@@ -38,9 +38,6 @@ import models.gt._
 import scala.concurrent.Future
 
 
-case class GTExistingLabel(gtExistingLabelId: Int, gtLabelId: Int, labelId: Int)
-
-
 /**
   * Todo. This controller is written quickly and not well thought out. Someone could polish the controller together with the model code that was written kind of ad-hoc.
   * @param env
@@ -77,12 +74,15 @@ class GroundTruthResolutionController @Inject() (implicit val env: Environment[U
         val routeId: Option[Int] = ClusteringSessionTable.getRouteIdOfClusteringSession(clustSessionId)
         routeId match {
           case Some(id) =>
-            val returnValues: List[Unit] = for (data <- submission) yield {
+            for (data <- submission) yield {
               val gtLabelId: Int = GTLabelTable.save(GTLabel(
                 0, id, data.gsvPanoId, data.labelType, data.svImageX, data.svImageY, data.svCanvasX, data.svCanvasY,
                 data.heading, data.pitch, data.zoom, data.canvasHeight, data.canvasWidth, data.alphaX, data.alphaY,
                 data.lat, data.lng, data.description, data.severity, data.temporary
               ))
+              if (data.labelId.isDefined) {
+                GTExistingLabelTable.save(GTExistingLabel(0, gtLabelId, data.labelId.get))
+              }
             }
           case None =>
             Future.successful(BadRequest(Json.obj("status" -> "Error", "message" -> "No matching clustering session found")))
