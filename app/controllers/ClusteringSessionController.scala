@@ -95,7 +95,7 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     */
   def postClusteringResults(routeId: String, threshold: String) = UserAwareAction.async(BodyParsers.parse.json) {implicit request =>
     // Validation https://www.playframework.com/documentation /2.3.x/ScalaJson
-    val submission = request.body.validate[List[ClusteringFormats.ClusteredLabel]]
+    val submission = request.body.validate[List[ClusteringFormats.ClusteredLabelSubmission]]
     submission.fold(
       errors => {
         println("bleepbloop how does parse")
@@ -124,7 +124,7 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
       "label_id" -> x.labelId, "cluster_id" -> x.clusterId, "turker_id" -> x.turkerId, "pano_id" -> x.gsvPanoramaId,
       "label_type" -> x.labelType, "sv_image_x" -> x.svImageX, "sv_image_y" -> x.svImageY, "sv_canvas_x" -> x.canvasX,
       "sv_canvas_y" -> x.canvasY, "heading" -> x.heading, "pitch" -> x.pitch, "zoom" -> x.zoom,
-      "canvas_height" -> x.canvasHeight, "canvasWidth" -> x.canvasWidth, "alpha_x" -> x.alphaX, "alpha_y" -> x.alphaY,
+      "canvas_height" -> x.canvasHeight, "canvas_width" -> x.canvasWidth, "alpha_x" -> x.alphaX, "alpha_y" -> x.alphaY,
       "lat" -> x.lat, "lng" -> x.lng, "description" -> x.description, "severity" -> x.severity,
       "temporary" -> x.temporaryProblem
     )))
