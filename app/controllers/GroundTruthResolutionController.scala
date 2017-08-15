@@ -26,6 +26,7 @@ import org.joda.time.{DateTime, DateTimeZone}
 import java.sql.Timestamp
 
 import formats.json.ClusteringFormats
+import models.clustering_session.ClusteringSessionTable
 import play.api.libs.json.{JsError, JsObject, Json}
 import play.api.mvc.BodyParsers
 import play.api.libs.json._
@@ -65,21 +66,27 @@ class GroundTruthResolutionController @Inject() (implicit val env: Environment[U
   /**
     * Takes in ground truth designated labels and adds the data to the relevant tables
 */
-  def postGroundTruthResults = UserAwareAction.async(BodyParsers.parse.json) {implicit request =>
+  def postGroundTruthResults(clustSessionId: Int) = UserAwareAction.async(BodyParsers.parse.json) {implicit request =>
     val submission = request.body.validate[List[ClusteringFormats.GTLabelSubmission]]
     submission.fold(
       errors => {
         Future.successful(BadRequest(Json.obj("status" -> "Error", "message" -> JsError.toFlatJson(errors))))
       },
       submission => {
-        // TODO look up route id to submit
-        val returnValues: List[Unit] = for (data <- submission) yield {
-        val gtLabelId: Int = GTLabelTable.save(GTLabel(
-          0, 6193, data.gsvPanoId, data.labelType, data.svImageX, data.svImageY, data.svCanvasX, data.svCanvasY,
-          data.heading, data.pitch, data.zoom, data.canvasHeight, data.canvasWidth, data.alphaX, data.alphaY, data.lat,
-          data.lng, data.description, data.severity, data.temporary
-        ))
-      }
+        // get the route id for this clustering session, returning error if no session is found with that ID
+        val routeId: Option[Int] = ClusteringSessionTable.getRouteIdOfClusteringSession(clustSessionId)
+        routeId match {
+          case Some(id) =>
+            val returnValues: List[Unit] = for (data <- submission) yield {
+              val gtLabelId: Int = GTLabelTable.save(GTLabel(
+                0, id, data.gsvPanoId, data.labelType, data.svImageX, data.svImageY, data.svCanvasX, data.svCanvasY,
+                data.heading, data.pitch, data.zoom, data.canvasHeight, data.canvasWidth, data.alphaX, data.alphaY,
+                data.lat, data.lng, data.description, data.severity, data.temporary
+              ))
+            }
+          case None =>
+            Future.successful(BadRequest(Json.obj("status" -> "Error", "message" -> "No matching clustering session found")))
+        }
       }
     )
     val json = Json.obj()

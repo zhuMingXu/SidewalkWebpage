@@ -874,7 +874,7 @@ $(document).ready(function () {
             $.ajax({
                 async: true,
                 contentType: 'application/json; charset=utf-8',
-                url: "/gtresolution/results",
+                url: "/gtresolution/results/" + cluster_session_id,
                 type: 'post',
                 data: JSON.stringify(data),
                 dataType: 'json',
