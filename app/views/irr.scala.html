@@ -1,0 +1,17 @@
+@import models.user.User
+
+@(title: String, user: Option[User] = None)
+@main(title) {
+    @navbar(user)
+    <br>
+    <br>
+    Route to calculate IRR on: <br><input type="text" id="route-text" value="" />
+    <br>
+    HIT to calculate IRR on: <br><input type="text" id="hit-text" value="" />
+    <br>
+    <button id="IRR-button">Run IRR CSV generation</button></a>
+    <p id="IRR-result"></p>
+
+
+    <script type="text/javascript" src='@routes.Assets.at("javascripts/irr.js")'></script>
+}
