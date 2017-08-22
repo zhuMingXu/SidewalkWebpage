@@ -8,10 +8,10 @@ function setupIRR(data) {
 
     // we are doing this for each route separately, but combining the results at the end
     var routes = [];
-    for(let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
+    for(var routeIndex = 0; routeIndex < routes.length; routeIndex++) {
 
         // street level
-        for(let labIndex = 0; labIndex < labels.length; labIndex++) {
+        for(var labIndex = 0; labIndex < labels.length; labIndex++) {
             // TODO get closest street to this label
             // http://turfjs.org/docs/#pointonline  (really read this documentation, this func has tons of useful output data)
 
@@ -25,13 +25,13 @@ function setupIRR(data) {
         // http://turfjs.org/docs/#lineintersect -- lets you know the points where two lines intersect
 
         var segDists = [5, 10]; // in meters
-        for(let segDistIndex = 0; segDistIndex < segDists.length; segDistIndex++) {
-            let segDist = segDists[routeIndex];
+        for(var segDistIndex = 0; segDistIndex < segDists.length; segDistIndex++) {
+            var segDist = segDists[routeIndex];
 
             // TODO split streets into a bunch of little segments based on segDist and length of each contiguous segment
             // http://turfjs.org/docs/#linechunk
 
-            for(let labIndex = 0; labIndex < labels.length; labIndex++) {
+            for(var labIndex = 0; labIndex < labels.length; labIndex++) {
                 // TODO get closest segment to this label
                 // http://turfjs.org/docs/#pointonline  (really read this documentation, this func has tons of useful output data)
 
