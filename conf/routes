@@ -136,3 +136,6 @@ GET     /clusteringsessions                                  @controllers.Cluste
 GET     /clusterRoute/:routeId/:hitId                        @controllers.ClusteringSessionController.runClustering(routeId: Int, hitId: String)
 GET     /labelsToCluster/:routeId/:hitId                     @controllers.ClusteringSessionController.getLabelsToCluster(routeId, hitId)
 POST    /clusteringResults/:routeId/:threshold               @controllers.ClusteringSessionController.postClusteringResults(routeId, threshold)
+
+# IRR Related
+GET     /getIRRData/:hitId/:routeId/                         @controllers.IRRController.getDataForIRR(hitId: String, routeId: Int)
