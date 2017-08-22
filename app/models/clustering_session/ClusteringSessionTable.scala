@@ -3,6 +3,7 @@ package models.clustering_session
 /**
   * Created by hmaddali on 7/26/17.
   */
+import com.vividsolutions.jts.geom.{Coordinate, LineString}
 import models.amt.AMTAssignmentTable
 import models.audit.AuditTaskTable
 import models.label.{LabelTable, ProblemDescriptionTable, ProblemTemporarinessTable}
@@ -10,6 +11,10 @@ import models.route.{Route, RouteTable}
 import models.utils.MyPostgresDriver.simple._
 import play.api.Play.current
 
+import play.api.libs.json.{JsObject, Json}
+import play.extras.geojson
+
+import scala.slick.jdbc.{GetResult, StaticQuery => Q}
 import scala.slick.lifted.ForeignKeyQuery
 
 case class ClusteringSession(clusteringSessionId: Int, routeId: Int, clusteringThreshold: Double,
@@ -23,6 +28,42 @@ case class LabelsForResolution(labelId: Int, clusterId: Int, turkerId: String, g
                                zoom: Int, canvasHeight: Int, canvasWidth: Int, alphaX: Float, alphaY: Float,
                                lat: Option[Float], lng: Option[Float], description: Option[String],
                                severity: Option[Int], temporaryProblem: Boolean)
+
+case class LineStringCaseClass(streetEdgeId: Int, geom: LineString) {
+  /**
+    * This method converts the data into the GeoJSON format
+    * @return
+    */
+  def toJSON: JsObject = {
+
+    val coordinates: Array[Coordinate] = geom.getCoordinates
+    val latlngs: List[geojson.LatLng] = coordinates.map(coord => geojson.LatLng(coord.y, coord.x)).toList
+    val linestring: geojson.LineString[geojson.LatLng] = geojson.LineString(latlngs)
+
+    Json.obj(streetEdgeId.toString -> linestring)
+  }
+}
+
+case class LabelCaseClass(hitId: String, routeId: Int, turkerId: String, labelId: Int, labelType: String, severity: Int, temporary: Option[Boolean], lat: Float, lng: Float)  {
+  /**
+    * This method converts the data into the GeoJSON format
+    * @return
+    */
+  def toJSON: JsObject = {
+    val labelMetadataJSON = Json.obj(
+      "hit_id" -> hitId,
+      "route_id" -> routeId,
+      "turker_id" -> turkerId,
+      "label_type" -> labelType,
+      "severity" -> severity,
+      "temporary" -> temporary,
+      "lat" -> lat,
+      "lng" -> lng
+    )
+    Json.obj(labelId.toString -> labelMetadataJSON)
+  }
+}
+
 /**
   *
   */
@@ -45,6 +86,16 @@ class ClusteringSessionTable(tag: Tag) extends Table[ClusteringSession](tag, Som
 object ClusteringSessionTable{
   val db = play.api.db.slick.DB
   val clusteringSessions = TableQuery[ClusteringSessionTable]
+
+  import models.utils.MyPostgresDriver.plainImplicits._
+
+  implicit val streetsGeomConverter = GetResult[LineStringCaseClass](r => {
+    LineStringCaseClass(r.nextInt, r.nextGeometry[LineString])
+  })
+
+  implicit val labelConverter = GetResult[LabelCaseClass](r => {
+    LabelCaseClass(r.nextString, r.nextInt, r.nextString, r.nextInt, r.nextString, r.nextInt, r.nextBooleanOption, r.nextFloat, r.nextFloat)
+  })
 
   def getClusteringSession(clusteringSessionId: Int): Option[ClusteringSession] = db.withSession { implicit session =>
     val clusteringSession = clusteringSessions.filter(_.clusteringSessionId === clusteringSessionId).list
@@ -143,6 +194,56 @@ object ClusteringSessionTable{
                                   x._14, x._15, x._16, x._17, x._18, x._19, x._20, x._21.getOrElse(false))))
   }
 
+  def getLabelsForIRR(hitId: String, routeId: Int): List[LabelCaseClass] = db.withSession { implicit session =>
+    val labelsQuery = Q.query[(String, Int), LabelCaseClass](
+      """SELECT amt_assignment.hit_id,
+        |   		amt_assignment.route_id,
+        |		    amt_assignment.turker_id,
+        |		    label.label_id,
+        |		    label_type.label_type,
+        |		    problem_severity.severity,
+        |		    problem_temporariness.temporary_problem,
+        |		    label_point.lat,
+        |		    label_point.lng
+        |FROM  audit_task
+        |	  INNER JOIN amt_assignment ON audit_task.amt_assignment_id = amt_assignment.amt_assignment_id
+        |	  INNER JOIN label ON label.audit_task_id = audit_task.audit_task_id
+        |	  INNER JOIN label_type ON label.label_type_id = label_type.label_type_id
+        |	  LEFT OUTER JOIN problem_severity ON problem_severity.label_id = label.label_id
+        |	  LEFT OUTER JOIN problem_temporariness ON problem_temporariness.label_id = label.label_id
+        |	  INNER JOIN label_point ON label.label_id = label_point.label_id
+        |WHERE (amt_assignment.hit_id = ? )
+        |		AND ( amt_assignment.route_id = ? )
+        |		AND ( label.deleted = false )
+        |		AND ( label.gsv_panorama_id <> 'stxXyCKAbd73DmkM2vsIHA')
+        |		AND ( amt_assignment.completed = true )
+      """.stripMargin
+    )
+    val labelsResult = labelsQuery((hitId, routeId)).list
+
+    val labels: List[LabelCaseClass] = labelsResult.map(l => LabelCaseClass(l.hitId, l.routeId, l.turkerId, l.labelId,
+      l.labelType, l.severity, l.temporary, l.lat, l.lng))
+    //println(labels)
+    labels
+  }
+
+  def getStreetGeomForIRR(routeId: Int): List[LineStringCaseClass] = db.withSession { implicit session =>
+    val lineStringQuery = Q.query[Int, LineStringCaseClass](
+      """SELECT route_street.current_street_edge_id, street_edge.geom
+        |FROM route_street
+        |	INNER JOIN street_edge  ON route_street.current_street_edge_id = street_edge.street_edge_id
+        |	INNER JOIN amt_volunteer_route  ON amt_volunteer_route.route_id = route_street.route_id
+        |WHERE ( amt_volunteer_route.route_id = ? )
+        |ORDER BY route_street.route_street_id
+      """.stripMargin
+    )
+
+    val linestringList = lineStringQuery(routeId).list
+
+    val streets: List[LineStringCaseClass] = linestringList.map(street => LineStringCaseClass(street.streetEdgeId, street.geom))
+    println(streets)
+    streets
+  }
 
   def save(clusteringSession: ClusteringSession): Int = db.withTransaction { implicit session =>
     val sId: Int =
