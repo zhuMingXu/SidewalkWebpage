@@ -223,7 +223,6 @@ object ClusteringSessionTable{
 
     val labels: List[LabelCaseClass] = labelsResult.map(l => LabelCaseClass(l.hitId, l.routeId, l.turkerId, l.labelId,
       l.labelType, l.severity, l.temporary, l.lat, l.lng))
-    //println(labels)
     labels
   }
 
@@ -241,7 +240,6 @@ object ClusteringSessionTable{
     val linestringList = lineStringQuery(routeId).list
 
     val streets: List[LineStringCaseClass] = linestringList.map(street => LineStringCaseClass(street.streetEdgeId, street.geom))
-    println(streets)
     streets
   }
 
