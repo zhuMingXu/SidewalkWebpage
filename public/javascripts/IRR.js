@@ -51,13 +51,13 @@ function outputData() {
     
 }
 
-function irr(turf) {
-    document.getElementById("irr-button").addEventListener("click", function() {
+function IRR(turf) {
+    document.getElementById("IRR-button").addEventListener("click", function() {
         var route = document.getElementById('route-text').value;
         var hit = document.getElementById('hit-text').value;
         // TODO get data from server once controller is set up
         // $.getJSON("/irr/" + route + "/" + hit, function (data) {
-        //     $("#irr-result").html(data["what did we run?"]);
+        //     $("#IRR-result").html(data["what did we run?"]);
         // })
     });
 }

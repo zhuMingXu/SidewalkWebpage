@@ -13,12 +13,12 @@
     <p id="IRR-result"></p>
 
 
-    <script type="text/javascript" src='@routes.Assets.at("javascripts/irr.js")'></script>
+    <script type="text/javascript" src='@routes.Assets.at("../../public/javascripts/IRR.js")'></script>
     <script type="text/javascript" src='@routes.Assets.at("javascripts/lib/turf.min.js")'></script>
 
     <script>
         $(document).ready(function () {
-            window.irr = irr(turf);
+            window.IRR = IRR(turf);
         });
     </script>
 }
