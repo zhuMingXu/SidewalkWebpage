@@ -3,22 +3,35 @@
 @(title: String, user: Option[User] = None)
 @main(title) {
     @navbar(user)
-    <br>
-    <br>
-    Route to calculate IRR on: <br><input type="text" id="route-text" value="" />
-    <br>
-    HIT to calculate IRR on: <br><input type="text" id="hit-text" value="" />
-    <br>
-    <button id="IRR-button">Run IRR CSV generation</button></a>
-    <p id="IRR-result"></p>
+    <div id="content">
+        <div class="container">
+            <h1>IRR Calculation on Ground Truth Data</h1>
+            HITs to calculate IRR on (Type a list like 'abvhgh, sgdg, fdfdf'): &nbsp;
+            <input type="text" id="hit-list" />&nbsp;
+            <br/><br/>
+            <button id="btnIRR">Run IRR CSV generation</button>
+            <p id="IRR-result"></p>
+        </div>
+    </div>
 
-
-    <script type="text/javascript" src='@routes.Assets.at("../../public/javascripts/IRR.js")'></script>
+    <script type="text/javascript" src='@routes.Assets.at("javascripts/IRR.js")'></script>
     <script type="text/javascript" src='@routes.Assets.at("javascripts/lib/turf.min.js")'></script>
 
     <script>
         $(document).ready(function () {
-            window.IRR = IRR(turf);
+
+            var button= document.getElementById('btnIRR');
+            button.onclick = function() {
+                var hitIdList = document.getElementById('hit-list').value;
+                console.log("HitList: " + hitIdList);
+
+                $.post("/getIRRDataForHits", {"hitIds": ['hit72', 'hit128']}).done(function (data) {
+                    $( "#IRR-result" ).html( data );
+                    window.IRR = IRR(data, turf);
+                });
+            };
+
         });
+
     </script>
 }

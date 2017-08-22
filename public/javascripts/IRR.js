@@ -51,7 +51,7 @@ function outputData() {
     
 }
 
-function IRR(turf) {
+function IRR(data, turf) {
     document.getElementById("IRR-button").addEventListener("click", function() {
         var route = document.getElementById('route-text').value;
         var hit = document.getElementById('hit-text').value;
@@ -59,5 +59,6 @@ function IRR(turf) {
         // $.getJSON("/irr/" + route + "/" + hit, function (data) {
         //     $("#IRR-result").html(data["what did we run?"]);
         // })
+        console.log("Data received: + ", data);
     });
 }
