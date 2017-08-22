@@ -139,3 +139,4 @@ POST    /clusteringResults/:routeId/:threshold               @controllers.Cluste
 
 # IRR Related
 GET     /getIRRData/:hitId/:routeId                          @controllers.IRRController.getDataForIRR(hitId: String, routeId: Int)
+POST    /getIRRDataForHits                                   @controllers.IRRController.getDataForIRRForHits
