@@ -7,7 +7,7 @@
         <div class="container">
             <h1>IRR Calculation on Ground Truth Data</h1>
             HITs to calculate IRR on (Type a list like 'abvhgh, sgdg, fdfdf'): &nbsp;
-            <input type="text" id="hit-list" />&nbsp;
+            <input type="text" id="hit-list" value="hit72, hit128" />&nbsp;
             <br/><br/>
             <button id="btnIRR">Run IRR CSV generation</button>
             <p id="IRR-result"></p>
@@ -20,18 +20,29 @@
     <script>
             $(document).ready(function () {
 
-                var button = document.getElementById('btnIRR');
-                button.onclick = function () {
-                    var hitIdList = document.getElementById('hit-list').value;
+                let button= document.getElementById('btnIRR');
+                button.onclick = function() {
+                    let hitIdList = document.getElementById('hit-list').value;
                     console.log("HitList: " + hitIdList);
 
-//                $.post("/getIRRDataForHits", {"hitIds": ['hit72', 'hit128']}).done(function (data) {
-                    $.get("/getIRRData/hit72/145").done(function (data) {
-                        $("#IRR-result").html(data);
-                        window.IRR = IRR(data, turf);
+                    let dataToSend = JSON.stringify({hitIds: ['hit72', 'hit128']});
+                    console.log("Data: " + dataToSend);
+
+                    dataToSend = JSON.stringify({"hitIds": ['hit72', 'hit128']});
+                    console.log("Data: " + dataToSend);
+
+                    $.ajax({
+                        type: "post",
+                        url: "/getIRRDataForHits",
+                        contentType: 'application/json; charset=utf-8',
+                        data: dataToSend,
+                        success: function (data) {
+                            $( "#IRR-result" ).html( data );
+                            window.IRR = IRR(data, turf);
+                        },
+                        dataType: "json"
                     });
                 };
-
             });
 
     </script>
