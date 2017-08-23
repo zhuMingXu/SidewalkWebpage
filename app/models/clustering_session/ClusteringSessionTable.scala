@@ -29,7 +29,7 @@ case class LabelsForResolution(labelId: Int, clusterId: Int, turkerId: String, g
                                lat: Option[Float], lng: Option[Float], description: Option[String],
                                severity: Option[Int], temporaryProblem: Boolean)
 
-case class LineStringCaseClass(streetEdgeId: Int, geom: LineString) {
+case class LineStringCaseClass(streetEdgeId: Int, routeId: Int, geom: LineString) {
   /**
     * This method converts the data into the GeoJSON format
     * @return
@@ -39,8 +39,9 @@ case class LineStringCaseClass(streetEdgeId: Int, geom: LineString) {
     val coordinates: Array[Coordinate] = geom.getCoordinates
     val latlngs: List[geojson.LatLng] = coordinates.map(coord => geojson.LatLng(coord.y, coord.x)).toList
     val linestring: geojson.LineString[geojson.LatLng] = geojson.LineString(latlngs)
+    val sJson = Json.obj("route_id" -> routeId, "geometry" -> linestring)
 
-    Json.obj(streetEdgeId.toString -> linestring)
+    Json.obj(streetEdgeId.toString -> sJson)
   }
 }
 
@@ -90,7 +91,7 @@ object ClusteringSessionTable{
   import models.utils.MyPostgresDriver.plainImplicits._
 
   implicit val streetsGeomConverter = GetResult[LineStringCaseClass](r => {
-    LineStringCaseClass(r.nextInt, r.nextGeometry[LineString])
+    LineStringCaseClass(r.nextInt, r.nextInt, r.nextGeometry[LineString])
   })
 
   implicit val labelConverter = GetResult[LabelCaseClass](r => {
@@ -228,7 +229,7 @@ object ClusteringSessionTable{
 
   def getStreetGeomForIRR(routeId: Int): List[LineStringCaseClass] = db.withSession { implicit session =>
     val lineStringQuery = Q.query[Int, LineStringCaseClass](
-      """SELECT route_street.current_street_edge_id, street_edge.geom
+      """SELECT route_street.current_street_edge_id, route_street.route_id, street_edge.geom
         |FROM route_street
         |	INNER JOIN street_edge  ON route_street.current_street_edge_id = street_edge.street_edge_id
         |	INNER JOIN amt_volunteer_route  ON amt_volunteer_route.route_id = route_street.route_id
@@ -239,7 +240,8 @@ object ClusteringSessionTable{
 
     val linestringList = lineStringQuery(routeId).list
 
-    val streets: List[LineStringCaseClass] = linestringList.map(street => LineStringCaseClass(street.streetEdgeId, street.geom))
+    val streets: List[LineStringCaseClass] = linestringList.map(street => LineStringCaseClass(street.streetEdgeId,
+                                                                              street.routeId, street.geom))
     streets
   }
 
