@@ -5,12 +5,24 @@ function setupIRR(data) {
     // unpack different pieces of data
     let streetsData = data.streets;
     let labelsData = data.labels;
-    let routes = [...new Set(streetsData.map(street => street.route_id))];
-    let output = {};
+    let routes = [];
+    for (let streetId in streetsData) {
+        if (!(streetsData[streetId].route_id in routes)) {
+            routes = routes.concat(streetsData[streetId].route_id)
+        }
+    }
+    console.log(routes);
+    // let routes = [...new Set(streetsData.map(street => street.route_id))];
+    let output = [];
+    for(let i = 0; i < routes.length; i++) output[i] = [];
 
     for(let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
         let currRoute = routes[routeIndex];
         let segs = streetsData.filter(street => street.route_id === currRoute).map(street => street.geometry);
+        for(let i = 0; i < segs.length; i++) {
+            output[routeIndex][i] =
+                {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0,"Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
+        }
 
         // street level
         for(let labIndex = 0; labIndex < labels.length; labIndex++) {
@@ -29,8 +41,10 @@ function setupIRR(data) {
             }
 
             // TODO increment this street's count of labels (of this label type)
+            output[routeIndex][segIndex][currLabel.label_type] += 1;
 
         }
+        console.log(output);
 
         // segment level
         // TODO combine streets into a set of contiguous linestrings
@@ -66,4 +80,5 @@ function outputData() {
 
 function IRR(data, turf) {
     console.log("Data recieved: + ", data);
+    setupIRR(data);
 }

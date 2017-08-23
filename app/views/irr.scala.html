@@ -18,20 +18,22 @@
     <script type="text/javascript" src='@routes.Assets.at("javascripts/lib/turf.min.js")'></script>
 
     <script>
-        $(document).ready(function () {
+            $(document).ready(function () {
 
-            var button= document.getElementById('btnIRR');
-            button.onclick = function() {
-                var hitIdList = document.getElementById('hit-list').value;
-                console.log("HitList: " + hitIdList);
+                var button = document.getElementById('btnIRR');
+                button.onclick = function () {
+                    var hitIdList = document.getElementById('hit-list').value;
+                    console.log("HitList: " + hitIdList);
 
-                $.post("/getIRRDataForHits", {"hitIds": ['hit72', 'hit128']}).done(function (data) {
-                    $( "#IRR-result" ).html( data );
-                    window.IRR = IRR(data, turf);
-                });
-            };
+//                $.post("/getIRRDataForHits", {"hitIds": ['hit72', 'hit128']}).done(function (data) {
+                    $.get("/getIRRData/hit72/145").done(function (data) {
+                        $("#IRR-result").html(data);
+                        window.IRR = IRR(data, turf);
+                    });
+                };
 
-        });
+            });
 
     </script>
+    }
 }
