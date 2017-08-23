@@ -5,14 +5,8 @@ function setupIRR(data) {
     // unpack different pieces of data
     let streetsData = data.streets;
     let labelsData = data.labels;
-    let routes = [];
-    for (let streetId in streetsData) {
-        if (!(streetsData[streetId].route_id in routes)) {
-            routes = routes.concat(streetsData[streetId].route_id)
-        }
-    }
+    let routes = [...new Set(streetsData.map(street => street.route_id))]; // gets unique set of routes
     console.log(routes);
-    // let routes = [...new Set(streetsData.map(street => street.route_id))];
     let output = [];
     for(let i = 0; i < routes.length; i++) output[i] = [];
 
@@ -25,9 +19,9 @@ function setupIRR(data) {
         }
 
         // street level
-        for(let labIndex = 0; labIndex < labels.length; labIndex++) {
+        for(let labIndex = 0; labIndex < labelsData.length; labIndex++) {
             // TODO put this into
-            let currLabel = turf.point([labels[labIndex].lng, labels[labIndex].lat]);
+            let currLabel = turf.point([labelsData[labIndex].lng, labelsData[labIndex].lat]);
 
             // TODO get closest street to this label
             // http://turfjs.org/docs/#pointonline  (really read this documentation, this func has tons of useful output data)
@@ -58,7 +52,7 @@ function setupIRR(data) {
             // TODO split streets into a bunch of little segments based on segDist and length of each contiguous segment
             // http://turfjs.org/docs/#linechunk
 
-            for(let labIndex = 0; labIndex < labels.length; labIndex++) {
+            for(let labIndex = 0; labIndex < labelsData.length; labIndex++) {
                 // TODO get closest segment to this label
                 // http://turfjs.org/docs/#pointonline  (really read this documentation, this func has tons of useful output data)
 
