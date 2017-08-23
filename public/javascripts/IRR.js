@@ -52,13 +52,5 @@ function outputData() {
 }
 
 function IRR(data, turf) {
-    document.getElementById("IRR-button").addEventListener("click", function() {
-        var route = document.getElementById('route-text').value;
-        var hit = document.getElementById('hit-text').value;
-        // TODO get data from server once controller is set up
-        // $.getJSON("/irr/" + route + "/" + hit, function (data) {
-        //     $("#IRR-result").html(data["what did we run?"]);
-        // })
-        console.log("Data received: + ", data);
-    });
+    console.log("Data received: ", data);
 }
