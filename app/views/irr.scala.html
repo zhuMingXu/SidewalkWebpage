@@ -6,7 +6,7 @@
     <div id="content">
         <div class="container">
             <h1>IRR Calculation on Ground Truth Data</h1>
-            HITs to calculate IRR on (Type a list like 'abvhgh, sgdg, fdfdf'): &nbsp;
+            HITs to calculate IRR on: &nbsp;
             <input type="text" id="hit-list" value="hit72, hit128" />&nbsp;
             <br/><br/>
             <button id="btnIRR">Run IRR CSV generation</button>
@@ -23,13 +23,8 @@
             let button= document.getElementById('btnIRR');
             button.onclick = function() {
                 let hitIdList = document.getElementById('hit-list').value;
-                console.log("HitList: " + hitIdList);
-
-                let dataToSend = JSON.stringify({hitIds: ['hit72', 'hit128']});
-                console.log("Data: " + dataToSend);
-
-                dataToSend = JSON.stringify({"hitIds": ['hit72', 'hit128']});
-                console.log("Data: " + dataToSend);
+                let dataToSend = JSON.stringify({hitIds: hitIdList.split(',')});
+                console.log(dataToSend);
 
                 $.ajax({
                     type: "post",

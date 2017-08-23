@@ -30,7 +30,6 @@ class IRRController @Inject()(implicit val env: Environment[User, SessionAuthent
   }
 
   def getDataForIRRForHits = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>
-    println(request.body)
     var submission = request.body//request.body.validate[List[String]]
 
     println(submission)
