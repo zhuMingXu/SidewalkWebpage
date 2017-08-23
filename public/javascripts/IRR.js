@@ -74,5 +74,5 @@ function outputData() {
 
 function IRR(data, turf) {
     console.log("Data received: ", data);
-    setupIRR(data);
+    //setupIRR(data);
 }

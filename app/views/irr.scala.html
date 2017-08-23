@@ -23,9 +23,9 @@
             let button= document.getElementById('btnIRR');
             button.onclick = function() {
                 let hitIdList = document.getElementById('hit-list').value;
+                hitIdList = hitIdList.split(/[\s,]+/).join();
                 let dataToSend = JSON.stringify({hitIds: hitIdList.split(',')});
-                console.log(dataToSend);
-
+                
                 $.ajax({
                     type: "post",
                     url: "/getIRRDataForHits",
