@@ -41,8 +41,7 @@ case class LineStringCaseClass(streetEdgeId: Int, routeId: Int, geom: LineString
     val linestring: geojson.LineString[geojson.LatLng] = geojson.LineString(latlngs)
 
     val properties = Json.obj("street_edge_id" -> streetEdgeId, "route_id" -> routeId)
-    val feature = Json.obj("type" -> "Feature", "geometry" -> linestring, "properties" -> properties)
-    Json.obj("type" -> "FeatureCollection", "features" -> List(feature))
+    Json.obj("type" -> "Feature", "geometry" -> linestring, "properties" -> properties)
   }
 }
 
@@ -62,8 +61,7 @@ case class LabelCaseClass(hitId: String, routeId: Int, turkerId: String, labelId
       "severity" -> severity,
       "temporary" -> temporary
     )
-    val feature = Json.obj("type" -> "Feature", "geometry" -> latlngs, "properties" -> properties)
-    Json.obj("type" -> "FeatureCollection", "features" -> List(feature))
+    Json.obj("type" -> "Feature", "geometry" -> latlngs, "properties" -> properties)
   }
 }
 

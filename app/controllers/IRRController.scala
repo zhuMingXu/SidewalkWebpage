@@ -7,7 +7,7 @@ import com.mohiva.play.silhouette.impl.authenticators.SessionAuthenticator
 import controllers.headers.ProvidesHeader
 import models.clustering_session.ClusteringSessionTable
 import models.user.User
-import play.api.libs.json.{JsError, Json}
+import play.api.libs.json.{JsError, JsObject, Json}
 import play.api.mvc.BodyParsers
 
 import scala.concurrent.Future
@@ -22,8 +22,10 @@ class IRRController @Inject()(implicit val env: Environment[User, SessionAuthent
   }
 
   def getDataForIRR(hitId: String, routeId: Int) = UserAwareAction.async { implicit request =>
-    val streets = ClusteringSessionTable.getStreetGeomForIRR(routeId).map(_.toJSON)
-    val labels = ClusteringSessionTable.getLabelsForIRR(hitId, routeId).map(_.toJSON)
+    val streets: JsObject = Json.obj("type" -> "FeatureCollection",
+      "features" -> ClusteringSessionTable.getStreetGeomForIRR(routeId).map(_.toJSON))
+    val labels: JsObject = Json.obj("type" -> "FeatureCollection",
+      "features" -> ClusteringSessionTable.getLabelsForIRR(hitId, routeId).map(_.toJSON))
 
     val json = Json.obj("labels" -> labels, "streets" -> streets)
     Future.successful(Ok(json))

@@ -5,14 +5,14 @@ function setupIRR(data) {
     // unpack different pieces of data
     let streetsData = data.streets;
     let labelsData = data.labels;
-    let routes = [...new Set(streetsData.map(street => street.route_id))]; // gets unique set of routes
+    let routes = [...new Set(streetsData.features.map(street => street.properties.route_id))]; // gets unique set of routes
     console.log(routes);
     let output = [];
     for(let i = 0; i < routes.length; i++) output[i] = [];
 
     for(let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
         let currRoute = routes[routeIndex];
-        let segs = streetsData.filter(street => street.route_id === currRoute).map(street => street.geometry);
+        let segs = streetsData.features.filter(street => street.properties.route_id === currRoute).map(street => street.geometry);
         for(let i = 0; i < segs.length; i++) {
             output[routeIndex][i] =
                 {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0,"Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
@@ -20,7 +20,6 @@ function setupIRR(data) {
 
         // street level
         for(let labIndex = 0; labIndex < labelsData.length; labIndex++) {
-            // TODO put this into
             let currLabel = turf.point([labelsData[labIndex].lng, labelsData[labIndex].lat]);
 
             // TODO get closest street to this label
@@ -44,6 +43,8 @@ function setupIRR(data) {
         // TODO combine streets into a set of contiguous linestrings
         // http://turfjs.org/docs/#combine -- combines the different streets into a single MultiLineString
         // http://turfjs.org/docs/#lineintersect -- lets you know the points where two lines intersect
+        console.log(turf.combine(streetsData));
+
 
         let segDists = [5, 10]; // in meters
         for(let segDistIndex = 0; segDistIndex < segDists.length; segDistIndex++) {
@@ -74,5 +75,5 @@ function outputData() {
 
 function IRR(data, turf) {
     console.log("Data received: ", data);
-    //setupIRR(data);
+    setupIRR(data);
 }
