@@ -40,8 +40,9 @@ case class LineStringCaseClass(streetEdgeId: Int, routeId: Int, geom: LineString
     val latlngs: List[geojson.LatLng] = coordinates.map(coord => geojson.LatLng(coord.y, coord.x)).toList
     val linestring: geojson.LineString[geojson.LatLng] = geojson.LineString(latlngs)
 
-    val sJson = Json.obj("street_edge_id" -> streetEdgeId, "route_id" -> routeId, "geometry" -> linestring)
-    sJson
+    val properties = Json.obj("street_edge_id" -> streetEdgeId, "route_id" -> routeId)
+    val feature = Json.obj("type" -> "Feature", "geometry" -> linestring, "properties" -> properties)
+    Json.obj("type" -> "FeatureCollection", "features" -> List(feature))
   }
 }
 
@@ -51,17 +52,18 @@ case class LabelCaseClass(hitId: String, routeId: Int, turkerId: String, labelId
     * @return
     */
   def toJSON: JsObject = {
-    val labelMetadataJSON = Json.obj(
+    val latlngs = geojson.LatLng(lat.toDouble, lng.toDouble)
+    val properties = Json.obj(
+      "label_id" -> labelId,
       "hit_id" -> hitId,
       "route_id" -> routeId,
       "turker_id" -> turkerId,
       "label_type" -> labelType,
       "severity" -> severity,
-      "temporary" -> temporary,
-      "lat" -> lat,
-      "lng" -> lng
+      "temporary" -> temporary
     )
-    Json.obj(labelId.toString -> labelMetadataJSON)
+    val feature = Json.obj("type" -> "Feature", "geometry" -> latlngs, "properties" -> properties)
+    Json.obj("type" -> "FeatureCollection", "features" -> List(feature))
   }
 }
 
