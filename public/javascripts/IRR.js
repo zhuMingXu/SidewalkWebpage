@@ -3,17 +3,30 @@
 // same counts are then tabulated for each of those segments.
 function setupIRR(data) {
     // unpack different pieces of data
-    var streetsData = data.streets;
-    var labelsData = data.labels;
+    let streetsData = data.streets;
+    let labelsData = data.labels;
+    let routes = [...new Set(streetsData.map(street => street.route_id))];
+    let output = {};
 
-    // we are doing this for each route separately, but combining the results at the end
-    var routes = [];
-    for(var routeIndex = 0; routeIndex < routes.length; routeIndex++) {
+    for(let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
+        let currRoute = routes[routeIndex];
+        let segs = streetsData.filter(street => street.route_id === currRoute).map(street => street.geometry);
 
         // street level
-        for(var labIndex = 0; labIndex < labels.length; labIndex++) {
+        for(let labIndex = 0; labIndex < labels.length; labIndex++) {
+            // TODO put this into
+            let currLabel = turf.point([labels[labIndex].lng, labels[labIndex].lat]);
+
             // TODO get closest street to this label
             // http://turfjs.org/docs/#pointonline  (really read this documentation, this func has tons of useful output data)
+            let segIndex;
+            let minDist = Number.POSITIVE_INFINITY;
+            for (let i = 0; i < segs.length; i++) {
+                let closestPoint = turf.pointOnLine(segs[i], currLabel);
+                if (closestPoint.dist < minDist) {
+                    segIndex = closestPoint.index;
+                }
+            }
 
             // TODO increment this street's count of labels (of this label type)
 
@@ -24,14 +37,14 @@ function setupIRR(data) {
         // http://turfjs.org/docs/#combine -- combines the different streets into a single MultiLineString
         // http://turfjs.org/docs/#lineintersect -- lets you know the points where two lines intersect
 
-        var segDists = [5, 10]; // in meters
-        for(var segDistIndex = 0; segDistIndex < segDists.length; segDistIndex++) {
-            var segDist = segDists[routeIndex];
+        let segDists = [5, 10]; // in meters
+        for(let segDistIndex = 0; segDistIndex < segDists.length; segDistIndex++) {
+            let segDist = segDists[routeIndex];
 
             // TODO split streets into a bunch of little segments based on segDist and length of each contiguous segment
             // http://turfjs.org/docs/#linechunk
 
-            for(var labIndex = 0; labIndex < labels.length; labIndex++) {
+            for(let labIndex = 0; labIndex < labels.length; labIndex++) {
                 // TODO get closest segment to this label
                 // http://turfjs.org/docs/#pointonline  (really read this documentation, this func has tons of useful output data)
 
@@ -52,13 +65,5 @@ function outputData() {
 }
 
 function IRR(data, turf) {
-    document.getElementById("IRR-button").addEventListener("click", function() {
-        var route = document.getElementById('route-text').value;
-        var hit = document.getElementById('hit-text').value;
-        // TODO get data from server once controller is set up
-        // $.getJSON("/irr/" + route + "/" + hit, function (data) {
-        //     $("#IRR-result").html(data["what did we run?"]);
-        // })
-        console.log("Data received: + ", data);
-    });
+    console.log("Data recieved: + ", data);
 }
