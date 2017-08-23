@@ -25,7 +25,7 @@ class IRRController @Inject()(implicit val env: Environment[User, SessionAuthent
     val streets = ClusteringSessionTable.getStreetGeomForIRR(routeId).map(_.toJSON)
     val labels = ClusteringSessionTable.getLabelsForIRR(hitId, routeId).map(_.toJSON)
 
-    val json = Json.obj("labels" -> labels.foldLeft(Json.obj())(_ deepMerge _), "streets" -> streets.foldLeft(Json.obj())(_ deepMerge _))
+    val json = Json.obj("labels" -> labels.foldLeft(Json.obj())(_ deepMerge _), "streets" -> streets)
     Future.successful(Ok(json))
   }
 

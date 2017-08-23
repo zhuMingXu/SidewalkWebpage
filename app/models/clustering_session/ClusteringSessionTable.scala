@@ -39,9 +39,9 @@ case class LineStringCaseClass(streetEdgeId: Int, routeId: Int, geom: LineString
     val coordinates: Array[Coordinate] = geom.getCoordinates
     val latlngs: List[geojson.LatLng] = coordinates.map(coord => geojson.LatLng(coord.y, coord.x)).toList
     val linestring: geojson.LineString[geojson.LatLng] = geojson.LineString(latlngs)
-    val sJson = Json.obj("route_id" -> routeId, "geometry" -> linestring)
 
-    Json.obj(streetEdgeId.toString -> sJson)
+    val sJson = Json.obj("street_edge_id" -> streetEdgeId, "route_id" -> routeId, "geometry" -> linestring)
+    sJson
   }
 }
 
