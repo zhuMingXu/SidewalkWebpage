@@ -7,7 +7,6 @@ function setupIRR(data) {
     let labelsData = data.labels;
     let routes = [...new Set(streetsData.features.map(street => street.properties.route_id))]; // gets unique set of routes
     let turkers = [...new Set(labelsData.features.map(label => label.properties.turker_id))]; // gets unique set of turkers
-    let label_types = ["CurbRamp", "NoCurbRamp", "NoSidewalk","Obstacle", "Occlusion", "SurfaceProblem"];
     let output = [];
     for(let i = 0; i < routes.length; i++) output[i] = {};
 
@@ -28,7 +27,6 @@ function setupIRR(data) {
                 }
             }
         }
-        console.log(streetOutput);
 
         // street level
         for(let labIndex = 0; labIndex < labs.length; labIndex++) {
@@ -52,7 +50,6 @@ function setupIRR(data) {
 
         }
         output[routeIndex].street = streetOutput;
-        console.log(output);
 
 
         // segment level
@@ -104,7 +101,6 @@ function setupIRR(data) {
                 }
 
                 // increment this segment's count of labels (of this label type)
-                console.log(chunkIndex);
                 segOutput[currLabel.properties.label_type][chunkIndex][currLabel.properties.turker_id] += 1;
 
             }
@@ -127,9 +123,7 @@ function setupIRR(data) {
             }
         }
     }
-    console.log(out);
-    outputData(out);
-    
+    return out;
 }
 
 function convertToCSV(objArray) {
@@ -186,5 +180,6 @@ function outputData(outputJson) {
 
 function IRR(data, turf) {
     console.log("Data received: ", data);
-    setupIRR(data);
+    let output = setupIRR(data);
+    outputData(output);
 }
