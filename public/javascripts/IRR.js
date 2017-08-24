@@ -126,12 +126,60 @@ function setupIRR(data) {
         }
     }
     console.log(out);
+    outputData(out);
     
 }
 
+function convertToCSV(objArray) {
+    let array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
+    let str = '';
+
+    for (let i = 0; i < array.length; i++) {
+        let line = '';
+        for (let index in array[i]) {
+            if (line !== '') line += ',';
+            line += array[i][index];
+        }
+        str += line + '\r\n';
+    }
+    return str;
+}
+
+function exportCSVFile(items, fileTitle) {
+
+    // Convert Object to JSON
+    let jsonObject = JSON.stringify(items);
+
+    let csv = this.convertToCSV(jsonObject);
+
+    let exportedFilenmae = fileTitle + '.csv' || 'export.csv';
+
+    let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    if (navigator.msSaveBlob) { // IE 10+
+        navigator.msSaveBlob(blob, exportedFilenmae);
+    } else {
+        let link = document.createElement("a");
+        if (link.download !== undefined) { // feature detection
+            // Browsers that support HTML5 download attribute
+            let url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", exportedFilenmae);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+}
+
 // TODO Takes the results of the IRR setup and outputs the CSVs on the client machine. Maybe all in a .tar or something?
-function outputData() {
-    
+function outputData(outputJson) {
+
+    // Download File
+    var fileTitle = 'orders';
+    exportCSVFile(outputJson, fileTitle); // call the exportCSVFile() function to process the JSON and trigger the download
+
+    console.log(csv)
 }
 
 function IRR(data, turf) {
