@@ -154,18 +154,18 @@ function exportCSVFile(items, fileTitle) {
 
     let csv = this.convertToCSV(jsonObject);
 
-    let exportedFilenmae = fileTitle + '.csv' || 'export.csv';
+    let exportedFilename = fileTitle + '.csv';
 
     let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     if (navigator.msSaveBlob) { // IE 10+
-        navigator.msSaveBlob(blob, exportedFilenmae);
+        navigator.msSaveBlob(blob, exportedFilename);
     } else {
         let link = document.createElement("a");
         if (link.download !== undefined) { // feature detection
             // Browsers that support HTML5 download attribute
             let url = URL.createObjectURL(blob);
             link.setAttribute("href", url);
-            link.setAttribute("download", exportedFilenmae);
+            link.setAttribute("download", exportedFilename);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
@@ -177,11 +177,24 @@ function exportCSVFile(items, fileTitle) {
 // TODO Takes the results of the IRR setup and outputs the CSVs on the client machine. Maybe all in a .tar or something?
 function outputData(outputJson) {
 
-    // Download File
-    var fileTitle = 'orders';
-    exportCSVFile(outputJson, fileTitle); // call the exportCSVFile() function to process the JSON and trigger the download
+    for (let category in outputJson) {
+        if (outputJson.hasOwnProperty(category)) {
+            console.log(category);
+            console.log(outputJson[category]);
 
-    console.log(csv)
+            let categoryJson = outputJson[category];
+            for (let labelType in categoryJson) {
+                if (categoryJson.hasOwnProperty(labelType)) {
+                    let fileTitle = category + '_' + labelType;
+                    console.log(labelType + ' ' + fileTitle);
+
+                    // Call the exportCSVFile() to trigger the download
+                    exportCSVFile(categoryJson[labelType], fileTitle);
+                }
+            }
+        }
+    }
+
 }
 
 function IRR(data, turf) {
