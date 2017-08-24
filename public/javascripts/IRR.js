@@ -6,22 +6,30 @@ function setupIRR(data) {
     let streetsData = data.streets;
     let labelsData = data.labels;
     let routes = [...new Set(streetsData.features.map(street => street.properties.route_id))]; // gets unique set of routes
+    let turkers = [...new Set(labelsData.features.map(label => label.properties.turker_id))]; // gets unique set of turkers
+    let label_types = ["CurbRamp", "NoCurbRamp", "NoSidewalk","Obstacle", "Occlusion", "SurfaceProblem"];
     let output = [];
     for(let i = 0; i < routes.length; i++) output[i] = {};
 
     for(let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
         let currRoute = routes[routeIndex];
         let segs = streetsData.features.filter(street => street.properties.route_id === currRoute);
-        let streetOutput = [];
-        for(let i = 0; i < segs.length; i++) {
-            streetOutput[i] =
-                {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0,"Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
+        let labs = labelsData.features.filter(label => label.properties.route_id === currRoute);
+        let streetOutput =
+            {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
+        for (let key in streetOutput) {
+            if (streetOutput.hasOwnProperty(key)) {
+                for (let i = 0; i < turkers.length; i++) {
+                    streetOutput[key][turkers[i]] = Array.apply(null, new Array(segs.length)).map(Number.prototype.valueOf, 0);
+                }
+            }
         }
+        console.log(streetOutput);
 
         // street level
-        for(let labIndex = 0; labIndex < labelsData.features.length; labIndex++) {
+        for(let labIndex = 0; labIndex < labs.length; labIndex++) {
             // let currLabel = turf.point([labelsData[labIndex].lng, labelsData[labIndex].lat]);
-            let currLabel = labelsData.features[labIndex];
+            let currLabel = labs[labIndex];
 
             // get closest street to this label
             // http://turfjs.org/docs/#pointonline
@@ -35,7 +43,7 @@ function setupIRR(data) {
             }
 
             // increment this street's count of labels (of this label type)
-            streetOutput[segIndex][currLabel.properties.label_type] += 1;
+            streetOutput[currLabel.properties.label_type][currLabel.properties.turker_id][segIndex] += 1;
 
         }
         output[routeIndex].street = streetOutput;
@@ -58,40 +66,60 @@ function setupIRR(data) {
             // TODO make sure that each contiguous segment is done separately
             // TODO pick actual distance for each contiguous segment separately so that all segs are approx equal
             // http://turfjs.org/docs/#linechunk
-            let chunks = turf.lineChunk(combinedStreets, segDist);
+            let chunks = turf.lineChunk(combinedStreets, segDist).features;
             console.log(chunks);
 
-            let segOutput = [];
-            for(let i = 0; i < chunks.features.length; i++) {
-                segOutput[i] =
-                    {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0,"Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
+            let segOutput =
+                {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
+            for (let key in segOutput) {
+                if (segOutput.hasOwnProperty(key)) {
+                    for (let i = 0; i < turkers.length; i++) {
+                        segOutput[key][turkers[i]] = Array.apply(null, new Array(chunks.length)).map(Number.prototype.valueOf, 0);
+                    }
+                }
             }
 
-            for(let labIndex = 0; labIndex < labelsData.features.length; labIndex++) {
-                let currLabel = labelsData.features[labIndex];
+            for(let labIndex = 0; labIndex < labs.length; labIndex++) {
+                let currLabel = labs[labIndex];
 
                 // get closest segment to this label
                 // http://turfjs.org/docs/#pointonline
-                let segIndex;
+                let chunkIndex;
                 let minDist = Number.POSITIVE_INFINITY;
-                for (let i = 0; i < segs.length; i++) {
-                    let closestPoint = turf.pointOnLine(segs[i], currLabel);
+                for (let i = 0; i < chunks.length; i++) {
+                    let closestPoint = turf.pointOnLine(chunks[i], currLabel);
                     if (closestPoint.properties.dist < minDist) {
-                        segIndex = closestPoint.properties.index;
+                        chunkIndex = closestPoint.properties.index;
                     }
                 }
 
-                // TODO increment this segment's count of labels (of this label type)
-                segOutput[segIndex][currLabel.properties.label_type] += 1;
+                // increment this segment's count of labels (of this label type)
+                segOutput[currLabel.properties.label_type][currLabel.properties.turker_id][chunkIndex] += 1;
 
             }
             output[routeIndex][String(segDist * 1000) + "_meter"] = segOutput;
         }
-
-        // TODO save the output into some object
-        console.log(output);
-
     }
+
+    // combine the results from all the routes into a single, condensed object to be output as CSV
+    let out = {};
+    for (let level in output[0]) {
+        if (output[0].hasOwnProperty(level)) {
+            out[level] = {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
+            for (let label_type in out[level]) {
+                if (out[level].hasOwnProperty(label_type)) {
+                    out[level][label_type] = {};
+                    for (let i = 0; i < turkers.length; i++) {
+                        out[level][label_type][turkers[i]] = [];
+                        for (let j = 0; j < output.length; j++) {
+                            out[level][label_type][turkers[i]] = out[level][label_type][turkers[i]].concat(output[j][level][label_type][turkers[i]]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    console.log(out);
     
 }
 
