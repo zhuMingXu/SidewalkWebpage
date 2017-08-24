@@ -44,24 +44,25 @@ class IRRController @Inject()(implicit val env: Environment[User, SessionAuthent
 
         val hitIdList: List[String] = submission.hitIds
 
-        var finalJson = Json.obj()
+
+        var streets = List(Json.obj())
+        var labels = List(Json.obj())
         for ( hitId <- hitIdList ) {
           val routeIds = AMTAssignmentTable.getHITRouteIds(hitId)
-          finalJson.as[JsObject] + (hitId.toString -> Json.obj())
 
           var routeListJson = Json.obj()
           for (routeId <- routeIds) {
-            val streets: JsObject = Json.obj("type" -> "FeatureCollection",
-              "features" -> ClusteringSessionTable.getStreetGeomForIRR(routeId).map(_.toJSON))
-            val labels: JsObject = Json.obj("type" -> "FeatureCollection",
-              "features" -> ClusteringSessionTable.getLabelsForIRR(hitId, routeId).map(_.toJSON))
-
-            val routeMetadataJson = Json.obj("labels" -> labels, "streets" -> streets)
-
-            routeListJson = routeListJson.as[JsObject] + (routeId.toString -> routeMetadataJson)
+            val streets_i =  ClusteringSessionTable.getStreetGeomForIRR(routeId).map(_.toJSON).toList
+            val labels_i = ClusteringSessionTable.getLabelsForIRR(hitId, routeId).map(_.toJSON).toList
+            
+            labels =  List.concat(labels, labels_i)
+            streets =  List.concat(streets_i, streets_i)
           }
-          finalJson = finalJson.as[JsObject] + (hitId.toString -> routeListJson)
         }
+        var finalJson = Json.obj(
+          "labels" -> Json.obj("type" -> "FeatureCollection", "features" -> labels),
+          "streets" -> Json.obj("type" -> "FeatureCollection", "features" -> streets)
+        )
 
         Future.successful(Ok(finalJson))
 
