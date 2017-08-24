@@ -55,7 +55,7 @@ class IRRController @Inject()(implicit val env: Environment[User, SessionAuthent
             val labels_i = ClusteringSessionTable.getLabelsForIRR(hitId, routeId).map(_.toJSON).toList
 
             labels =  List.concat(labels, labels_i)
-            streets =  List.concat(streets_i, streets_i)
+            streets =  List.concat(streets, streets_i)
           }
         }
         var finalJson = Json.obj(
