@@ -6,35 +6,35 @@ function setupIRR(data) {
     let streetsData = data.streets;
     let labelsData = data.labels;
     let routes = [...new Set(streetsData.features.map(street => street.properties.route_id))]; // gets unique set of routes
-    console.log(routes);
     let output = [];
     for(let i = 0; i < routes.length; i++) output[i] = [];
 
     for(let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
         let currRoute = routes[routeIndex];
-        let segs = streetsData.features.filter(street => street.properties.route_id === currRoute).map(street => street.geometry);
+        let segs = streetsData.features.filter(street => street.properties.route_id === currRoute);
         for(let i = 0; i < segs.length; i++) {
             output[routeIndex][i] =
                 {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0,"Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
         }
 
         // street level
-        for(let labIndex = 0; labIndex < labelsData.length; labIndex++) {
-            let currLabel = turf.point([labelsData[labIndex].lng, labelsData[labIndex].lat]);
+        for(let labIndex = 0; labIndex < labelsData.features.length; labIndex++) {
+            // let currLabel = turf.point([labelsData[labIndex].lng, labelsData[labIndex].lat]);
+            let currLabel = labelsData.features[labIndex];
 
-            // TODO get closest street to this label
+            // get closest street to this label
             // http://turfjs.org/docs/#pointonline  (really read this documentation, this func has tons of useful output data)
             let segIndex;
             let minDist = Number.POSITIVE_INFINITY;
             for (let i = 0; i < segs.length; i++) {
                 let closestPoint = turf.pointOnLine(segs[i], currLabel);
-                if (closestPoint.dist < minDist) {
-                    segIndex = closestPoint.index;
+                if (closestPoint.properties.dist < minDist) {
+                    segIndex = closestPoint.properties.index;
                 }
             }
 
-            // TODO increment this street's count of labels (of this label type)
-            output[routeIndex][segIndex][currLabel.label_type] += 1;
+            // increment this street's count of labels (of this label type)
+            output[routeIndex][segIndex][currLabel.properties.label_type] += 1;
 
         }
         console.log(output);
@@ -53,9 +53,19 @@ function setupIRR(data) {
             // TODO split streets into a bunch of little segments based on segDist and length of each contiguous segment
             // http://turfjs.org/docs/#linechunk
 
-            for(let labIndex = 0; labIndex < labelsData.length; labIndex++) {
+            for(let labIndex = 0; labIndex < labelsData.features.length; labIndex++) {
+                let currLabel = labelsData.features[labIndex];
+                
                 // TODO get closest segment to this label
                 // http://turfjs.org/docs/#pointonline  (really read this documentation, this func has tons of useful output data)
+                let segIndex;
+                let minDist = Number.POSITIVE_INFINITY;
+                for (let i = 0; i < segs.length; i++) {
+                    let closestPoint = turf.pointOnLine(segs[i], currLabel);
+                    if (closestPoint.properties.dist < minDist) {
+                        segIndex = closestPoint.properties.index;
+                    }
+                }
 
                 // TODO increment this segment's count of labels (of this label type)
 
