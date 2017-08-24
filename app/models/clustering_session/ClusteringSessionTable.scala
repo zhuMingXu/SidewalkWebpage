@@ -51,7 +51,7 @@ case class LabelCaseClass(hitId: String, routeId: Int, turkerId: String, labelId
     * @return
     */
   def toJSON: JsObject = {
-    val latlngs = geojson.LatLng(lat.toDouble, lng.toDouble)
+    val latlngs = geojson.Point(geojson.LatLng(lat.toDouble, lng.toDouble))
     val properties = Json.obj(
       "label_id" -> labelId,
       "hit_id" -> hitId,
