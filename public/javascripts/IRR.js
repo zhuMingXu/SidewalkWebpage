@@ -43,6 +43,7 @@ function setupIRR(data) {
                 let closestPoint = turf.pointOnLine(segs[i], currLabel);
                 if (closestPoint.properties.dist < minDist) {
                     segIndex = i;
+                    minDist = closestPoint.properties.dist;
                 }
             }
 
@@ -98,6 +99,7 @@ function setupIRR(data) {
                     let closestPoint = turf.pointOnLine(chunks[i], currLabel);
                     if (closestPoint.properties.dist < minDist) {
                         chunkIndex = i;
+                        minDist = closestPoint.properties.dist;
                     }
                 }
 
