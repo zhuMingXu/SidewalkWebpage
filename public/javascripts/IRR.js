@@ -19,8 +19,12 @@ function setupIRR(data) {
             {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
         for (let key in streetOutput) {
             if (streetOutput.hasOwnProperty(key)) {
-                for (let i = 0; i < turkers.length; i++) {
-                    streetOutput[key][turkers[i]] = Array.apply(null, new Array(segs.length)).map(Number.prototype.valueOf, 0);
+                streetOutput[key] = [];
+                for (let i = 0; i < segs.length; i++) {
+                    streetOutput[key][i] = {};
+                    for (let j = 0; j < turkers.length; j++) {
+                        streetOutput[key][i][turkers[j]] = 0;
+                    }
                 }
             }
         }
@@ -38,12 +42,12 @@ function setupIRR(data) {
             for (let i = 0; i < segs.length; i++) {
                 let closestPoint = turf.pointOnLine(segs[i], currLabel);
                 if (closestPoint.properties.dist < minDist) {
-                    segIndex = closestPoint.properties.index;
+                    segIndex = i;
                 }
             }
 
             // increment this street's count of labels (of this label type)
-            streetOutput[currLabel.properties.label_type][currLabel.properties.turker_id][segIndex] += 1;
+            streetOutput[currLabel.properties.label_type][segIndex][currLabel.properties.turker_id] += 1;
 
         }
         output[routeIndex].street = streetOutput;
@@ -73,8 +77,12 @@ function setupIRR(data) {
                 {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
             for (let key in segOutput) {
                 if (segOutput.hasOwnProperty(key)) {
-                    for (let i = 0; i < turkers.length; i++) {
-                        segOutput[key][turkers[i]] = Array.apply(null, new Array(chunks.length)).map(Number.prototype.valueOf, 0);
+                    segOutput[key] = [];
+                    for (let i = 0; i < chunks.length; i++) {
+                        segOutput[key][i] = {};
+                        for (let j = 0; j < turkers.length; j++) {
+                            segOutput[key][i][turkers[j]] = 0;
+                        }
                     }
                 }
             }
@@ -89,12 +97,13 @@ function setupIRR(data) {
                 for (let i = 0; i < chunks.length; i++) {
                     let closestPoint = turf.pointOnLine(chunks[i], currLabel);
                     if (closestPoint.properties.dist < minDist) {
-                        chunkIndex = closestPoint.properties.index;
+                        chunkIndex = i;
                     }
                 }
 
                 // increment this segment's count of labels (of this label type)
-                segOutput[currLabel.properties.label_type][currLabel.properties.turker_id][chunkIndex] += 1;
+                console.log(chunkIndex);
+                segOutput[currLabel.properties.label_type][chunkIndex][currLabel.properties.turker_id] += 1;
 
             }
             output[routeIndex][String(segDist * 1000) + "_meter"] = segOutput;
@@ -108,12 +117,9 @@ function setupIRR(data) {
             out[level] = {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
             for (let label_type in out[level]) {
                 if (out[level].hasOwnProperty(label_type)) {
-                    out[level][label_type] = {};
-                    for (let i = 0; i < turkers.length; i++) {
-                        out[level][label_type][turkers[i]] = [];
-                        for (let j = 0; j < output.length; j++) {
-                            out[level][label_type][turkers[i]] = out[level][label_type][turkers[i]].concat(output[j][level][label_type][turkers[i]]);
-                        }
+                    out[level][label_type] = [];
+                    for (let j = 0; j < output.length; j++) {
+                        out[level][label_type] = out[level][label_type].concat(output[j][level][label_type]);
                     }
                 }
             }
