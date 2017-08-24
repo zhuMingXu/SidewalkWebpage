@@ -7,7 +7,6 @@ function setupIRR(data) {
     let labelsData = data.labels;
     let routes = [...new Set(streetsData.features.map(street => street.properties.route_id))]; // gets unique set of routes
     let turkers = [...new Set(labelsData.features.map(label => label.properties.turker_id))]; // gets unique set of turkers
-    let label_types = ["CurbRamp", "NoCurbRamp", "NoSidewalk","Obstacle", "Occlusion", "SurfaceProblem"];
     let output = [];
     for(let i = 0; i < routes.length; i++) output[i] = {};
 
@@ -28,7 +27,6 @@ function setupIRR(data) {
                 }
             }
         }
-        console.log(streetOutput);
 
         // street level
         for(let labIndex = 0; labIndex < labs.length; labIndex++) {
@@ -52,7 +50,6 @@ function setupIRR(data) {
 
         }
         output[routeIndex].street = streetOutput;
-        console.log(output);
 
 
         // segment level
@@ -60,7 +57,6 @@ function setupIRR(data) {
         // http://turfjs.org/docs/#combine -- combines the different streets into a single MultiLineString
         // http://turfjs.org/docs/#lineintersect -- lets you know the points where two lines intersect
         let combinedStreets = turf.combine(streetsData);
-        console.log(turf.combine(streetsData));
 
 
         let segDists = [0.005, 0.01]; // in meters
@@ -72,7 +68,6 @@ function setupIRR(data) {
             // TODO pick actual distance for each contiguous segment separately so that all segs are approx equal
             // http://turfjs.org/docs/#linechunk
             let chunks = turf.lineChunk(combinedStreets, segDist).features;
-            console.log(chunks);
 
             let segOutput =
                 {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
@@ -104,7 +99,6 @@ function setupIRR(data) {
                 }
 
                 // increment this segment's count of labels (of this label type)
-                console.log(chunkIndex);
                 segOutput[currLabel.properties.label_type][chunkIndex][currLabel.properties.turker_id] += 1;
 
             }
@@ -127,9 +121,7 @@ function setupIRR(data) {
             }
         }
     }
-    console.log(out);
-    outputData(out);
-    
+    return out;
 }
 
 function convertToCSV(objArray) {
@@ -199,5 +191,7 @@ function outputData(outputJson) {
 
 function IRR(data, turf) {
     console.log("Data received: ", data);
-    setupIRR(data);
+    let output = setupIRR(data);
+    console.log(output);
+    outputData(output);
 }
