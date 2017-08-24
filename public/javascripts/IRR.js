@@ -57,7 +57,6 @@ function setupIRR(data) {
         // http://turfjs.org/docs/#combine -- combines the different streets into a single MultiLineString
         // http://turfjs.org/docs/#lineintersect -- lets you know the points where two lines intersect
         let combinedStreets = turf.combine(streetsData);
-        console.log(turf.combine(streetsData));
 
 
         let segDists = [0.005, 0.01]; // in meters
@@ -69,7 +68,6 @@ function setupIRR(data) {
             // TODO pick actual distance for each contiguous segment separately so that all segs are approx equal
             // http://turfjs.org/docs/#linechunk
             let chunks = turf.lineChunk(combinedStreets, segDist).features;
-            console.log(chunks);
 
             let segOutput =
                 {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
@@ -181,5 +179,6 @@ function outputData(outputJson) {
 function IRR(data, turf) {
     console.log("Data received: ", data);
     let output = setupIRR(data);
+    console.log(output);
     outputData(output);
 }
