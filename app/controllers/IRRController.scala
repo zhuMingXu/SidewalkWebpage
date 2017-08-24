@@ -43,7 +43,7 @@ class IRRController @Inject()(implicit val env: Environment[User, SessionAuthent
       submission => {
 
         val hitIdList: List[String] = submission.hitIds
-        
+
         var streets = List[JsObject]()
         var labels = List[JsObject]()
         for ( hitId <- hitIdList ) {
