@@ -43,10 +43,9 @@ class IRRController @Inject()(implicit val env: Environment[User, SessionAuthent
       submission => {
 
         val hitIdList: List[String] = submission.hitIds
-
-
-        var streets = List(Json.obj())
-        var labels = List(Json.obj())
+        
+        var streets = List[JsObject]()
+        var labels = List[JsObject]()
         for ( hitId <- hitIdList ) {
           val routeIds = AMTAssignmentTable.getHITRouteIds(hitId)
 
@@ -54,7 +53,7 @@ class IRRController @Inject()(implicit val env: Environment[User, SessionAuthent
           for (routeId <- routeIds) {
             val streets_i =  ClusteringSessionTable.getStreetGeomForIRR(routeId).map(_.toJSON).toList
             val labels_i = ClusteringSessionTable.getLabelsForIRR(hitId, routeId).map(_.toJSON).toList
-            
+
             labels =  List.concat(labels, labels_i)
             streets =  List.concat(streets_i, streets_i)
           }
