@@ -5,6 +5,7 @@ import javax.inject.Inject
 import com.mohiva.play.silhouette.api.{Environment, Silhouette}
 import com.mohiva.play.silhouette.impl.authenticators.SessionAuthenticator
 import controllers.headers.ProvidesHeader
+import models.amt.AMTAssignmentTable
 import models.clustering_session.ClusteringSessionTable
 import models.user.User
 import play.api.libs.json.{JsError, JsObject, Json}
@@ -33,9 +34,31 @@ class IRRController @Inject()(implicit val env: Environment[User, SessionAuthent
 
   def getDataForIRRForHits = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>
     var submission = request.body//request.body.validate[List[String]]
-
     println(submission)
-    Future.successful(Ok(Json.obj()))
+
+    val hitIdList = List("hit72", "hit128")
+
+    var finalJson = Json.obj()
+    for ( hitId <- hitIdList ) {
+      val routeIds = AMTAssignmentTable.getHITRouteIds(hitId)
+      println(routeIds)
+      finalJson.as[JsObject] + (hitId.toString -> Json.obj())
+
+      var routeListJson = Json.obj()
+      for (routeId <- routeIds) {
+        val streets: JsObject = Json.obj("type" -> "FeatureCollection",
+          "features" -> ClusteringSessionTable.getStreetGeomForIRR(routeId).map(_.toJSON))
+        val labels: JsObject = Json.obj("type" -> "FeatureCollection",
+          "features" -> ClusteringSessionTable.getLabelsForIRR(hitId, routeId).map(_.toJSON))
+
+        val routeMetadataJson = Json.obj("labels" -> labels, "streets" -> streets)
+
+        routeListJson = routeListJson.as[JsObject] + (routeId.toString -> routeMetadataJson)
+      }
+      finalJson = finalJson.as[JsObject] + (hitId.toString -> routeListJson)
+    }
+
+    Future.successful(Ok(finalJson))
 
 //    submission.fold(
 //      errors => {

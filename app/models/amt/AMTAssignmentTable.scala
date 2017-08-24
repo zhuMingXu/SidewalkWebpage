@@ -71,6 +71,10 @@ object AMTAssignmentTable {
     amtAssignments.filter(x => x.turkerId === turkerId && x.completed === true && x.conditionId === conditionId).length.run
   }
 
+  def getHITRouteIds(hitId: String): List[Int] = db.withTransaction { implicit session =>
+    amtAssignments.filter(_.hitId === hitId).map(_.routeId.getOrElse(-1)).run.distinct.toList
+  }
+
   /**
     * Update the `assignment_end` timestamp column of the specified amt_assignment row
     *
