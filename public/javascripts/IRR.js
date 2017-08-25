@@ -14,9 +14,55 @@ function setupIRR(data) {
         let currHit = hits[hitIndex];
         console.log(currHit);
         let routes = [...new Set(labelsData.features.filter(label => label.properties.hit_id === currHit).map(label => label.properties.route_id))];
-        let streets = streetsData.features.filter(street => routes.indexOf(street.properties.route_id) >= 0);
-        console.log(streets);
         let labs = labelsData.features.filter(label => label.properties.hit_id === currHit);
+
+        // TODO check that the extra streets that have been removed do not actually have labels by them
+        // TODO make it so that it isn't assumed that the routes streets are in order
+        let streets = streetsData.features.filter(street => routes.indexOf(street.properties.route_id) >= 0);
+        // console.log(routes);
+        // console.log(streets.length);
+        // check that each mission has the right distance
+
+        for (let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
+            let thisRouteStreets = streets.filter(street => street.properties.route_id === routes[routeIndex]);
+            // console.log(thisRouteStreets.length);
+            let routeDist = 0;
+            if (routeIndex < 2) {
+                routeDist = 0.3048; // 1000ft in km, first 2 missions/routes
+            }
+            else {
+                routeDist = 0.6096; // 2000ft in km, possible third mission/route
+            }
+
+            let distAcc = 0;
+            for (let streetIndex = 0; streetIndex < thisRouteStreets.length; streetIndex++) {
+                if (distAcc < routeDist) {
+                    distAcc += turf.lineDistance(thisRouteStreets[streetIndex]);
+                    // if this is the last route in the HIT and the last street in the route, remove the extra bit at
+                    // the end of the street that wouldn't be audited
+                    if (distAcc > routeDist) {
+                        let s = thisRouteStreets[streetIndex];
+                        let d = routeDist - (distAcc - turf.lineDistance(thisRouteStreets[streetIndex]));
+                        s = turf.lineSliceAlong(s, 0, d);
+                        let idx = streets.findIndex(street =>
+                            street.properties.route_id === routes[routeIndex] &&
+                            street.properties.street_edge_id === thisRouteStreets[streetIndex].properties.street_edge_id);
+                        streets[idx] = s;
+                    }
+                }
+                else {
+                    // remove the extra streets associated with a route
+                    streets = streets.filter(street =>
+                        !(street.properties.route_id === routes[routeIndex] &&
+                          street.properties.street_edge_id === thisRouteStreets[streetIndex].properties.street_edge_id));
+                }
+            }
+            // console.log(streets.length);
+        }
+        // console.log(streets.length);
+
+        // street level
+        // initialize the street output object with 0's
         let streetOutput =
             {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
         for (let label_type in streetOutput) {
@@ -30,10 +76,8 @@ function setupIRR(data) {
                 }
             }
         }
-        // console.log(streetOutput);
 
-        // street level
-        // TODO get the true set of streets (remove those ones per route that go over the distance)
+        // TODO keep clustered labels together
         for(let labIndex = 0; labIndex < labs.length; labIndex++) {
             // let currLabel = turf.point([labelsData[labIndex].lng, labelsData[labIndex].lat]);
             let currLabel = labs[labIndex];
@@ -54,6 +98,7 @@ function setupIRR(data) {
             streetOutput[currLabel.properties.label_type][segIndex][currLabel.properties.turker_id] += 1;
 
         }
+        console.log(streets);
         output[hitIndex].street = streetOutput;
 
 
@@ -62,9 +107,9 @@ function setupIRR(data) {
         // http://turfjs.org/docs/#combine -- combines the different streets into a single MultiLineString
         // http://turfjs.org/docs/#lineintersect -- lets you know the points where two lines intersect
         let combinedStreets = turf.combine({"features": streets, "type": "FeatureCollection"});
-        console.log(streets[0]);
-        console.log(turf.lineDistance(streets[0]));
-        console.log(turf.lineChunk(streets[0], 0.005));
+        // console.log(streets[0]);
+        // console.log(turf.lineDistance(streets[0]));
+        // console.log(turf.lineChunk(streets[0], 0.005));
 
 
         let segDists = [0.005, 0.01]; // in meters
@@ -74,15 +119,27 @@ function setupIRR(data) {
             // split streets into a bunch of little segments based on segDist and length of each contiguous segment
             // TODO make sure that each contiguous segment is done separately
             // TODO pick actual distance for each contiguous segment separately so that all segs are approx equal
-            // TODO stop the segmenting at the end of the distance for the HIT
             // http://turfjs.org/docs/#along -- to remove end of a street edge at end of HIT
             // http://turfjs.org/docs/#linechunk
+            console.log("blah");
             let chunks = turf.lineChunk(combinedStreets, segDist).features;
-            console.log(chunks);
+            // console.log(chunks);
             let sum1 = 0.0;
             for (let i = 0; i < chunks.length; i++) sum1 += turf.lineDistance(chunks[i]);
             let sum2 = 0.0;
-            // for (let i = 0; i < combinedStreets.length; i++) sum2 += turf.lineDistance(combinedStreets[i]);
+            for (let i = 0; i < combinedStreets.length; i++) sum2 += turf.lineDistance(combinedStreets[i]);
+            let sum3 = 0;
+            let r1 = streets.filter(street => street.properties.route_id === routes[0]);
+            for (let i = 0; i < r1.length; i++) sum3 += turf.lineDistance(r1[i]);
+            let sum4 = 0;
+            let r2 = streets.filter(street => street.properties.route_id === routes[1]);
+            for (let i = 0; i < r2.length; i++) sum4 += turf.lineDistance(r2[i]);
+            let sum5 = 0;
+            let r3 = streets.filter(street => street.properties.route_id === routes[2]);
+            for (let i = 0; i < r3.length; i++) sum5 += turf.lineDistance(r3[i]);
+            console.log(sum3);
+            console.log(sum4);
+            console.log(sum5);
 
             console.log(sum1);
             console.log(turf.lineDistance(combinedStreets));
@@ -101,6 +158,7 @@ function setupIRR(data) {
                 }
             }
 
+            // TODO keep clustered labels together
             for(let labIndex = 0; labIndex < labs.length; labIndex++) {
                 let currLabel = labs[labIndex];
 
