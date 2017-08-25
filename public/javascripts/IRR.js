@@ -12,20 +12,16 @@ function setupIRR(data) {
 
     for(let hitIndex = 0; hitIndex < hits.length; hitIndex++) {
         let currHit = hits[hitIndex];
-        console.log(currHit);
         let routes = [...new Set(labelsData.features.filter(label => label.properties.hit_id === currHit).map(label => label.properties.route_id))];
         let labs = labelsData.features.filter(label => label.properties.hit_id === currHit);
 
         // TODO check that the extra streets that have been removed do not actually have labels by them
         // TODO make it so that it isn't assumed that the routes streets are in order
         let streets = streetsData.features.filter(street => routes.indexOf(street.properties.route_id) >= 0);
-        // console.log(routes);
-        // console.log(streets.length);
         // check that each mission has the right distance
 
         for (let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
             let thisRouteStreets = streets.filter(street => street.properties.route_id === routes[routeIndex]);
-            // console.log(thisRouteStreets.length);
             let routeDist = 0;
             if (routeIndex < 2) {
                 routeDist = 0.3048; // 1000ft in km, first 2 missions/routes
@@ -57,9 +53,7 @@ function setupIRR(data) {
                           street.properties.street_edge_id === thisRouteStreets[streetIndex].properties.street_edge_id));
                 }
             }
-            // console.log(streets.length);
         }
-        // console.log(streets.length);
 
         // street level
         // initialize the street output object with 0's
@@ -95,10 +89,9 @@ function setupIRR(data) {
             }
 
             // increment this street's count of labels (of this label type)
-            streetOutput[currLabel.properties.label_type][segIndex][currLabel.properties.turker_id] += 1;
+            streetOutput[currLabel.properties.label_type][segIndex][currLabel.properties.turker_id] = 1;
 
         }
-        console.log(streets);
         output[hitIndex].street = streetOutput;
 
 
@@ -107,9 +100,6 @@ function setupIRR(data) {
         // http://turfjs.org/docs/#combine -- combines the different streets into a single MultiLineString
         // http://turfjs.org/docs/#lineintersect -- lets you know the points where two lines intersect
         let combinedStreets = turf.combine({"features": streets, "type": "FeatureCollection"});
-        // console.log(streets[0]);
-        // console.log(turf.lineDistance(streets[0]));
-        // console.log(turf.lineChunk(streets[0], 0.005));
 
 
         let segDists = [0.005, 0.01]; // in meters
@@ -121,28 +111,7 @@ function setupIRR(data) {
             // TODO pick actual distance for each contiguous segment separately so that all segs are approx equal
             // http://turfjs.org/docs/#along -- to remove end of a street edge at end of HIT
             // http://turfjs.org/docs/#linechunk
-            console.log("blah");
             let chunks = turf.lineChunk(combinedStreets, segDist).features;
-            // console.log(chunks);
-            let sum1 = 0.0;
-            for (let i = 0; i < chunks.length; i++) sum1 += turf.lineDistance(chunks[i]);
-            let sum2 = 0.0;
-            for (let i = 0; i < combinedStreets.length; i++) sum2 += turf.lineDistance(combinedStreets[i]);
-            let sum3 = 0;
-            let r1 = streets.filter(street => street.properties.route_id === routes[0]);
-            for (let i = 0; i < r1.length; i++) sum3 += turf.lineDistance(r1[i]);
-            let sum4 = 0;
-            let r2 = streets.filter(street => street.properties.route_id === routes[1]);
-            for (let i = 0; i < r2.length; i++) sum4 += turf.lineDistance(r2[i]);
-            let sum5 = 0;
-            let r3 = streets.filter(street => street.properties.route_id === routes[2]);
-            for (let i = 0; i < r3.length; i++) sum5 += turf.lineDistance(r3[i]);
-            console.log(sum3);
-            console.log(sum4);
-            console.log(sum5);
-
-            console.log(sum1);
-            console.log(turf.lineDistance(combinedStreets));
 
             let segOutput =
                 {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
@@ -162,6 +131,8 @@ function setupIRR(data) {
             for(let labIndex = 0; labIndex < labs.length; labIndex++) {
                 let currLabel = labs[labIndex];
 
+                // trying to exclude low severity surface problems and obstacles
+                // if (["SurfaceProblem", "Obstacle"].indexOf(currLabel.properties.label_type) >= 0 && currLabel.properties.severity > 3) {
                 // get closest segment to this label
                 // http://turfjs.org/docs/#pointonline
                 let chunkIndex;
@@ -175,8 +146,9 @@ function setupIRR(data) {
                 }
 
                 // increment this segment's count of labels (of this label type)
-                segOutput[currLabel.properties.label_type][chunkIndex][currLabel.properties.turker_id] += 1;
+                segOutput[currLabel.properties.label_type][chunkIndex][currLabel.properties.turker_id] = 1;
 
+                // }
             }
             output[hitIndex][String(segDist * 1000) + "_meter"] = segOutput;
         }
