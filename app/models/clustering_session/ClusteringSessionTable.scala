@@ -45,7 +45,7 @@ case class LineStringCaseClass(streetEdgeId: Int, routeId: Int, geom: LineString
   }
 }
 
-case class LabelCaseClass(hitId: String, routeId: Int, turkerId: String, labelId: Int, labelType: String, severity: Int, temporary: Option[Boolean], lat: Float, lng: Float)  {
+case class LabelCaseClass(hitId: String, routeId: Int, turkerId: String, labelId: Int, labelType: String, severity: Int, temporary: Option[Boolean], lat: Float, lng: Float, clusterId: Int)  {
   /**
     * This method converts the data into the GeoJSON format
     * @return
@@ -59,7 +59,8 @@ case class LabelCaseClass(hitId: String, routeId: Int, turkerId: String, labelId
       "turker_id" -> turkerId,
       "label_type" -> labelType,
       "severity" -> severity,
-      "temporary" -> temporary
+      "temporary" -> temporary,
+      "cluster_id" -> clusterId
     )
     Json.obj("type" -> "Feature", "geometry" -> latlngs, "properties" -> properties)
   }
@@ -95,7 +96,7 @@ object ClusteringSessionTable{
   })
 
   implicit val labelConverter = GetResult[LabelCaseClass](r => {
-    LabelCaseClass(r.nextString, r.nextInt, r.nextString, r.nextInt, r.nextString, r.nextInt, r.nextBooleanOption, r.nextFloat, r.nextFloat)
+    LabelCaseClass(r.nextString, r.nextInt, r.nextString, r.nextInt, r.nextString, r.nextInt, r.nextBooleanOption, r.nextFloat, r.nextFloat, r.nextInt)
   })
 
   def getClusteringSession(clusteringSessionId: Int): Option[ClusteringSession] = db.withSession { implicit session =>
@@ -197,7 +198,17 @@ object ClusteringSessionTable{
 
   def getLabelsForIRR(hitId: String, routeId: Int): List[LabelCaseClass] = db.withSession { implicit session =>
     val labelsQuery = Q.query[(String, Int), LabelCaseClass](
-      """SELECT amt_assignment.hit_id,
+      """SELECT abc.hit_id,
+        |   		abc.route_id,
+        |		    abc.turker_id,
+        |		    abc.label_id,
+        |		    abc.label_type,
+        |		    abc.severity,
+        |		    abc.temporary_problem,
+        |		    abc.lat,
+        |		    abc.lng,
+        |		    clust.cluster_id
+        |FROM (SELECT amt_assignment.hit_id,
         |   		amt_assignment.route_id,
         |		    amt_assignment.turker_id,
         |		    label.label_id,
@@ -206,24 +217,27 @@ object ClusteringSessionTable{
         |		    problem_temporariness.temporary_problem,
         |		    label_point.lat,
         |		    label_point.lng
-        |FROM  audit_task
-        |	  INNER JOIN amt_assignment ON audit_task.amt_assignment_id = amt_assignment.amt_assignment_id
-        |	  INNER JOIN label ON label.audit_task_id = audit_task.audit_task_id
-        |	  INNER JOIN label_type ON label.label_type_id = label_type.label_type_id
-        |	  LEFT OUTER JOIN problem_severity ON problem_severity.label_id = label.label_id
-        |	  LEFT OUTER JOIN problem_temporariness ON problem_temporariness.label_id = label.label_id
-        |	  INNER JOIN label_point ON label.label_id = label_point.label_id
-        |WHERE (amt_assignment.hit_id = ? )
-        |		AND ( amt_assignment.route_id = ? )
-        |		AND ( label.deleted = false )
-        |		AND ( label.gsv_panorama_id <> 'stxXyCKAbd73DmkM2vsIHA')
-        |		AND ( amt_assignment.completed = true )
+        |        FROM  audit_task
+        |              INNER JOIN amt_assignment ON audit_task.amt_assignment_id = amt_assignment.amt_assignment_id
+        |              INNER JOIN "label" ON label.audit_task_id = audit_task.audit_task_id
+        |              INNER JOIN label_type ON label.label_type_id = label_type.label_type_id
+        |              LEFT OUTER JOIN problem_severity ON problem_severity.label_id = label.label_id
+        |              LEFT OUTER JOIN problem_temporariness ON problem_temporariness.label_id = label.label_id
+        |              INNER JOIN label_point ON label.label_id = label_point.label_id
+        |        WHERE (amt_assignment.hit_id = ? )
+        |                AND ( amt_assignment.route_id = ? )
+        |                AND ( label.deleted = false )
+        |                AND ( label.gsv_panorama_id <> 'stxXyCKAbd73DmkM2vsIHA')
+        |                AND ( amt_assignment.completed = true )
+        |      ) AS abc,
+        |      (SELECT MAX(clustering_session_cluster_id) AS "cluster_id", label_id FROM clustering_session_label GROUP BY label_id) AS clust
+        |WHERE abc.label_id = clust.label_id
       """.stripMargin
     )
     val labelsResult = labelsQuery((hitId, routeId)).list
 
     val labels: List[LabelCaseClass] = labelsResult.map(l => LabelCaseClass(l.hitId, l.routeId, l.turkerId, l.labelId,
-      l.labelType, l.severity, l.temporary, l.lat, l.lng))
+      l.labelType, l.severity, l.temporary, l.lat, l.lng, l.clusterId))
     labels
   }
 
