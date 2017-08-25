@@ -14,15 +14,15 @@ function setupIRR(data) {
         let currHit = hits[hitIndex];
         console.log(currHit);
         let routes = [...new Set(labelsData.features.filter(label => label.properties.hit_id === currHit).map(label => label.properties.route_id))];
-        let segs = streetsData.features.filter(street => routes.indexOf(street.properties.route_id) >= 0);
-        console.log(segs);
+        let streets = streetsData.features.filter(street => routes.indexOf(street.properties.route_id) >= 0);
+        console.log(streets);
         let labs = labelsData.features.filter(label => label.properties.hit_id === currHit);
         let streetOutput =
             {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
         for (let label_type in streetOutput) {
             if (streetOutput.hasOwnProperty(label_type)) {
                 streetOutput[label_type] = [];
-                for (let i = 0; i < segs.length; i++) {
+                for (let i = 0; i < streets.length; i++) {
                     streetOutput[label_type][i] = {};
                     for (let j = 0; j < turkers.length; j++) {
                         streetOutput[label_type][i][turkers[j]] = 0;
@@ -42,8 +42,8 @@ function setupIRR(data) {
             // http://turfjs.org/docs/#pointonline
             let segIndex;
             let minDist = Number.POSITIVE_INFINITY;
-            for (let i = 0; i < segs.length; i++) {
-                let closestPoint = turf.pointOnLine(segs[i], currLabel);
+            for (let i = 0; i < streets.length; i++) {
+                let closestPoint = turf.pointOnLine(streets[i], currLabel);
                 if (closestPoint.properties.dist < minDist) {
                     segIndex = i;
                     minDist = closestPoint.properties.dist;
@@ -61,10 +61,10 @@ function setupIRR(data) {
         // combine streets into a set of contiguous linestrings
         // http://turfjs.org/docs/#combine -- combines the different streets into a single MultiLineString
         // http://turfjs.org/docs/#lineintersect -- lets you know the points where two lines intersect
-        let combinedStreets = turf.combine({"features": segs, "type": "FeatureCollection"});
-        console.log(segs[0]);
-        console.log(turf.lineDistance(segs[0]));
-        console.log(turf.lineChunk(segs[0], 0.005));
+        let combinedStreets = turf.combine({"features": streets, "type": "FeatureCollection"});
+        console.log(streets[0]);
+        console.log(turf.lineDistance(streets[0]));
+        console.log(turf.lineChunk(streets[0], 0.005));
 
 
         let segDists = [0.005, 0.01]; // in meters
