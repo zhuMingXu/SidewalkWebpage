@@ -10,6 +10,13 @@ function setupIRR(data) {
     let output = [];
     for(let i = 0; i < hits.length; i++) output[i] = {};
 
+    // print out label counts by type
+    let labelCounts = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
+    for (let i = 0; i < labelsData.features.length; i++) {
+        labelCounts[labelsData.features[i].properties.label_type] += 1;
+    }
+    console.log(labelCounts);
+
     for(let hitIndex = 0; hitIndex < hits.length; hitIndex++) {
         let currHit = hits[hitIndex];
         let routes = [...new Set(labelsData.features.filter(label => label.properties.hit_id === currHit).map(label => label.properties.route_id))];
@@ -71,26 +78,34 @@ function setupIRR(data) {
             }
         }
 
-        // TODO keep clustered labels together
-        for(let labIndex = 0; labIndex < labs.length; labIndex++) {
-            // let currLabel = turf.point([labelsData[labIndex].lng, labelsData[labIndex].lat]);
-            let currLabel = labs[labIndex];
+        // for each cluster, find the label nearest the center of the cluster, find which segment this label is
+        // nearest, and mark all labels from that cluster as being in that segment
+        let clusterIds = [...new Set(labs.map(label => label.properties.cluster_id))];
+        for (let clustIndex = 0; clustIndex < clusterIds.length; clustIndex++) {
+            let currLabels = labs.filter(label => label.properties.cluster_id === clusterIds[clustIndex]);
+            let centerPoint = turf.centerOfMass({"features": currLabels, "type": "FeatureCollection"});
+            let repLabel = turf.nearest(centerPoint, {"features": currLabels, "type": "FeatureCollection"});
 
-            // get closest street to this label
+            // trying to exclude low severity surface problems and obstacles
+            // if (["SurfaceProblem", "Obstacle"].indexOf(currLabel.properties.label_type) >= 0 && currLabel.properties.severity > 3) {
+            // get closest segment to this label
             // http://turfjs.org/docs/#pointonline
-            let segIndex;
+            let streetIndex;
             let minDist = Number.POSITIVE_INFINITY;
             for (let i = 0; i < streets.length; i++) {
-                let closestPoint = turf.pointOnLine(streets[i], currLabel);
+                let closestPoint = turf.pointOnLine(streets[i], repLabel);
                 if (closestPoint.properties.dist < minDist) {
-                    segIndex = i;
+                    streetIndex = i;
                     minDist = closestPoint.properties.dist;
                 }
             }
 
-            // increment this street's count of labels (of this label type)
-            streetOutput[currLabel.properties.label_type][segIndex][currLabel.properties.turker_id] = 1;
-
+            // increment this segment's count of labels (of this label type), distributing labels based on turker_id
+            for (let turkerIndex = 0; turkerIndex < turkers.length; turkerIndex++) {
+                let turkerId = turkers[turkerIndex];
+                let labelCount = currLabels.filter(label => label.properties.turker_id === turkerId).length;
+                streetOutput[repLabel.properties.label_type][streetIndex][turkerId] += labelCount;
+            }
         }
         output[hitIndex].street = streetOutput;
 
@@ -127,9 +142,13 @@ function setupIRR(data) {
                 }
             }
 
-            // TODO keep clustered labels together
-            for(let labIndex = 0; labIndex < labs.length; labIndex++) {
-                let currLabel = labs[labIndex];
+            // for each cluster, find the label nearest the center of the cluster, find which segment this label is
+            // nearest, and mark all labels from that cluster as being in that segment
+            let clusterIds = [...new Set(labs.map(label => label.properties.cluster_id))];
+            for (let clustIndex = 0; clustIndex < clusterIds.length; clustIndex++) {
+                let currLabels = labs.filter(label => label.properties.cluster_id === clusterIds[clustIndex]);
+                let centerPoint = turf.centerOfMass({"features": currLabels, "type": "FeatureCollection"});
+                let repLabel = turf.nearest(centerPoint, {"features": currLabels, "type": "FeatureCollection"});
 
                 // trying to exclude low severity surface problems and obstacles
                 // if (["SurfaceProblem", "Obstacle"].indexOf(currLabel.properties.label_type) >= 0 && currLabel.properties.severity > 3) {
@@ -138,17 +157,22 @@ function setupIRR(data) {
                 let chunkIndex;
                 let minDist = Number.POSITIVE_INFINITY;
                 for (let i = 0; i < chunks.length; i++) {
-                    let closestPoint = turf.pointOnLine(chunks[i], currLabel);
+                    let closestPoint = turf.pointOnLine(chunks[i], repLabel);
                     if (closestPoint.properties.dist < minDist) {
                         chunkIndex = i;
                         minDist = closestPoint.properties.dist;
                     }
                 }
 
-                // increment this segment's count of labels (of this label type)
-                segOutput[currLabel.properties.label_type][chunkIndex][currLabel.properties.turker_id] = 1;
+                // increment this segment's count of labels (of this label type), distributing labels based on turker_id
+                for (let turkerIndex = 0; turkerIndex < turkers.length; turkerIndex++) {
+                    let turkerId = turkers[turkerIndex];
+                    let labelCount = currLabels.filter(label => label.properties.turker_id === turkerId).length;
+                    segOutput[repLabel.properties.label_type][chunkIndex][turkerId] += labelCount;
+                }
 
-                // }
+                // increment this segment's count of labels (of this label type)
+                // segOutput[repLabel.properties.label_type][chunkIndex][repLabel.properties.turker_id] += currLabels.length;
             }
             output[hitIndex][String(segDist * 1000) + "_meter"] = segOutput;
         }
