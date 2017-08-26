@@ -121,12 +121,30 @@ function setupIRR(data) {
         for(let segDistIndex = 0; segDistIndex < segDists.length; segDistIndex++) {
             let segDist = segDists[segDistIndex];
 
-            // split streets into a bunch of little segments based on segDist and length of each contiguous segment
-            // TODO make sure that each contiguous segment is done separately
-            // TODO pick actual distance for each contiguous segment separately so that all segs are approx equal
-            // http://turfjs.org/docs/#along -- to remove end of a street edge at end of HIT
+            // Split streets into a bunch of little segments based on segDist and length of each contiguous segment. For
+            // each contiguous set of streets, split the contiguous line up into equally sized segments, as close as
+            // possible to segDist.
             // http://turfjs.org/docs/#linechunk
-            let chunks = turf.lineChunk(combinedStreets, segDist).features;
+            let chunks = [];
+            let contiguousStart = 0;
+            let lineIndex = 0;
+            while (lineIndex < streets.length) {
+                contiguousStart = lineIndex;
+                // search for end of contiguous segment
+                while (lineIndex + 1 < streets.length && turf.lineIntersect(streets[lineIndex], streets[lineIndex+1]).features.length > 0) {
+                    lineIndex++;
+                }
+                lineIndex++;
+
+                // combine the streets, split the contiguous line up into equally sized segs, approx equal to segDist
+                let contiguousStreets = turf.combine({"features": streets.slice(contiguousStart, lineIndex), "type": "FeatureCollection"});
+                let nSegs = Math.round(turf.lineDistance(contiguousStreets) / segDist);
+                let exactSegDist = turf.lineDistance(contiguousStreets) / nSegs;
+                chunks = chunks.concat(turf.lineChunk(contiguousStreets, exactSegDist).features);
+            }
+
+            // remove any stray chunks of 0 length (thanks floating point errors)
+            chunks = chunks.filter(chunk => Array.isArray(chunk.geometry.coordinates[0]));
 
             let segOutput =
                 {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
