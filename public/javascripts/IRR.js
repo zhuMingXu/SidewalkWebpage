@@ -1,3 +1,5 @@
+const BINARY = true;
+
 // Takes a set of points and a set of street geometries. Fits labels to those streets, giving counts of how many labels
 // of each label type are closest to each street. Streets are then also split up into smaller line segments, and the
 // same counts are then tabulated for each of those segments.
@@ -85,6 +87,7 @@ function setupIRR(data) {
             let currLabels = labs.filter(label => label.properties.cluster_id === clusterIds[clustIndex]);
             let centerPoint = turf.centerOfMass({"features": currLabels, "type": "FeatureCollection"});
             let repLabel = turf.nearest(centerPoint, {"features": currLabels, "type": "FeatureCollection"});
+            let currType = repLabel.properties.label_type;
 
             // trying to exclude low severity surface problems and obstacles
             // if (["SurfaceProblem", "Obstacle"].indexOf(currLabel.properties.label_type) >= 0 && currLabel.properties.severity > 3) {
@@ -104,7 +107,12 @@ function setupIRR(data) {
             for (let turkerIndex = 0; turkerIndex < turkers.length; turkerIndex++) {
                 let turkerId = turkers[turkerIndex];
                 let labelCount = currLabels.filter(label => label.properties.turker_id === turkerId).length;
-                streetOutput[repLabel.properties.label_type][streetIndex][turkerId] += labelCount;
+                if (BINARY) {
+                    let curr = streetOutput[currType][streetIndex][turkerId];
+                    streetOutput[currType][streetIndex][turkerId] = Math.max(curr, Math.min(labelCount, 1));
+                } else {
+                    streetOutput[currType][streetIndex][turkerId] += labelCount;
+                }
             }
         }
         output[hitIndex].street = streetOutput;
@@ -167,6 +175,7 @@ function setupIRR(data) {
                 let currLabels = labs.filter(label => label.properties.cluster_id === clusterIds[clustIndex]);
                 let centerPoint = turf.centerOfMass({"features": currLabels, "type": "FeatureCollection"});
                 let repLabel = turf.nearest(centerPoint, {"features": currLabels, "type": "FeatureCollection"});
+                let currType = repLabel.properties.label_type;
 
                 // trying to exclude low severity surface problems and obstacles
                 // if (["SurfaceProblem", "Obstacle"].indexOf(currLabel.properties.label_type) >= 0 && currLabel.properties.severity > 3) {
@@ -186,7 +195,12 @@ function setupIRR(data) {
                 for (let turkerIndex = 0; turkerIndex < turkers.length; turkerIndex++) {
                     let turkerId = turkers[turkerIndex];
                     let labelCount = currLabels.filter(label => label.properties.turker_id === turkerId).length;
-                    segOutput[repLabel.properties.label_type][chunkIndex][turkerId] += labelCount;
+                    if (BINARY) {
+                        let curr = segOutput[currType][chunkIndex][turkerId];
+                        segOutput[currType][chunkIndex][turkerId] = Math.max(curr, Math.min(labelCount, 1));
+                    } else {
+                        segOutput[currType][chunkIndex][turkerId] += labelCount;
+                    }
                 }
 
                 // increment this segment's count of labels (of this label type)
