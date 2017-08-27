@@ -1,4 +1,5 @@
 const BINARY = true;
+const REMOVE_LOW_SEVERITY = false;
 
 // Takes a set of points and a set of street geometries. Fits labels to those streets, giving counts of how many labels
 // of each label type are closest to each street. Streets are then also split up into smaller line segments, and the
@@ -85,33 +86,38 @@ function setupIRR(data) {
         let clusterIds = [...new Set(labs.map(label => label.properties.cluster_id))];
         for (let clustIndex = 0; clustIndex < clusterIds.length; clustIndex++) {
             let currLabels = labs.filter(label => label.properties.cluster_id === clusterIds[clustIndex]);
-            let centerPoint = turf.centerOfMass({"features": currLabels, "type": "FeatureCollection"});
-            let repLabel = turf.nearest(centerPoint, {"features": currLabels, "type": "FeatureCollection"});
-            let currType = repLabel.properties.label_type;
-
-            // trying to exclude low severity surface problems and obstacles
-            // if (["SurfaceProblem", "Obstacle"].indexOf(currLabel.properties.label_type) >= 0 && currLabel.properties.severity > 3) {
-            // get closest segment to this label
-            // http://turfjs.org/docs/#pointonline
-            let streetIndex;
-            let minDist = Number.POSITIVE_INFINITY;
-            for (let i = 0; i < streets.length; i++) {
-                let closestPoint = turf.pointOnLine(streets[i], repLabel);
-                if (closestPoint.properties.dist < minDist) {
-                    streetIndex = i;
-                    minDist = closestPoint.properties.dist;
-                }
+            if (REMOVE_LOW_SEVERITY && ["Obstacle", "SurfaceProblem"].indexOf(currLabels[0].properties.label_type) > 0) {
+                currLabels = currLabels.filter(label => label.properties.temporary !== false);
             }
+            if (currLabels.length > 0) {
+                let centerPoint = turf.centerOfMass({"features": currLabels, "type": "FeatureCollection"});
+                let repLabel = turf.nearest(centerPoint, {"features": currLabels, "type": "FeatureCollection"});
+                let currType = repLabel.properties.label_type;
 
-            // increment this segment's count of labels (of this label type), distributing labels based on turker_id
-            for (let turkerIndex = 0; turkerIndex < turkers.length; turkerIndex++) {
-                let turkerId = turkers[turkerIndex];
-                let labelCount = currLabels.filter(label => label.properties.turker_id === turkerId).length;
-                if (BINARY) {
-                    let curr = streetOutput[currType][streetIndex][turkerId];
-                    streetOutput[currType][streetIndex][turkerId] = Math.max(curr, Math.min(labelCount, 1));
-                } else {
-                    streetOutput[currType][streetIndex][turkerId] += labelCount;
+                // trying to exclude low severity surface problems and obstacles
+                // if (["SurfaceProblem", "Obstacle"].indexOf(currLabel.properties.label_type) >= 0 && currLabel.properties.severity > 3) {
+                // get closest segment to this label
+                // http://turfjs.org/docs/#pointonline
+                let streetIndex;
+                let minDist = Number.POSITIVE_INFINITY;
+                for (let i = 0; i < streets.length; i++) {
+                    let closestPoint = turf.pointOnLine(streets[i], repLabel);
+                    if (closestPoint.properties.dist < minDist) {
+                        streetIndex = i;
+                        minDist = closestPoint.properties.dist;
+                    }
+                }
+
+                // increment this segment's count of labels (of this label type), distributing labels based on turker_id
+                for (let turkerIndex = 0; turkerIndex < turkers.length; turkerIndex++) {
+                    let turkerId = turkers[turkerIndex];
+                    let labelCount = currLabels.filter(label => label.properties.turker_id === turkerId).length;
+                    if (BINARY) {
+                        let curr = streetOutput[currType][streetIndex][turkerId];
+                        streetOutput[currType][streetIndex][turkerId] = Math.max(curr, Math.min(labelCount, 1));
+                    } else {
+                        streetOutput[currType][streetIndex][turkerId] += labelCount;
+                    }
                 }
             }
         }
@@ -173,38 +179,40 @@ function setupIRR(data) {
             let clusterIds = [...new Set(labs.map(label => label.properties.cluster_id))];
             for (let clustIndex = 0; clustIndex < clusterIds.length; clustIndex++) {
                 let currLabels = labs.filter(label => label.properties.cluster_id === clusterIds[clustIndex]);
-                let centerPoint = turf.centerOfMass({"features": currLabels, "type": "FeatureCollection"});
-                let repLabel = turf.nearest(centerPoint, {"features": currLabels, "type": "FeatureCollection"});
-                let currType = repLabel.properties.label_type;
+                if (REMOVE_LOW_SEVERITY && ["Obstacle", "SurfaceProblem"].indexOf(currLabels[0].properties.label_type) > 0) {
+                    currLabels = currLabels.filter(label => label.properties.temporary !== false);
+                }
+                if (currLabels.length > 0) {
+                    let centerPoint = turf.centerOfMass({"features": currLabels, "type": "FeatureCollection"});
+                    let repLabel = turf.nearest(centerPoint, {"features": currLabels, "type": "FeatureCollection"});
+                    let currType = repLabel.properties.label_type;
 
-                // trying to exclude low severity surface problems and obstacles
-                // if (["SurfaceProblem", "Obstacle"].indexOf(currLabel.properties.label_type) >= 0 && currLabel.properties.severity > 3) {
-                // get closest segment to this label
-                // http://turfjs.org/docs/#pointonline
-                let chunkIndex;
-                let minDist = Number.POSITIVE_INFINITY;
-                for (let i = 0; i < chunks.length; i++) {
-                    let closestPoint = turf.pointOnLine(chunks[i], repLabel);
-                    if (closestPoint.properties.dist < minDist) {
-                        chunkIndex = i;
-                        minDist = closestPoint.properties.dist;
+                    // trying to exclude low severity surface problems and obstacles
+                    // if (["SurfaceProblem", "Obstacle"].indexOf(currLabel.properties.label_type) >= 0 && currLabel.properties.severity > 3) {
+                    // get closest segment to this label
+                    // http://turfjs.org/docs/#pointonline
+                    let chunkIndex;
+                    let minDist = Number.POSITIVE_INFINITY;
+                    for (let i = 0; i < chunks.length; i++) {
+                        let closestPoint = turf.pointOnLine(chunks[i], repLabel);
+                        if (closestPoint.properties.dist < minDist) {
+                            chunkIndex = i;
+                            minDist = closestPoint.properties.dist;
+                        }
+                    }
+
+                    // increment this segment's count of labels (of this label type), distributing labels based on turker_id
+                    for (let turkerIndex = 0; turkerIndex < turkers.length; turkerIndex++) {
+                        let turkerId = turkers[turkerIndex];
+                        let labelCount = currLabels.filter(label => label.properties.turker_id === turkerId).length;
+                        if (BINARY) {
+                            let curr = segOutput[currType][chunkIndex][turkerId];
+                            segOutput[currType][chunkIndex][turkerId] = Math.max(curr, Math.min(labelCount, 1));
+                        } else {
+                            segOutput[currType][chunkIndex][turkerId] += labelCount;
+                        }
                     }
                 }
-
-                // increment this segment's count of labels (of this label type), distributing labels based on turker_id
-                for (let turkerIndex = 0; turkerIndex < turkers.length; turkerIndex++) {
-                    let turkerId = turkers[turkerIndex];
-                    let labelCount = currLabels.filter(label => label.properties.turker_id === turkerId).length;
-                    if (BINARY) {
-                        let curr = segOutput[currType][chunkIndex][turkerId];
-                        segOutput[currType][chunkIndex][turkerId] = Math.max(curr, Math.min(labelCount, 1));
-                    } else {
-                        segOutput[currType][chunkIndex][turkerId] += labelCount;
-                    }
-                }
-
-                // increment this segment's count of labels (of this label type)
-                // segOutput[repLabel.properties.label_type][chunkIndex][repLabel.properties.turker_id] += currLabels.length;
             }
             output[hitIndex][String(segDist * 1000) + "_meter"] = segOutput;
         }
