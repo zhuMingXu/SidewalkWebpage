@@ -1,5 +1,6 @@
 const BINARY = true;
 const REMOVE_LOW_SEVERITY = false;
+const PROB_NO_PROB = true;
 
 // Takes a set of points and a set of street geometries. Fits labels to those streets, giving counts of how many labels
 // of each label type are closest to each street. Streets are then also split up into smaller line segments, and the
@@ -65,10 +66,17 @@ function setupIRR(data) {
             }
         }
 
+        // If we are looking at prob-no-prob, then filter out all curb ramps
+        let streetOutput = {};
+        if (PROB_NO_PROB) {
+            labs = labs.filter(label => label.properties.label_type !== "CurbRamp");
+            streetOutput = {"Problem": {}};
+        } else {
+            streetOutput = {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
+        }
+
         // street level
         // initialize the street output object with 0's
-        let streetOutput =
-            {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
         for (let label_type in streetOutput) {
             if (streetOutput.hasOwnProperty(label_type)) {
                 streetOutput[label_type] = [];
@@ -112,11 +120,16 @@ function setupIRR(data) {
                 for (let turkerIndex = 0; turkerIndex < turkers.length; turkerIndex++) {
                     let turkerId = turkers[turkerIndex];
                     let labelCount = currLabels.filter(label => label.properties.turker_id === turkerId).length;
-                    if (BINARY) {
-                        let curr = streetOutput[currType][streetIndex][turkerId];
-                        streetOutput[currType][streetIndex][turkerId] = Math.max(curr, Math.min(labelCount, 1));
+                    if (PROB_NO_PROB) {
+                        let curr = streetOutput["Problem"][streetIndex][turkerId];
+                        streetOutput["Problem"][streetIndex][turkerId] = Math.max(curr, Math.min(labelCount, 1));
                     } else {
-                        streetOutput[currType][streetIndex][turkerId] += labelCount;
+                        if (BINARY) {
+                            let curr = streetOutput[currType][streetIndex][turkerId];
+                            streetOutput[currType][streetIndex][turkerId] = Math.max(curr, Math.min(labelCount, 1));
+                        } else {
+                            streetOutput[currType][streetIndex][turkerId] += labelCount;
+                        }
                     }
                 }
             }
@@ -160,8 +173,13 @@ function setupIRR(data) {
             // remove any stray chunks of 0 length (thanks floating point errors)
             chunks = chunks.filter(chunk => Array.isArray(chunk.geometry.coordinates[0]));
 
-            let segOutput =
-                {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
+            let segOutput = {};
+            if (PROB_NO_PROB) {
+                segOutput = {"Problem": {}};
+            } else {
+                segOutput = {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
+            }
+
             for (let key in segOutput) {
                 if (segOutput.hasOwnProperty(key)) {
                     segOutput[key] = [];
@@ -205,11 +223,16 @@ function setupIRR(data) {
                     for (let turkerIndex = 0; turkerIndex < turkers.length; turkerIndex++) {
                         let turkerId = turkers[turkerIndex];
                         let labelCount = currLabels.filter(label => label.properties.turker_id === turkerId).length;
-                        if (BINARY) {
-                            let curr = segOutput[currType][chunkIndex][turkerId];
-                            segOutput[currType][chunkIndex][turkerId] = Math.max(curr, Math.min(labelCount, 1));
+                        if (PROB_NO_PROB) {
+                            let curr = segOutput["Problem"][chunkIndex][turkerId];
+                            segOutput["Problem"][chunkIndex][turkerId] = Math.max(curr, Math.min(labelCount, 1));
                         } else {
-                            segOutput[currType][chunkIndex][turkerId] += labelCount;
+                            if (BINARY) {
+                                let curr = segOutput[currType][chunkIndex][turkerId];
+                                segOutput[currType][chunkIndex][turkerId] = Math.max(curr, Math.min(labelCount, 1));
+                            } else {
+                                segOutput[currType][chunkIndex][turkerId] += labelCount;
+                            }
                         }
                     }
                 }
@@ -222,7 +245,11 @@ function setupIRR(data) {
     let out = {};
     for (let level in output[0]) {
         if (output[0].hasOwnProperty(level)) {
-            out[level] = {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
+            if (PROB_NO_PROB) {
+                out[level] = {"Problem": {}};
+            } else {
+                out[level] = {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
+            }
             for (let label_type in out[level]) {
                 if (out[level].hasOwnProperty(label_type)) {
                     out[level][label_type] = [];
