@@ -1,6 +1,6 @@
-const BINARY = true;
+const BINARY = false;
 const REMOVE_LOW_SEVERITY = false;
-const PROB_NO_PROB = true;
+const PROB_NO_PROB = false;
 
 // Takes a set of points and a set of street geometries. Fits labels to those streets, giving counts of how many labels
 // of each label type are closest to each street. Streets are then also split up into smaller line segments, and the
@@ -121,8 +121,12 @@ function setupIRR(data) {
                     let turkerId = turkers[turkerIndex];
                     let labelCount = currLabels.filter(label => label.properties.turker_id === turkerId).length;
                     if (PROB_NO_PROB) {
-                        let curr = streetOutput["Problem"][streetIndex][turkerId];
-                        streetOutput["Problem"][streetIndex][turkerId] = Math.max(curr, Math.min(labelCount, 1));
+                        if (BINARY) {
+                            let curr = streetOutput["Problem"][streetIndex][turkerId];
+                            streetOutput["Problem"][streetIndex][turkerId] = Math.max(curr, Math.min(labelCount, 1));
+                        } else {
+                            streetOutput["Problem"][streetIndex][turkerId] += labelCount;
+                        }
                     } else {
                         if (BINARY) {
                             let curr = streetOutput[currType][streetIndex][turkerId];
@@ -224,8 +228,12 @@ function setupIRR(data) {
                         let turkerId = turkers[turkerIndex];
                         let labelCount = currLabels.filter(label => label.properties.turker_id === turkerId).length;
                         if (PROB_NO_PROB) {
-                            let curr = segOutput["Problem"][chunkIndex][turkerId];
-                            segOutput["Problem"][chunkIndex][turkerId] = Math.max(curr, Math.min(labelCount, 1));
+                            if (BINARY) {
+                                let curr = segOutput["Problem"][chunkIndex][turkerId];
+                                segOutput["Problem"][chunkIndex][turkerId] = Math.max(curr, Math.min(labelCount, 1));
+                            } else {
+                                segOutput["Problem"][chunkIndex][turkerId] += labelCount;
+                            }
                         } else {
                             if (BINARY) {
                                 let curr = segOutput[currType][chunkIndex][turkerId];
