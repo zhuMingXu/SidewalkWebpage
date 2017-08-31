@@ -1,6 +1,6 @@
 const BINARY = false;
 const REMOVE_LOW_SEVERITY = false;
-const PROB_NO_PROB = false;
+const PROB_NO_PROB = true;
 
 // Takes a set of points and a set of street geometries. Fits labels to those streets, giving counts of how many labels
 // of each label type are closest to each street. Streets are then also split up into smaller line segments, and the
@@ -45,8 +45,7 @@ function setupIRR(data) {
             for (let streetIndex = 0; streetIndex < thisRouteStreets.length; streetIndex++) {
                 if (distAcc < routeDist) {
                     distAcc += turf.lineDistance(thisRouteStreets[streetIndex]);
-                    // if this is the last route in the HIT and the last street in the route, remove the extra bit at
-                    // the end of the street that wouldn't be audited
+                    // If this is the last street in a route, remove extra bit at end of the street that isn't audited
                     if (distAcc > routeDist) {
                         let s = thisRouteStreets[streetIndex];
                         let d = routeDist - (distAcc - turf.lineDistance(thisRouteStreets[streetIndex]));
