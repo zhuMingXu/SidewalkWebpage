@@ -124,7 +124,7 @@ GET     /assets/*file                                        controllers.Assets.
 GET     /webjars/*file                                       controllers.WebJarAssets.at(file)
 
 
-# Set up ground truth resolution page
+# Ground truth related
 GET     /gtresolution                                        @controllers.GroundTruthResolutionController.index
 GET     /gtresolution/labelData/:labelId                     @controllers.GroundTruthResolutionController.getLabelData(labelId: Int)
 POST    /gtresolution/results/:clustSessionId                @controllers.GroundTruthResolutionController.postGroundTruthResults(clustSessionId: Int)

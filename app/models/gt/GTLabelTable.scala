@@ -3,8 +3,9 @@ package models.gt
 /**
   * Created by hmaddali on 7/26/17.
   */
+import models.amt.{AMTConditionTable, AMTVolunteerRouteTable}
 import models.route.{Route, RouteTable}
-import models.label.{LabelTypeTable, LabelType}
+import models.label.{LabelType, LabelTypeTable}
 import models.utils.MyPostgresDriver.simple._
 import play.api.Play.current
 
@@ -42,7 +43,6 @@ class GTLabelTable(tag: Tag) extends Table[GTLabel](tag, Some("sidewalk"), "gt_l
   def temporaryProblem = column[Option[Boolean]]("temporary_problem", O.Nullable)
 
 
-
   def * = (gtLabelId, routeId, gsvPanoramaId, labelTypeId, svImageX, svImageY,
            canvasX, canvasY, heading, pitch, zoom, canvasHeight, canvasWidth, alphaX, alphaY,
            lat, lng, description, severity, temporaryProblem)  <>  ((GTLabel.apply _).tupled, GTLabel.unapply)
@@ -77,7 +77,7 @@ object GTLabelTable{
     } yield _labs).list
   }
 
-  /** Returns set of labels that  */
+  /** Returns set of labels that do not have entries in existing label table */
   def selectAddedLabels: List[GTLabel] = db.withSession { implicit session =>
     (for {
       (_labs, _existingLabs) <- gtLabels.leftJoin(GTExistingLabelTable.gtExistingLabels).on(_.gtLabelId === _.gtLabelId)
@@ -85,6 +85,20 @@ object GTLabelTable{
       // http://slick.lightbend.com/doc/2.1.0/upgrade.html#isnull-and-isnotnull
       if _existingLabs.gtExistingLabelId.?.isEmpty
     } yield _labs).list
+  }
+
+  /**
+    * Returns the list of GT labels associated with the specified condition.
+    *
+    * @param conditionId
+    * @return
+    */
+  def selectGTLabelsByCondition(conditionId: Int): List[GTLabel] = db.withSession { implicit session =>
+    (for {
+      _condition <- AMTConditionTable.amtConditions if _condition.amtConditionId === conditionId
+      _volunteerRoutes <- AMTVolunteerRouteTable.amtVolunteerRoutes if _volunteerRoutes.volunteerId === _condition.volunteerId
+      _labels <- gtLabels if _labels.routeId === _volunteerRoutes.routeId
+    } yield _labels).list
   }
 
   def save(gtLabel: GTLabel): Int = db.withTransaction { implicit session =>
