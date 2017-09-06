@@ -2,6 +2,10 @@ package models.amt
 
 import java.sql.Timestamp
 
+import models.audit.AuditTaskTable
+import models.clustering_session.ClusteringSessionTable.db
+import models.clustering_session.LabelToCluster
+import models.label.{LabelTable, ProblemTemporarinessTable}
 import models.route.{Route, RouteTable}
 import models.turker.{Turker, TurkerTable}
 import models.utils.MyPostgresDriver.simple._
@@ -73,6 +77,51 @@ object AMTAssignmentTable {
 
   def getHITRouteIds(hitId: String): List[Int] = db.withTransaction { implicit session =>
     amtAssignments.filter(_.hitId === hitId).map(_.routeId.getOrElse(-1)).run.distinct.toList
+  }
+
+  /**
+    * Returns labels that were placed by turkers in the specified condition
+    *
+    * @param conditionId
+    * @return
+    */
+  def getTurkerLabels(conditionId: Int): List[LabelToCluster] = db.withSession { implicit session =>
+    // figure out number of routes in the condition
+    val nRoutes: Int = (for {
+      _condition <- AMTConditionTable.amtConditions if _condition.amtConditionId === conditionId
+      _routes <- AMTVolunteerRouteTable.amtVolunteerRoutes if _routes.volunteerId === _condition.volunteerId
+    } yield _routes).list.length
+
+    // find all (non-researcher) turkers who have completed all of the routes
+    // TODO create list of researcher turker ids to exclude
+    val turkersToExclude: List[String] = List("a", "Abc")
+    val completedAsmts = AMTAssignmentTable.amtAssignments.filter(asmt => asmt.completed && asmt.conditionId === conditionId)
+    val routeCounts = completedAsmts.groupBy(_.turkerId).map { case (id, group) => (id, group.length) }
+    val turkers: List[String] = routeCounts.filter(_._2 === nRoutes).filterNot(_._1 inSet turkersToExclude).map(_._1).list
+
+    val asmts = completedAsmts.filter(_.turkerId inSet turkers)
+    val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
+
+    // does a bunch of inner joins
+    val labels = for {
+      _asmts <- asmts
+      _tasks <- AuditTaskTable.auditTasks if _asmts.amtAssignmentId === _tasks.amtAssignmentId
+      _labs <- nonOnboardingLabs if _tasks.auditTaskId === _labs.auditTaskId
+      _latlngs <- LabelTable.labelPoints if _labs.labelId === _latlngs.labelId
+      _types <- LabelTable.labelTypes if _labs.labelTypeId === _types.labelTypeId
+    } yield (_asmts.turkerId, _labs.labelId, _types.labelType, _latlngs.lat, _latlngs.lng)
+
+    // left joins to get severity for any labels that have them
+    val labelsWithSeverity = for {
+      (_labs, _severity) <- labels.leftJoin(LabelTable.severities).on(_._2 === _.labelId)
+    } yield (_labs._1, _labs._2, _labs._3, _labs._4, _labs._5,  _severity.severity.?)
+
+    // left joins to get temporariness for any labels that have them (those that don't are marked as temporary=false)
+    val labelsWithTemporariness = for {
+      (_labs, _temporariness) <- labelsWithSeverity.leftJoin(ProblemTemporarinessTable.problemTemporarinesses).on(_._2 === _.labelId)
+    } yield (_labs._2, _labs._3, _labs._4, _labs._5, _labs._6, _temporariness.temporaryProblem.?, _labs._1)
+
+    labelsWithTemporariness.list.map(x => LabelToCluster.tupled((x._1, x._2, x._3, x._4, x._5, x._6.getOrElse(false), x._7)))
   }
 
   /**
