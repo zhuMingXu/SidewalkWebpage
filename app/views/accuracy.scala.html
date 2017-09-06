@@ -1,0 +1,15 @@
+@import models.user.User
+
+@(title: String, user: Option[User] = None)
+@main(title) {
+    @navbar(user)
+    <div id="content">
+        <div class="container">
+            <h1>Accuracy calculation for turkers and volunteers</h1>
+            <button id="btnAccuracy">Run accuracy calculations</button>
+            <p id="accuracy-result"></p>
+        </div>
+    </div>
+
+    <script type="text/javascript" src='@routes.Assets.at("javascripts/lib/turf.min.js")'></script>
+}

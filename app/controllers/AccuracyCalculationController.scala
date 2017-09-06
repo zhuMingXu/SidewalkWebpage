@@ -18,6 +18,9 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
 
 
   // Pages
+  def index = UserAwareAction.async { implicit request =>
+    Future.successful(Ok(views.html.accuracy("Project Sidewalk", request.identity)))
+  }
 
   // Gets
   def getTurkerLabelsByCondition(conditionId: Int) = UserAwareAction.async { implicit request =>
