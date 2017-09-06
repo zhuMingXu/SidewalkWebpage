@@ -22,6 +22,7 @@ GET     /irr                                                 @controllers.IRRCon
 # Auditing tasks
 GET     /audit                                               @controllers.AuditController.audit
 GET     /auditCondition                                      @controllers.AuditController.auditCondition
+GET     /turkerAuditCondition                                @controllers.AuditController.turkerAuditCondition
 GET     /audit/region/:id                                    @controllers.AuditController.auditRegion(id: Int)
 GET     /audit/street/:id                                    @controllers.AuditController.auditStreet(id: Int)
 POST    /audit/comment                                       @controllers.AuditController.postComment
