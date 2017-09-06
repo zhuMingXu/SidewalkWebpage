@@ -62,6 +62,14 @@ object AMTConditionTable {
     selectConditionIdQuery(maxNumConditionAssignments).list.headOption
   }
 
+  def getAllConditionIds: List[Int] = db.withTransaction { implicit session =>
+    amtConditions.map(_.amtConditionId).list
+  }
+
+  def getRouteIdsForAllConditions: List[Int] = db.withTransaction { implicit session =>
+    amtConditions.innerJoin(AMTVolunteerRouteTable.amtVolunteerRoutes).on(_.volunteerId === _.volunteerId).map(_._2.routeId).list
+  }
+
   def save(cond: AMTCondition): Int = db.withTransaction { implicit session =>
     val condId: Int =
       (amtConditions returning amtConditions.map(_.amtConditionId)) += cond
