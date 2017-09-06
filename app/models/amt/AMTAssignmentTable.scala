@@ -80,12 +80,15 @@ object AMTAssignmentTable {
   }
 
   /**
-    * Returns labels that were placed by turkers in the specified condition
+    * Returns labels that were placed by turkers in the specified condition.
+    *
+    * This only labels from turkers who have completed all of the routes in that condition. It also excludes turkerIds
+    * associated with researchers.
     *
     * @param conditionId
     * @return
     */
-  def getTurkerLabels(conditionId: Int): List[LabelToCluster] = db.withSession { implicit session =>
+  def getTurkerLabelsByCondition(conditionId: Int): List[LabelToCluster] = db.withSession { implicit session =>
     // figure out number of routes in the condition
     val nRoutes: Int = (for {
       _condition <- AMTConditionTable.amtConditions if _condition.amtConditionId === conditionId
