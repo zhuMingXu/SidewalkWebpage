@@ -96,8 +96,8 @@ object GTLabelTable{
   def selectGTLabelsByCondition(conditionId: Int): List[GTLabel] = db.withSession { implicit session =>
     (for {
       _condition <- AMTConditionTable.amtConditions if _condition.amtConditionId === conditionId
-      _volunteerRoutes <- AMTVolunteerRouteTable.amtVolunteerRoutes if _volunteerRoutes.volunteerId === _condition.volunteerId
-      _labels <- gtLabels if _labels.routeId === _volunteerRoutes.routeId
+      _routes <- AMTVolunteerRouteTable.amtVolunteerRoutes if _routes.volunteerId === _condition.volunteerId
+      _labels <- gtLabels if _labels.routeId === _routes.routeId
     } yield _labels).list
   }
 
