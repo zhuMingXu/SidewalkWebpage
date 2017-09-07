@@ -8,6 +8,8 @@ import models.route.{Route, RouteTable}
 import models.label.{LabelType, LabelTypeTable}
 import models.utils.MyPostgresDriver.simple._
 import play.api.Play.current
+import play.api.libs.json.{JsObject, Json}
+import play.extras.geojson
 
 import scala.slick.lifted.ForeignKeyQuery
 
@@ -16,7 +18,26 @@ case class GTLabel(gtLabelId: Int, routeId: Int, gsvPanoramaId: String, labelTyp
                    canvasWidth: Int, alphaX: Float, alphaY: Float, lat: Option[Float], lng: Option[Float],
                    description: Option[String],
                    severity: Option[Int],
-                   temporaryProblem: Option[Boolean])
+                   temporaryProblem: Option[Boolean]) {
+  /**
+    * This method converts the data into the GeoJSON format
+    *
+    * @return
+    */
+  def toGeoJSON: JsObject = {
+    val latlngs = geojson.Point(geojson.LatLng(lat.get.toDouble, lng.get.toDouble))
+    val properties = Json.obj(
+      "gt_label_id" -> gtLabelId,
+      "route_id" -> routeId,
+      "label_type" -> LabelTypeTable.labelIdToType(labelTypeId),
+      "description" -> description,
+      "severity" -> severity,
+      "temporary" -> temporaryProblem
+    )
+    Json.obj("type" -> "Feature", "geometry" -> latlngs, "properties" -> properties)
+  }
+}
+
 /**
   *
   */

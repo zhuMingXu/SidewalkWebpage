@@ -7,6 +7,7 @@ import com.mohiva.play.silhouette.impl.authenticators.SessionAuthenticator
 import controllers.headers.ProvidesHeader
 import models.amt.{AMTAssignmentTable, AMTConditionTable}
 import models.clustering_session.ClusteringSessionTable
+import models.gt.GTLabelTable
 import models.user.User
 import play.api.libs.json.{JsObject, Json}
 
@@ -30,7 +31,9 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     *
     * @return
     */
-  def getTurkerLabelsByCondition = UserAwareAction.async { implicit request =>
+  def getAccuracyData = UserAwareAction.async { implicit request =>
+
+    val gtLabels: List[JsObject] = GTLabelTable.all.map(_.toGeoJSON).toList
     var streets = List[JsObject]()
     var labels = List[JsObject]()
 
@@ -44,7 +47,8 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
       labels = List.concat(labels, AMTAssignmentTable.getTurkerLabelsByCondition(conditionId.toInt).map(_.toJSON).toList)
     }
     var finalJson = Json.obj(
-      "labels" -> Json.obj("type" -> "FeatureCollection", "features" -> labels),
+      "gt_labels" -> Json.obj("type" -> "FeatureCollection", "features" -> gtLabels),
+      "turker_labels" -> Json.obj("type" -> "FeatureCollection", "features" -> labels),
       "streets" -> Json.obj("type" -> "FeatureCollection", "features" -> streets)
     )
 

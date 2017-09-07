@@ -144,4 +144,4 @@ GET     /getIRRData/:hitId/:routeId                          @controllers.IRRCon
 POST    /getIRRDataForHits                                   @controllers.IRRController.getDataForIRRForHits
 
 # Accuracy calculation related
-GET    /turkerLabels                                         @controllers.AccuracyCalculationController.getTurkerLabelsByCondition
+GET    /accuracyData                                         @controllers.AccuracyCalculationController.getAccuracyData
