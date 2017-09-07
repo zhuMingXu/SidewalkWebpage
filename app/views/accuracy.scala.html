@@ -11,5 +11,26 @@
         </div>
     </div>
 
+    <script type="text/javascript" src='@routes.Assets.at("javascripts/Accuracy.js")'></script>
     <script type="text/javascript" src='@routes.Assets.at("javascripts/lib/turf.min.js")'></script>
+
+    <script>
+            $(document).ready(function () {
+
+                let button= document.getElementById('btnAccuracy');
+                button.onclick = function() {
+                    $.ajax({
+                        type: "get",
+                        url: "/accuracyData",
+                        contentType: 'application/json; charset=utf-8',
+                        success: function (data) {
+                            $( "#accuracy-result" ).html( data );
+                            window.IRR = Accuracy(data, turf);
+                        },
+                        dataType: "json"
+                    });
+                };
+
+            });
+    </script>
 }
