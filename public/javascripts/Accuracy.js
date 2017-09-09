@@ -195,7 +195,7 @@ function setupAccuracy(data) {
 
 
     console.log(conditions.length);
-    for(let conditionIndex = 17; conditionIndex < 18; conditionIndex++) {
+    for(let conditionIndex = 0; conditionIndex < 2; conditionIndex++) {
     // for(let conditionIndex = 0; conditionIndex < conditions.length; conditionIndex++) {
         let currCondition = conditions[conditionIndex];
         let routes = [...new Set(gtLabelData.features.filter(label => label.properties.condition_id === currCondition).map(label => label.properties.route_id))];
@@ -240,7 +240,7 @@ function setupAccuracy(data) {
             for (let labelType in out[level]) {
                 if (out[level].hasOwnProperty(labelType)) {
                     out[level][labelType] = [];
-                    for (let j = 0; j < output.length; j++) {
+                    for (let j = 0; j < 2; j++) {
                         out[level][labelType] = out[level][labelType].concat(output[j][level][labelType]);
                     }
                 }
@@ -248,6 +248,46 @@ function setupAccuracy(data) {
         }
     }
     return out;
+}
+
+function calculateAccuracy(counts) {
+    console.log(counts);
+    let accuracies = [];
+    for (let granularity in counts) {
+        if (counts.hasOwnProperty(granularity)) {
+            console.log(granularity);
+            for (let labelType in counts[granularity]) {
+                if (counts[granularity].hasOwnProperty(labelType)) {
+                    console.log(labelType);
+                    let setOfCounts = counts[granularity][labelType];
+                    let truePos = 0;
+                    let trueNeg = 0;
+                    let falsePos = 0;
+                    let falseNeg = 0;
+                    for (let segIndex = 0; segIndex < setOfCounts.length; segIndex++) {
+                        truePos += Math.min(setOfCounts[segIndex].gt, setOfCounts[segIndex].turker);
+                        falsePos += Math.max(0, setOfCounts[segIndex].turker - setOfCounts[segIndex].gt);
+                        falseNeg += Math.max(0, setOfCounts[segIndex].gt - setOfCounts[segIndex].turker);
+                        if (Math.max(setOfCounts[segIndex].gt, setOfCounts[segIndex].turker) === 0) {
+                            trueNeg += 1;
+                        }
+                    }
+                    console.log(truePos);
+                    console.log(trueNeg);
+                    console.log(falsePos);
+                    console.log(falseNeg);
+                    let precision = truePos / (truePos + falsePos); // precision
+                    let recall = truePos / (truePos + falseNeg); // recall (sensitivity, true pos rate)
+                    let specificity = trueNeg / (trueNeg + falsePos); // true neg rate (specificity)
+                    let f = 2 * precision * recall / (precision + recall);
+                    console.log(precision);
+                    console.log(recall);
+                    console.log(specificity);
+                    console.log(f);
+                }
+            }
+        }
+    }
 }
 
 function convertToCSV(objArray) {
@@ -318,7 +358,7 @@ function outputData(outputJson) {
 function Accuracy(data, turf) {
     console.log("Data received: ", data);
     let output = setupAccuracy(data);
-    console.log(output);
     // console.log(output);
+    calculateAccuracy(output);
     // outputData(output);
 }
