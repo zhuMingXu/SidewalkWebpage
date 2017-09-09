@@ -70,6 +70,14 @@ object AMTConditionTable {
     amtConditions.innerJoin(AMTVolunteerRouteTable.amtVolunteerRoutes).on(_.volunteerId === _.volunteerId).map(_._2.routeId).list
   }
 
+  def getConditionIdForRoute(routeId: Int): Int = db.withTransaction { implicit session =>
+    amtConditions
+      .innerJoin(AMTVolunteerRouteTable.amtVolunteerRoutes)
+      .on(_.volunteerId === _.volunteerId)
+      .filter(_._2.routeId === routeId)
+      .map(_._1.amtConditionId).list.head
+  }
+
   def save(cond: AMTCondition): Int = db.withTransaction { implicit session =>
     val condId: Int =
       (amtConditions returning amtConditions.map(_.amtConditionId)) += cond

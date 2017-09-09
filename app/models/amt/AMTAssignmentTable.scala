@@ -117,14 +117,14 @@ object AMTAssignmentTable {
       _routes <- AMTVolunteerRouteTable.amtVolunteerRoutes if _routes.volunteerId === _condition.volunteerId
     } yield _routes).length.run
 
-    // find all (non-researcher) turkers who have completed all of the routes
+    // find all (non-researcher) turkers who have completed all of the routes, take just the first one
     // TODO create list of researcher turker ids to exclude
     val turkersToExclude: List[String] = List("a", "Abc")
     val completedAsmts = AMTAssignmentTable.amtAssignments.filter(asmt => asmt.completed && asmt.conditionId === conditionId)
     val routeCounts = completedAsmts.groupBy(_.turkerId).map { case (id, group) => (id, group.length) }
-    val turkers: List[String] = routeCounts.filter(_._2 === nRoutes).filterNot(_._1 inSet turkersToExclude).map(_._1).list
+    val turkers: Option[String] = routeCounts.filter(_._2 === nRoutes).filterNot(_._1 inSet turkersToExclude).map(_._1).list.headOption
 
-    val asmts = completedAsmts.filter(_.turkerId inSet turkers)
+    val asmts = completedAsmts.filter(_.turkerId === turkers)
     val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
 
     // does a bunch of inner joins

@@ -29,6 +29,7 @@ case class GTLabel(gtLabelId: Int, routeId: Int, gsvPanoramaId: String, labelTyp
     val properties = Json.obj(
       "gt_label_id" -> gtLabelId,
       "route_id" -> routeId,
+      "condition_id" -> AMTConditionTable.getConditionIdForRoute(routeId),
       "label_type" -> LabelTypeTable.labelIdToType(labelTypeId),
       "description" -> description,
       "severity" -> severity,

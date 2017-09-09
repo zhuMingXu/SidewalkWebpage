@@ -144,4 +144,4 @@ GET     /getIRRData/:hitId/:routeId                          @controllers.IRRCon
 POST    /getIRRDataForHits                                   @controllers.IRRController.getDataForIRRForHits
 
 # Accuracy calculation related
-GET    /accuracyData                                         @controllers.AccuracyCalculationController.getAccuracyData
+GET    /accuracyData/:clusterNum                             @controllers.AccuracyCalculationController.getAccuracyData(clusterNum)

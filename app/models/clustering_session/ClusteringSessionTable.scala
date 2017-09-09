@@ -4,13 +4,12 @@ package models.clustering_session
   * Created by hmaddali on 7/26/17.
   */
 import com.vividsolutions.jts.geom.{Coordinate, LineString}
-import models.amt.AMTAssignmentTable
+import models.amt.{AMTAssignmentTable, AMTConditionTable}
 import models.audit.AuditTaskTable
 import models.label.{LabelTable, ProblemDescriptionTable, ProblemTemporarinessTable}
 import models.route.{Route, RouteTable}
 import models.utils.MyPostgresDriver.simple._
 import play.api.Play.current
-
 import play.api.libs.json.{JsObject, Json}
 import play.extras.geojson
 
@@ -40,7 +39,11 @@ case class LineStringCaseClass(streetEdgeId: Int, routeId: Int, geom: LineString
     val latlngs: List[geojson.LatLng] = coordinates.map(coord => geojson.LatLng(coord.y, coord.x)).toList
     val linestring: geojson.LineString[geojson.LatLng] = geojson.LineString(latlngs)
 
-    val properties = Json.obj("street_edge_id" -> streetEdgeId, "route_id" -> routeId)
+    val properties = Json.obj(
+      "street_edge_id" -> streetEdgeId,
+      "route_id" -> routeId,
+      "condition_id" -> AMTConditionTable.getConditionIdForRoute(routeId)
+    )
     Json.obj("type" -> "Feature", "geometry" -> linestring, "properties" -> properties)
   }
 }

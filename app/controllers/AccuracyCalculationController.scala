@@ -31,7 +31,8 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     *
     * @return
     */
-  def getAccuracyData = UserAwareAction.async { implicit request =>
+  def getAccuracyData(clusterNum: String) = UserAwareAction.async { implicit request =>
+    val clustNum: Int = clusterNum.toInt
 
     val gtLabels: List[JsObject] = GTLabelTable.all.map(_.toGeoJSON).toList
     var streets = List[JsObject]()
@@ -44,7 +45,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
 
     val conditionIds: List[Int] = AMTConditionTable.getAllConditionIds
     for (conditionId <- conditionIds) {
-      labels = List.concat(labels, AMTAssignmentTable.getTurkerLabelsByCondition(conditionId.toInt).map(_.toJSON).toList)
+      labels = List.concat(labels, AMTAssignmentTable.getTurkerLabelsByCondition(conditionId).map(_.toJSON).toList)
     }
     var finalJson = Json.obj(
       "gt_labels" -> Json.obj("type" -> "FeatureCollection", "features" -> gtLabels),

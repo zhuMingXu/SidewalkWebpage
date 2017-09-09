@@ -6,6 +6,7 @@
     <div id="content">
         <div class="container">
             <h1>Accuracy calculation for turkers and volunteers</h1>
+            <input type="text" id="clustering-num" value="1" />&nbsp;
             <button id="btnAccuracy">Run accuracy calculations</button>
             <p id="accuracy-result"></p>
         </div>
@@ -21,7 +22,7 @@
                 button.onclick = function() {
                     $.ajax({
                         type: "get",
-                        url: "/accuracyData",
+                        url: "/accuracyData/" + document.getElementById('clustering-num').value,
                         contentType: 'application/json; charset=utf-8',
                         success: function (data) {
                             $( "#accuracy-result" ).html( data );
