@@ -159,7 +159,9 @@ function setupAccuracy(data) {
     let gtLabelData = data.gt_labels;
     let turkerLabelData = data.turker_labels;
     // gets unique set of conditions that turkers have completed
-    let conditions = [...new Set(turkerLabelData.features.map(label => label.properties.condition_id))];
+    // let conditions = [...new Set(turkerLabelData.features.map(label => label.properties.condition_id))];
+    // let conditions = [72, 74, 85, 98, 100, 120, 122, 128, 131, 134, 136, 138];
+    let conditions = [72, 74, 98, 100, 122, 128];
 
     // remove "Other" label type for now since there are none of them in GT
     // TODO decide if we want to do some analysis of the "Other" label type
@@ -194,8 +196,7 @@ function setupAccuracy(data) {
     console.log(turkerLabelCounts);
 
 
-    console.log(conditions.length);
-    for(let conditionIndex = 0; conditionIndex < 2; conditionIndex++) {
+    for(let conditionIndex = 0; conditionIndex < conditions.length; conditionIndex++) {
     // for(let conditionIndex = 0; conditionIndex < conditions.length; conditionIndex++) {
         let currCondition = conditions[conditionIndex];
         let routes = [...new Set(gtLabelData.features.filter(label => label.properties.condition_id === currCondition).map(label => label.properties.route_id))];
@@ -219,7 +220,7 @@ function setupAccuracy(data) {
         output[conditionIndex].street = getLabelCountsBySegment(streets, gtLabs, turkerLabs);
 
 
-        let segDists = [0.005, 0.01]; // in meters
+        let segDists = [0.005]; // in kilometers
         for(let segDistIndex = 0; segDistIndex < segDists.length; segDistIndex++) {
             let segDist = segDists[segDistIndex];
             let chunks = splitIntoChunks(streets, segDist);
@@ -229,65 +230,120 @@ function setupAccuracy(data) {
     console.log(output);
 
     // combine the results from all the conditions into a single, condensed object to be output as CSV
-    let out = {};
-    for (let level in output[0]) {
-        if (output[0].hasOwnProperty(level)) {
-            if (PROB_NO_PROB) {
-                out[level] = {"Problem": {}};
-            } else {
-                out[level] = {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
-            }
-            for (let labelType in out[level]) {
-                if (out[level].hasOwnProperty(labelType)) {
-                    out[level][labelType] = [];
-                    for (let j = 0; j < 2; j++) {
-                        out[level][labelType] = out[level][labelType].concat(output[j][level][labelType]);
-                    }
-                }
-            }
-        }
-    }
-    return out;
+    // let out = {};
+    // for (let level in output[0]) {
+    //     if (output[0].hasOwnProperty(level)) {
+    //         if (PROB_NO_PROB) {
+    //             out[level] = {"Problem": {}};
+    //         } else {
+    //             out[level] = {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
+    //         }
+    //         for (let labelType in out[level]) {
+    //             if (out[level].hasOwnProperty(labelType)) {
+    //                 out[level][labelType] = [];
+    //                 for (let j = 0; j < 2; j++) {
+    //                     out[level][labelType] = out[level][labelType].concat(output[j][level][labelType]);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    return output;
 }
 
 function calculateAccuracy(counts) {
     console.log(counts);
-    let accuracies = [];
-    for (let granularity in counts) {
-        if (counts.hasOwnProperty(granularity)) {
-            console.log(granularity);
-            for (let labelType in counts[granularity]) {
-                if (counts[granularity].hasOwnProperty(labelType)) {
-                    console.log(labelType);
-                    let setOfCounts = counts[granularity][labelType];
-                    let truePos = 0;
-                    let trueNeg = 0;
-                    let falsePos = 0;
-                    let falseNeg = 0;
-                    for (let segIndex = 0; segIndex < setOfCounts.length; segIndex++) {
-                        truePos += Math.min(setOfCounts[segIndex].gt, setOfCounts[segIndex].turker);
-                        falsePos += Math.max(0, setOfCounts[segIndex].turker - setOfCounts[segIndex].gt);
-                        falseNeg += Math.max(0, setOfCounts[segIndex].gt - setOfCounts[segIndex].turker);
-                        if (Math.max(setOfCounts[segIndex].gt, setOfCounts[segIndex].turker) === 0) {
-                            trueNeg += 1;
-                        }
-                    }
-                    console.log(truePos);
-                    console.log(trueNeg);
-                    console.log(falsePos);
-                    console.log(falseNeg);
-                    let precision = truePos / (truePos + falsePos); // precision
-                    let recall = truePos / (truePos + falseNeg); // recall (sensitivity, true pos rate)
-                    let specificity = trueNeg / (trueNeg + falsePos); // true neg rate (specificity)
-                    let f = 2 * precision * recall / (precision + recall);
-                    console.log(precision);
-                    console.log(recall);
-                    console.log(specificity);
-                    console.log(f);
+
+    // set up average accuracy data structure
+    let aveAccuracies = {};
+    let definedAccuracyCounts = {};
+    for (let granularity in counts[0]) {
+        if (counts[0].hasOwnProperty(granularity)) {
+            aveAccuracies[granularity] = {};
+            definedAccuracyCounts[granularity] = {};
+            for (let labelType in counts[0][granularity]) {
+                if (counts[0][granularity].hasOwnProperty(labelType)) {
+                    aveAccuracies[granularity][labelType] = {precision: 0, recall: 0, specificity: 0, f_measure: 0};
+                    definedAccuracyCounts[granularity][labelType] = {precision: 0, recall: 0, specificity: 0, f_measure: 0};
                 }
             }
         }
     }
+
+    let trueFalsePosNegCounts = [];
+    let accuracies = [];
+    for (let conditionIndex = 0; conditionIndex < counts.length; conditionIndex++) {
+        accuracies[conditionIndex] = {};
+        trueFalsePosNegCounts[conditionIndex] = {};
+        for (let granularity in counts[conditionIndex]) {
+            if (counts[conditionIndex].hasOwnProperty(granularity)) {
+                accuracies[conditionIndex][granularity] = {};
+                trueFalsePosNegCounts[conditionIndex][granularity] = {};
+                for (let labelType in counts[conditionIndex][granularity]) {
+                    if (counts[conditionIndex][granularity].hasOwnProperty(labelType)) {
+                        let setOfCounts = counts[conditionIndex][granularity][labelType];
+
+                        // count up number of true/false positives/negatives
+                        let truePos = 0;
+                        let trueNeg = 0;
+                        let falsePos = 0;
+                        let falseNeg = 0;
+                        for (let segIndex = 0; segIndex < setOfCounts.length; segIndex++) {
+                            truePos += Math.min(setOfCounts[segIndex].gt, setOfCounts[segIndex].turker);
+                            falsePos += Math.max(0, setOfCounts[segIndex].turker - setOfCounts[segIndex].gt);
+                            falseNeg += Math.max(0, setOfCounts[segIndex].gt - setOfCounts[segIndex].turker);
+                            if (Math.max(setOfCounts[segIndex].gt, setOfCounts[segIndex].turker) === 0) {
+                                trueNeg += 1;
+                            }
+                        }
+                        trueFalsePosNegCounts[conditionIndex][granularity][labelType] = {
+                            truePos: truePos, trueNeg: trueNeg, falsePos: falsePos, falseNeg: falseNeg
+                        };
+
+                        // calculate accuracy measures for this label type in this condition
+                        let precision = truePos / (truePos + falsePos); // precision
+                        let recall = truePos / (truePos + falseNeg); // recall (sensitivity, true pos rate)
+                        let specificity = trueNeg / (trueNeg + falsePos); // true neg rate (specificity)
+                        let fMeasure = 2 * precision * recall / (precision + recall);
+                        accuracies[conditionIndex][granularity][labelType] = {
+                            precision: precision, recall: recall, specificity: specificity, f_measure: fMeasure
+                        };
+
+                        // add accuracy measures to sums of them across conditions so an average can be taken
+                        // TODO move this whole thing out into its own function called getAccuracySummaryStats
+                        aveAccuracies[granularity][labelType].precision += precision ? precision : 0;
+                        aveAccuracies[granularity][labelType].recall += recall ? recall : 0;
+                        aveAccuracies[granularity][labelType].specificity += specificity ? specificity : 0;
+                        aveAccuracies[granularity][labelType].f_measure += fMeasure ? fMeasure : 0;
+                        definedAccuracyCounts[granularity][labelType].precision += precision ? 1 : 0;
+                        definedAccuracyCounts[granularity][labelType].recall += recall ? 1 : 0;
+                        definedAccuracyCounts[granularity][labelType].specificity += specificity ? 1 : 0;
+                        definedAccuracyCounts[granularity][labelType].f_measure += fMeasure ? 1 : 0;
+                    }
+                }
+            }
+        }
+    }
+    console.log(trueFalsePosNegCounts);
+    console.log(accuracies);
+
+    // calculate final average
+    for (let granularity in aveAccuracies) {
+        if (aveAccuracies.hasOwnProperty(granularity)) {
+            for (let labelType in aveAccuracies[granularity]) {
+                if (aveAccuracies[granularity].hasOwnProperty(labelType)) {
+                    aveAccuracies[granularity][labelType].precision /= definedAccuracyCounts[granularity][labelType].precision;
+                    aveAccuracies[granularity][labelType].recall /= definedAccuracyCounts[granularity][labelType].recall;
+                    aveAccuracies[granularity][labelType].specificity /= definedAccuracyCounts[granularity][labelType].specificity;
+                    aveAccuracies[granularity][labelType].f_measure /= definedAccuracyCounts[granularity][labelType].f_measure;
+                }
+            }
+        }
+    }
+    console.log(definedAccuracyCounts);
+    console.log(aveAccuracies);
+
+    return accuracies;
 }
 
 function convertToCSV(objArray) {

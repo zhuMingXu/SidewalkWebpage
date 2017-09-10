@@ -119,7 +119,7 @@ object AMTAssignmentTable {
 
     // find all (non-researcher) turkers who have completed all of the routes, take just the first one
     // TODO create list of researcher turker ids to exclude
-    val turkersToExclude: List[String] = List("a", "Abc")
+    val turkersToExclude: List[String] = List("APQS1PRMDXAFH","A1SZNIADA6B4OF","A2G18P2LDT3ZUE","AKRNZU81S71QI","A1Y6PQWK6BYEDD","TESTWORKERID")
     val completedAsmts = AMTAssignmentTable.amtAssignments.filter(asmt => asmt.completed && asmt.conditionId === conditionId)
     val routeCounts = completedAsmts.groupBy(_.turkerId).map { case (id, group) => (id, group.length) }
     val turkers: Option[String] = routeCounts.filter(_._2 === nRoutes).filterNot(_._1 inSet turkersToExclude).map(_._1).list.headOption
