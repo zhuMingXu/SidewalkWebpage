@@ -6,8 +6,14 @@
     <div id="content">
         <div class="container">
             <h1>Accuracy calculation for turkers and volunteers</h1>
+            <button id="btnVolunteerAccuracy">Calculate Volunteer Accuracy</button>
+        </div>
+        <br>
+        <br>
+        <div class="container">
+            <button id="btnTurkerAccuracy">Calculate Turker Accuracy</button><br>
+            Number of turkers to cluster:
             <input type="text" id="clustering-num" value="1" />&nbsp;
-            <button id="btnAccuracy">Run accuracy calculations</button>
             <p id="accuracy-result"></p>
         </div>
     </div>
@@ -18,15 +24,29 @@
     <script>
             $(document).ready(function () {
 
-                let button= document.getElementById('btnAccuracy');
-                button.onclick = function() {
+                let turkerButton = document.getElementById('btnTurkerAccuracy');
+                turkerButton.onclick = function() {
                     $.ajax({
                         type: "get",
-                        url: "/accuracyData/" + document.getElementById('clustering-num').value,
+                        url: "/accuracyData/turker/" + document.getElementById('clustering-num').value,
                         contentType: 'application/json; charset=utf-8',
                         success: function (data) {
                             $( "#accuracy-result" ).html( data );
-                            window.IRR = Accuracy(data, turf);
+                            window.IRR = Accuracy(data, document.getElementById('clustering-num').value, turf);
+                        },
+                        dataType: "json"
+                    });
+                };
+
+                let volunteerButton = document.getElementById('btnVolunteerAccuracy');
+                volunteerButton.onclick = function() {
+                    $.ajax({
+                        type: "get",
+                        url: "/accuracyData/volunteer/1",
+                        contentType: 'application/json; charset=utf-8',
+                        success: function (data) {
+                            $( "#accuracy-result" ).html( data );
+                            window.IRR = Accuracy(data, 1, turf);
                         },
                         dataType: "json"
                     });

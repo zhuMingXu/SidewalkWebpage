@@ -1,6 +1,6 @@
-const BINARY = false;
+const BINARY = true;
 const REMOVE_LOW_SEVERITY = false;
-const PROB_NO_PROB = true;
+const PROB_NO_PROB = false;
 
 
 // Split streets into a bunch of little segments based on segDist and length of each contiguous segment. For
@@ -31,7 +31,7 @@ function splitIntoChunks(streets, segDist) {
     return chunks;
 }
 
-function getLabelCountsBySegment(chunks, gtLabs, turkerLabs) {
+function getLabelCountsBySegment(chunks, gtLabs, workerLabs) {
 
     let segOutput = {};
     if (PROB_NO_PROB) {
@@ -44,12 +44,12 @@ function getLabelCountsBySegment(chunks, gtLabs, turkerLabs) {
         if (segOutput.hasOwnProperty(labelType)) {
             segOutput[labelType] = [];
             for (let i = 0; i < chunks.length; i++) {
-                segOutput[labelType][i] = {"gt": 0, "turker": 0};
+                segOutput[labelType][i] = {"gt": 0, "worker": 0};
             }
         }
     }
 
-    let setsOfLabels = {"gt": gtLabs, "turker": turkerLabs};
+    let setsOfLabels = {"gt": gtLabs, "worker": workerLabs};
     for (let labelSource in setsOfLabels) {
         if (setsOfLabels.hasOwnProperty(labelSource)) {
             let labs = setsOfLabels[labelSource];
@@ -82,6 +82,7 @@ function getLabelCountsBySegment(chunks, gtLabs, turkerLabs) {
                         }
                     }
 
+                    // TODO don't include volunteer labels that are way past the end of the final segment
                     // increment this segment's count of labels (of this label type), distributing labels based on turker_id
                     let labelCount = currLabels.length;
                     if (PROB_NO_PROB) {
@@ -153,25 +154,26 @@ function clipStreets(streetsData, routes) {
 // Takes a set of points and a set of street geometries. Fits labels to those streets, giving counts of how many labels
 // of each label type are closest to each street. Streets are then also split up into smaller line segments, and the
 // same counts are then tabulated for each of those segments.
-function setupAccuracy(data) {
+function setupAccuracy(data, clusterNum) {
     // unpack different pieces of data
     let streetsData = data.streets;
     let gtLabelData = data.gt_labels;
-    let turkerLabelData = data.turker_labels;
-    // gets unique set of conditions that turkers have completed
-    // let conditions = [...new Set(turkerLabelData.features.map(label => label.properties.condition_id))];
+    let workerLabelData = data.worker_labels;
+    // gets unique set of conditions that workers have completed
+    // let conditions = [...new Set(workerLabelData.features.map(label => label.properties.condition_id))];
     // let conditions = [72, 74, 85, 98, 100, 120, 122, 128, 131, 134, 136, 138];
     let conditions = [72, 74, 98, 100, 122, 128];
 
     // remove "Other" label type for now since there are none of them in GT
     // TODO decide if we want to do some analysis of the "Other" label type
     let labelsToAnalyze = ["CurbRamp", "NoCurbRamp", "NoSidewalk", "Obstacle", "Occlusion", "SurfaceProblem"];
-    turkerLabelData.features = turkerLabelData.features.filter(label => labelsToAnalyze.indexOf(label.properties.label_type) >= 0);
+    workerLabelData.features = workerLabelData.features.filter(label => labelsToAnalyze.indexOf(label.properties.label_type) >= 0);
 
-    // if we are only looking at 1 turker, they haven't gone through clustering, so just assign incrementing cluster ids
-    // TODO have the only occur when the input to text box is a 1
-    for (let i = 0; i < turkerLabelData.features.length; i++) {
-        turkerLabelData.features[i].properties.cluster_id = i;
+    // if we are only looking at 1 worker, they haven't gone through clustering, so just assign incrementing cluster ids
+    if (clusterNum === 1) {
+        for (let i = 0; i < workerLabelData.features.length; i++) {
+            workerLabelData.features[i].properties.cluster_id = i;
+        }
     }
     // but we always have only one of each gt label, so do the same thing for gt labels for now...
     // TODO do something more elegant, better than just saying every GT label gets its own cluster
@@ -189,11 +191,11 @@ function setupAccuracy(data) {
         gtLabelCounts[gtLabelData.features[i].properties.label_type] += 1;
     }
     console.log(gtLabelCounts);
-    let turkerLabelCounts = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
-    for (let i = 0; i < turkerLabelData.features.length; i++) {
-        turkerLabelCounts[turkerLabelData.features[i].properties.label_type] += 1;
+    let workerLabelCounts = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
+    for (let i = 0; i < workerLabelData.features.length; i++) {
+        workerLabelCounts[workerLabelData.features[i].properties.label_type] += 1;
     }
-    console.log(turkerLabelCounts);
+    console.log(workerLabelCounts);
 
 
     for(let conditionIndex = 0; conditionIndex < conditions.length; conditionIndex++) {
@@ -201,7 +203,7 @@ function setupAccuracy(data) {
         let currCondition = conditions[conditionIndex];
         let routes = [...new Set(gtLabelData.features.filter(label => label.properties.condition_id === currCondition).map(label => label.properties.route_id))];
         let gtLabs = gtLabelData.features.filter(label => label.properties.condition_id === currCondition);
-        let turkerLabs = turkerLabelData.features.filter(label => label.properties.condition_id === currCondition);
+        let workerLabs = workerLabelData.features.filter(label => label.properties.condition_id === currCondition);
 
         // print out label counts by type
         let gtLabelCounts2 = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
@@ -209,22 +211,22 @@ function setupAccuracy(data) {
             gtLabelCounts2[gtLabs[i].properties.label_type] += 1;
         }
         console.log(gtLabelCounts2);
-        let turkerLabelCounts2 = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
-        for (let i = 0; i < turkerLabs.length; i++) {
-            turkerLabelCounts2[turkerLabs[i].properties.label_type] += 1;
+        let workerLabelCounts2 = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
+        for (let i = 0; i < workerLabs.length; i++) {
+            workerLabelCounts2[workerLabs[i].properties.label_type] += 1;
         }
-        console.log(turkerLabelCounts2);
+        console.log(workerLabelCounts2);
 
         let streets = clipStreets(streetsData, routes);
 
-        output[conditionIndex].street = getLabelCountsBySegment(streets, gtLabs, turkerLabs);
+        output[conditionIndex].street = getLabelCountsBySegment(streets, gtLabs, workerLabs);
 
 
-        let segDists = [0.005]; // in kilometers
+        let segDists = [0.005, 0.01]; // in kilometers
         for(let segDistIndex = 0; segDistIndex < segDists.length; segDistIndex++) {
             let segDist = segDists[segDistIndex];
             let chunks = splitIntoChunks(streets, segDist);
-            output[conditionIndex][String(segDist * 1000) + "_meter"] = getLabelCountsBySegment(chunks, gtLabs, turkerLabs);
+            output[conditionIndex][String(segDist * 1000) + "_meter"] = getLabelCountsBySegment(chunks, gtLabs, workerLabs);
         }
     }
     console.log(output);
@@ -289,10 +291,10 @@ function calculateAccuracy(counts) {
                         let falsePos = 0;
                         let falseNeg = 0;
                         for (let segIndex = 0; segIndex < setOfCounts.length; segIndex++) {
-                            truePos += Math.min(setOfCounts[segIndex].gt, setOfCounts[segIndex].turker);
-                            falsePos += Math.max(0, setOfCounts[segIndex].turker - setOfCounts[segIndex].gt);
-                            falseNeg += Math.max(0, setOfCounts[segIndex].gt - setOfCounts[segIndex].turker);
-                            if (Math.max(setOfCounts[segIndex].gt, setOfCounts[segIndex].turker) === 0) {
+                            truePos += Math.min(setOfCounts[segIndex].gt, setOfCounts[segIndex].worker);
+                            falsePos += Math.max(0, setOfCounts[segIndex].worker - setOfCounts[segIndex].gt);
+                            falseNeg += Math.max(0, setOfCounts[segIndex].gt - setOfCounts[segIndex].worker);
+                            if (Math.max(setOfCounts[segIndex].gt, setOfCounts[segIndex].worker) === 0) {
                                 trueNeg += 1;
                             }
                         }
@@ -411,9 +413,9 @@ function outputData(outputJson) {
 
 }
 
-function Accuracy(data, turf) {
+function Accuracy(data, clusterNum, turf) {
     console.log("Data received: ", data);
-    let output = setupAccuracy(data);
+    let output = setupAccuracy(data, clusterNum);
     // console.log(output);
     calculateAccuracy(output);
     // outputData(output);

@@ -3,8 +3,6 @@ package models.amt
 import java.sql.Timestamp
 
 import models.audit.AuditTaskTable
-import models.clustering_session.ClusteringSessionTable.db
-import models.clustering_session.LabelToCluster
 import models.label.{LabelTable, ProblemTemporarinessTable}
 import models.route.{Route, RouteTable}
 import models.turker.{Turker, TurkerTable}
@@ -37,7 +35,8 @@ case class TurkerLabel(conditionId: Int, routeId: Int, turkerId: String, labelId
       "temporary" -> temporary
     )
     Json.obj("type" -> "Feature", "geometry" -> latlngs, "properties" -> properties)
-  }}
+  }
+}
 
 /**
  *
@@ -118,18 +117,16 @@ object AMTAssignmentTable {
     } yield _routes).length.run
 
     // find all (non-researcher) turkers who have completed all of the routes, take just the first one
-    // TODO create list of researcher turker ids to exclude
     val turkersToExclude: List[String] = List("APQS1PRMDXAFH","A1SZNIADA6B4OF","A2G18P2LDT3ZUE","AKRNZU81S71QI","A1Y6PQWK6BYEDD","TESTWORKERID")
     val completedAsmts = AMTAssignmentTable.amtAssignments.filter(asmt => asmt.completed && asmt.conditionId === conditionId)
     val routeCounts = completedAsmts.groupBy(_.turkerId).map { case (id, group) => (id, group.length) }
     val turkers: Option[String] = routeCounts.filter(_._2 === nRoutes).filterNot(_._1 inSet turkersToExclude).map(_._1).list.headOption
 
-    val asmts = completedAsmts.filter(_.turkerId === turkers)
     val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
 
     // does a bunch of inner joins
     val labels = for {
-      _asmts <- asmts
+      _asmts <- completedAsmts.filter(_.turkerId === turkers)
       _tasks <- AuditTaskTable.auditTasks if _asmts.amtAssignmentId === _tasks.amtAssignmentId
       _labs <- nonOnboardingLabs if _tasks.auditTaskId === _labs.auditTaskId
       _latlngs <- LabelTable.labelPoints if _labs.labelId === _latlngs.labelId
