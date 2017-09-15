@@ -137,6 +137,7 @@ GET     /labelsForGtResolution/:sessionId                    @controllers.Cluste
 GET     /clusteringsessions                                  @controllers.ClusteringSessionController.getClusteringSessionsWithoutDeleted
 GET     /clusterRoute/:routeId/:hitId                        @controllers.ClusteringSessionController.runClustering(routeId: Int, hitId: String)
 GET     /labelsToCluster/:routeId/:hitId                     @controllers.ClusteringSessionController.getLabelsToCluster(routeId, hitId)
+GET     /nonGTLabelsToCluster/:routeId/:n                    @controllers.ClusteringSessionController.getNonGTLabelsToCluster(routeId, n)
 POST    /clusteringResults/:routeId/:threshold               @controllers.ClusteringSessionController.postClusteringResults(routeId, threshold)
 
 # IRR Related
@@ -144,4 +145,4 @@ GET     /getIRRData/:hitId/:routeId                          @controllers.IRRCon
 POST    /getIRRDataForHits                                   @controllers.IRRController.getDataForIRRForHits
 
 # Accuracy calculation related
-GET    /accuracyData/:workerType/:clusterNum                 @controllers.AccuracyCalculationController.getAccuracyData(workerType, clusterNum)
+GET     /accuracyData/:workerType/:clusterNum                @controllers.AccuracyCalculationController.getAccuracyData(workerType, clusterNum)

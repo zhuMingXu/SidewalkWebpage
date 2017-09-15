@@ -31,7 +31,7 @@ function splitIntoChunks(streets, segDist) {
     return chunks;
 }
 
-function getLabelCountsBySegment(chunks, gtLabs, workerLabs) {
+function getLabelCountsBySegment(chunks, gtLabs, workerLabs, majorityThresh) {
 
     let segOutput = {};
     if (PROB_NO_PROB) {
@@ -62,7 +62,7 @@ function getLabelCountsBySegment(chunks, gtLabs, workerLabs) {
                 if (REMOVE_LOW_SEVERITY && ["Obstacle", "SurfaceProblem"].indexOf(currLabels[0].properties.label_type) > 0) {
                     currLabels = currLabels.filter(label => label.properties.temporary !== false);
                 }
-                if (currLabels.length > 0) {
+                if (labelSource === "gt" || currLabels.length >= majorityThresh) {
                     let centerPoint = turf.centerOfMass({"features": currLabels, "type": "FeatureCollection"});
                     let repLabel = turf.nearest(centerPoint, {"features": currLabels, "type": "FeatureCollection"});
                     let currType = repLabel.properties.label_type;
@@ -170,7 +170,8 @@ function setupAccuracy(data, clusterNum) {
     workerLabelData.features = workerLabelData.features.filter(label => labelsToAnalyze.indexOf(label.properties.label_type) >= 0);
 
     // if we are only looking at 1 worker, they haven't gone through clustering, so just assign incrementing cluster ids
-    if (clusterNum === 1) {
+    let majorityThresh = Math.ceil(parseInt(clusterNum) / 2.0);
+    if (parseInt(clusterNum) === 1) {
         for (let i = 0; i < workerLabelData.features.length; i++) {
             workerLabelData.features[i].properties.cluster_id = i;
         }
@@ -199,7 +200,6 @@ function setupAccuracy(data, clusterNum) {
 
 
     for(let conditionIndex = 0; conditionIndex < conditions.length; conditionIndex++) {
-    // for(let conditionIndex = 0; conditionIndex < conditions.length; conditionIndex++) {
         let currCondition = conditions[conditionIndex];
         let routes = [...new Set(gtLabelData.features.filter(label => label.properties.condition_id === currCondition).map(label => label.properties.route_id))];
         let gtLabs = gtLabelData.features.filter(label => label.properties.condition_id === currCondition);
@@ -219,14 +219,14 @@ function setupAccuracy(data, clusterNum) {
 
         let streets = clipStreets(streetsData, routes);
 
-        output[conditionIndex].street = getLabelCountsBySegment(streets, gtLabs, workerLabs);
+        output[conditionIndex].street = getLabelCountsBySegment(streets, gtLabs, workerLabs, majorityThresh);
 
 
         let segDists = [0.005, 0.01]; // in kilometers
         for(let segDistIndex = 0; segDistIndex < segDists.length; segDistIndex++) {
             let segDist = segDists[segDistIndex];
             let chunks = splitIntoChunks(streets, segDist);
-            output[conditionIndex][String(segDist * 1000) + "_meter"] = getLabelCountsBySegment(chunks, gtLabs, workerLabs);
+            output[conditionIndex][String(segDist * 1000) + "_meter"] = getLabelCountsBySegment(chunks, gtLabs, workerLabs, majorityThresh);
         }
     }
     console.log(output);

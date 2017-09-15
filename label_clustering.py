@@ -1,4 +1,5 @@
 import requests
+import math
 import numpy as np
 from haversine import haversine # pip install haversine
 import sys
@@ -66,14 +67,16 @@ def cluster(labels, clust_thresh):
 
 if __name__ == '__main__':
 
-    MAJORITY_THRESHOLD = 3
+    MAJORITY_THRESHOLD = 3 # NOTE: This variable is not used right now; keeping it here in case we want to later.
 
     # read in arguments from command line
     parser = argparse.ArgumentParser(description='Takes a set of labels from JSON, and outputs the labels grouped into clusters as JSON')
     parser.add_argument('route_id', type=int,
                         help='Route Id who\'s labels should be clustered.')
-    parser.add_argument('hit_id', type=str,
+    parser.add_argument('--hit_id', type=str,
                         help='HIT Id who\'s labels should be clustered.')
+    parser.add_argument('--n_labelers', type=int, default=5,
+                        help='Number of turkers to cluster.')
     parser.add_argument('--clust_thresh', type=float, default=0.0075,
                         help='Cluster distance threshold (in meters)')
     parser.add_argument('--debug', action='store_true',
@@ -83,10 +86,18 @@ if __name__ == '__main__':
     CLUSTER_THRESHOLD = args.clust_thresh
     ROUTE_ID = args.route_id
     HIT_ID = args.hit_id
+    N_LABELERS = args.n_labelers
 
 
     try:
-        url = 'http://localhost:9000/labelsToCluster/' + str(ROUTE_ID) + '/' + str(HIT_ID)
+        url = None
+        if HIT_ID: # this has been used primarily for GT
+            MAJORITY_THRESHOLD = 3
+            url = 'http://localhost:9000/labelsToCluster/' + str(ROUTE_ID) + '/' + str(HIT_ID)
+
+        else: # this is being used for clustering actual (non-researcher) turkers
+            MAJORITY_THRESHOLD = math.ceil(N_LABELERS / 2.0)
+            url = 'http://localhost:9000/nonGTLabelsToCluster/' + str(ROUTE_ID) + '/' + str(N_LABELERS)
         response = requests.get(url)
         data = response.json()
         label_data = json_normalize(data[0])

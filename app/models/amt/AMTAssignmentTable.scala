@@ -101,15 +101,12 @@ object AMTAssignmentTable {
   }
 
   /**
-    * Returns labels that were placed by turkers in the specified condition.
-    *
-    * This only labels from turkers who have completed all of the routes in that condition. It also excludes turkerIds
-    * associated with researchers.
+    * Returns list of non-researcher turker ids for those who have completed all routes in the specified condition.
     *
     * @param conditionId
     * @return
     */
-  def getTurkerLabelsByCondition(conditionId: Int): List[TurkerLabel] = db.withSession { implicit session =>
+  def getNonResearcherTurkersWhoCompletedCondition(conditionId: Int): List[String] = db.withSession { implicit session =>
     // figure out number of routes in the condition
     val nRoutes: Int = (for {
       _condition <- AMTConditionTable.amtConditions if _condition.amtConditionId === conditionId
@@ -120,13 +117,26 @@ object AMTAssignmentTable {
     val turkersToExclude: List[String] = List("APQS1PRMDXAFH","A1SZNIADA6B4OF","A2G18P2LDT3ZUE","AKRNZU81S71QI","A1Y6PQWK6BYEDD","TESTWORKERID")
     val completedAsmts = AMTAssignmentTable.amtAssignments.filter(asmt => asmt.completed && asmt.conditionId === conditionId)
     val routeCounts = completedAsmts.groupBy(_.turkerId).map { case (id, group) => (id, group.length) }
-    val turkers: Option[String] = routeCounts.filter(_._2 === nRoutes).filterNot(_._1 inSet turkersToExclude).map(_._1).list.headOption
+    routeCounts.filter(_._2 === nRoutes).filterNot(_._1 inSet turkersToExclude).map(_._1).list
+  }
 
+  /**
+    * Returns labels that were placed by turkers in the specified condition.
+    *
+    * This only labels from turkers who have completed all of the routes in that condition. It also excludes turkerIds
+    * associated with researchers.
+    *
+    * @param conditionId
+    * @return
+    */
+  def getTurkerLabelsByCondition(conditionId: Int): List[TurkerLabel] = db.withSession { implicit session =>
+
+    val turkers: Option[String] = getNonResearcherTurkersWhoCompletedCondition(conditionId).headOption
     val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
 
     // does a bunch of inner joins
     val labels = for {
-      _asmts <- completedAsmts.filter(_.turkerId === turkers)
+      _asmts <- amtAssignments.filter(asmt => asmt.turkerId === turkers && asmt.conditionId === conditionId)
       _tasks <- AuditTaskTable.auditTasks if _asmts.amtAssignmentId === _tasks.amtAssignmentId
       _labs <- nonOnboardingLabs if _tasks.auditTaskId === _labs.auditTaskId
       _latlngs <- LabelTable.labelPoints if _labs.labelId === _latlngs.labelId

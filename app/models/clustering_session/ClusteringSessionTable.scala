@@ -4,11 +4,12 @@ package models.clustering_session
   * Created by hmaddali on 7/26/17.
   */
 import com.vividsolutions.jts.geom.{Coordinate, LineString}
-import models.amt.{AMTAssignmentTable, AMTConditionTable}
+import models.amt.{AMTAssignmentTable, AMTConditionTable, AMTVolunteerRouteTable}
 import models.audit.AuditTaskTable
 import models.label.{LabelTable, ProblemDescriptionTable, ProblemTemporarinessTable}
 import models.route.{Route, RouteTable}
 import models.utils.MyPostgresDriver.simple._
+import play.api.Logger
 import play.api.Play.current
 import play.api.libs.json.{JsObject, Json}
 import play.extras.geojson
@@ -69,6 +70,28 @@ case class LabelCaseClass(hitId: String, routeId: Int, turkerId: String, labelId
   }
 }
 
+case class ClusteredTurkerLabel(routeId: Int, turkerId: String, clusterId: Int, labelId: Int, labelType: String,
+                                lat: Option[Float], lng: Option[Float], severity: Option[Int], temporary: Boolean) {
+  /**
+    * This method converts the data into the GeoJSON format
+    * @return
+    */
+  def toJSON: JsObject = {
+    val latlngs = geojson.Point(geojson.LatLng(lat.get.toDouble, lng.get.toDouble))
+    val properties = Json.obj(
+      "condition_id" -> AMTConditionTable.getConditionIdForRoute(routeId),
+      "route_id" -> routeId,
+      "turker_id" -> turkerId,
+      "label_id" -> labelId,
+      "label_type" -> labelType,
+      "severity" -> severity,
+      "temporary" -> temporary,
+      "cluster_id" -> clusterId
+    )
+    Json.obj("type" -> "Feature", "geometry" -> latlngs, "properties" -> properties)
+  }
+}
+
 /**
   *
   */
@@ -91,6 +114,8 @@ class ClusteringSessionTable(tag: Tag) extends Table[ClusteringSession](tag, Som
 object ClusteringSessionTable{
   val db = play.api.db.slick.DB
   val clusteringSessions = TableQuery[ClusteringSessionTable]
+
+  val amtAssignments = AMTAssignmentTable.amtAssignments
 
   import models.utils.MyPostgresDriver.plainImplicits._
 
@@ -120,6 +145,10 @@ object ClusteringSessionTable{
     routeIds.headOption
   }
 
+  def getNewestClusteringSessionId: Int = db.withTransaction { implicit session =>
+    clusteringSessions.list.length
+  }
+
   /**
     * Returns labels that were placed during the specified HIT on the specified route, in the form needed for clustering
     *
@@ -128,7 +157,7 @@ object ClusteringSessionTable{
     * @return
     */
   def getLabelsToCluster(routeId: Int, hitId: String): List[LabelToCluster] = db.withSession { implicit session =>
-    val asmts = AMTAssignmentTable.amtAssignments.filter(asmt => asmt.routeId === routeId && asmt.hitId === hitId && asmt.completed)
+    val asmts = amtAssignments.filter(asmt => asmt.routeId === routeId && asmt.hitId === hitId && asmt.completed)
     val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
 
     // does a bunch of inner joins
@@ -154,6 +183,84 @@ object ClusteringSessionTable{
   }
 
   /**
+    * Returns the labels that were placed by the first n turkers to finish the condition, in format for clustering.
+    *
+    * @param conditionId Condition that should be associated with all labels returned.
+    * @param routeId Route that should be associated with all labels returned.
+    * @param n Number of turkers who's labels to return
+    * @return
+    */
+  def getNonGTLabelsToCluster(conditionId: Int, routeId: Int, n: Int): List[LabelToCluster] = db.withSession { implicit session =>
+
+    // Get list of turkers who have completed this condition
+    val turkers: List[String] = AMTAssignmentTable.getNonResearcherTurkersWhoCompletedCondition(conditionId).take(n)
+    if (turkers.length != n) {
+      Logger.warn(s"Trying to cluster $n turkers for condition $conditionId, but only ${turkers.length} have finished it.")
+    }
+
+    // filter for only the specified route, and the turkers that we just picked, also remove onboarding labels
+    val routeAsmts = amtAssignments.filter(asmt => asmt.conditionId === conditionId && asmt.routeId === routeId)
+    val asmts = routeAsmts.filter(_.turkerId inSet turkers)
+    val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
+
+    // does a bunch of inner joins to go from amt_assignment table to label, label_point, label_type tables
+    val labels = for {
+      _asmts <- asmts
+      _tasks <- AuditTaskTable.auditTasks if _asmts.amtAssignmentId === _tasks.amtAssignmentId
+      _labs <- nonOnboardingLabs if _tasks.auditTaskId === _labs.auditTaskId
+      _latlngs <- LabelTable.labelPoints if _labs.labelId === _latlngs.labelId
+      _types <- LabelTable.labelTypes if _labs.labelTypeId === _types.labelTypeId
+    } yield (_asmts.turkerId, _labs.labelId, _types.labelType, _latlngs.lat, _latlngs.lng)
+
+    // left joins to get severity for any labels that have them
+    val labelsWithSev = for {
+      (_labs, _severity) <- labels.leftJoin(LabelTable.severities).on(_._2 === _.labelId)
+    } yield (_labs._1, _labs._2, _labs._3, _labs._4, _labs._5,  _severity.severity.?)
+
+    // left joins to get temporariness for any labels that have them (those that don't are marked as temporary=false)
+    val labelsWithTemporariness = for {
+      (_labs, _temp) <- labelsWithSev.leftJoin(ProblemTemporarinessTable.problemTemporarinesses).on(_._2 === _.labelId)
+    } yield (_labs._2, _labs._3, _labs._4, _labs._5, _labs._6, _temp.temporaryProblem.?, _labs._1)
+
+    labelsWithTemporariness.list.map(x => LabelToCluster.tupled((x._1, x._2, x._3, x._4, x._5, x._6.getOrElse(false), x._7)))
+  }
+
+
+  /**
+    * Returns the labels that were used in the specified clustering sessions, in the format needed to calculate accuracy.
+    *
+    * @param clusteringSessionIds
+    * @return
+    */
+  def getLabelsForAccuracy(clusteringSessionIds: List[Int]): List[ClusteredTurkerLabel] = db.withTransaction { implicit session =>
+    // Does a bunch of inner joins to go from clustering session to label, label_point, label_type tables.
+    val labels = for {
+      _session <- clusteringSessions if _session.clusteringSessionId inSet clusteringSessionIds
+      _clusters <- ClusteringSessionClusterTable.clusteringSessionClusters if _session.clusteringSessionId === _clusters.clusteringSessionId
+      _clustLabs <- ClusteringSessionLabelTable.clusteringSessionLabels if _clusters.clusteringSessionClusterId === _clustLabs.clusteringSessionClusterId
+      _labs <- LabelTable.labels if _clustLabs.labelId === _labs.labelId
+      _tasks <- AuditTaskTable.auditTasks if _labs.auditTaskId === _tasks.auditTaskId
+      _amtAsmt <- amtAssignments if _tasks.amtAssignmentId === _amtAsmt.amtAssignmentId
+      _labPoints <- LabelTable.labelPoints if _labs.labelId === _labPoints.labelId
+      _types <- LabelTable.labelTypes if _labs.labelTypeId === _types.labelTypeId
+    } yield (_session.routeId, _amtAsmt.turkerId, _clusters.clusteringSessionClusterId, _labs.labelId, _types.labelType,
+             _labPoints.lat, _labPoints.lng)
+
+    // left joins to get severity for any labels that have them
+    val labelsWithSev = for {
+      (_labs, _severity) <- labels.leftJoin(LabelTable.severities).on(_._4 === _.labelId)
+    } yield (_labs._1, _labs._2, _labs._3, _labs._4, _labs._5, _labs._6, _labs._7, _severity.severity.?)
+
+    // left joins to get temporariness for any labels that have them (those that don't are marked as temporary=false)
+    val labelsWithTemporariness = for {
+      (_labs, _temp) <- labelsWithSev.leftJoin(ProblemTemporarinessTable.problemTemporarinesses).on(_._4 === _.labelId)
+    } yield (_labs._1, _labs._2, _labs._3, _labs._4, _labs._5, _labs._6, _labs._7, _labs._8, _temp.temporaryProblem.?)
+
+    labelsWithTemporariness.list.map(x =>
+      ClusteredTurkerLabel.tupled((x._1, x._2, x._3, x._4, x._5, x._6, x._7, x._8, x._9.getOrElse(false))))
+  }
+
+  /**
     * Returns labels that were used in the specified clustering session, includes all data needed for gt_label table.
     *
     * @param clusteringSessionId
@@ -167,7 +274,7 @@ object ClusteringSessionTable{
       _clustLabs <- ClusteringSessionLabelTable.clusteringSessionLabels if _clusters.clusteringSessionClusterId === _clustLabs.clusteringSessionClusterId
       _labs <- LabelTable.labels if _clustLabs.labelId === _labs.labelId
       _tasks <- AuditTaskTable.auditTasks if _labs.auditTaskId === _tasks.auditTaskId
-      _amtAsmt <- AMTAssignmentTable.amtAssignments if _tasks.amtAssignmentId === _amtAsmt.amtAssignmentId
+      _amtAsmt <- amtAssignments if _tasks.amtAssignmentId === _amtAsmt.amtAssignmentId
       _labPoints <- LabelTable.labelPoints if _labs.labelId === _labPoints.labelId
       _types <- LabelTable.labelTypes if _labs.labelTypeId === _types.labelTypeId
     } yield (_labs.labelId, _clusters.clusteringSessionClusterId, _amtAsmt.turkerId, _labs.gsvPanoramaId, _types.labelType,

@@ -99,6 +99,25 @@ object AMTConditionTable {
     amtConditions.innerJoin(AMTVolunteerRouteTable.amtVolunteerRoutes).on(_.volunteerId === _.volunteerId).map(_._2.routeId).list
   }
 
+  /**
+    * Returns the set of route ids associated with the specified condition.
+    *
+    * @param conditionId
+    * @return
+    */
+  def getRouteIdsForACondition(conditionId: Int): List[Int] = db.withTransaction {implicit session =>
+    amtConditions.filter(_.amtConditionId === conditionId)
+      .innerJoin(AMTVolunteerRouteTable.amtVolunteerRoutes)
+      .on(_.volunteerId === _.volunteerId)
+      .map(_._2.routeId).list
+  }
+
+  /**
+    * Returns the condition id associated with the specified route.
+    *
+    * @param routeId
+    * @return
+    */
   def getConditionIdForRoute(routeId: Int): Int = db.withTransaction { implicit session =>
     amtConditions
       .innerJoin(AMTVolunteerRouteTable.amtVolunteerRoutes)

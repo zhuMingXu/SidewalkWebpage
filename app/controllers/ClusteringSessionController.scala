@@ -7,6 +7,7 @@ import com.mohiva.play.silhouette.api.{Environment, Silhouette}
 import com.mohiva.play.silhouette.impl.authenticators.SessionAuthenticator
 import controllers.headers.ProvidesHeader
 import formats.json.ClusteringFormats
+import models.amt.AMTConditionTable
 import models.clustering_session._
 import models.daos.slick.DBTableDefinitions.{DBUser, UserTable}
 import models.user.User
@@ -88,6 +89,28 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
 //    } else {
 //      Future.successful(Redirect("/"))
 //    }
+  }
+
+  /**
+    * Returns the labels that were placed by the first n turkers to finish the condition in JSON.
+    *
+    * @param routeId
+    * @param n
+    * @return
+    */
+  def getNonGTLabelsToCluster(routeId: String, n: String) = UserAwareAction.async { implicit request =>
+    val conditionId: Int = AMTConditionTable.getConditionIdForRoute(routeId.toInt)
+    val labelsToCluster: List[LabelToCluster] = ClusteringSessionTable.getNonGTLabelsToCluster(conditionId, routeId.toInt, n.toInt)
+    val json = Json.arr(labelsToCluster.map(x => Json.obj(
+      "label_id" -> x.labelId,
+      "label_type" -> x.labelType,
+      "lat" -> x.lat,
+      "lng" -> x.lng,
+      "severity" -> x.severity,
+      "temporary" -> x.temp,
+      "turker_id" -> x.turkerId
+    )))
+    Future.successful(Ok(json))
   }
 
   /**
