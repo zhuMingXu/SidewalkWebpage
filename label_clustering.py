@@ -13,14 +13,21 @@ import json
 import argparse
 from sklearn.cluster import KMeans
 
+# Custom distance function that returns max float if from the same turker id, haversine distance otherwise
+def custom_dist(u, v):
+    if u[2] == v[2]:
+        return sys.float_info.max
+    else:
+        return haversine([u[0], u[1]], [v[0], v[1]])
+
 # for each label type, cluster based on distance
 def cluster(labels, clust_thresh):
-    dist_matrix = pdist(np.array(labels[['lat','lng']].as_matrix()), lambda x,y: haversine(x,y))
+    dist_matrix = pdist(np.array(labels[['lat','lng', 'turker_id']].as_matrix()), custom_dist)
     link = linkage(dist_matrix, method='complete')
     curr_type = labels.label_type.iloc[1]
     # cuts tree so that only labels less than clust_threth kilometers apart are clustered, adds a col
     # to dataframe with label for the cluster they are in
-    labels['cluster'] = fcluster(link, t=clust_thresh, criterion='distance')
+    labels.loc[:,'cluster'] = fcluster(link, t=clust_thresh, criterion='distance')
     labelsCopy = labels.copy()
     newClustId = np.max(labels.cluster) + 1
     #print pd.DataFrame(pd.DataFrame(labels.groupby('cluster').size().rename('points_count')).groupby('points_count').size().rename('points_count_frequency'))
@@ -31,43 +38,31 @@ def cluster(labels, clust_thresh):
     included_labels = [] # list of tuples (label_type, lat, lng)
     problem_label_indices = [] # list of indices in dataset of labels that need to be verified
     clusters = labelsCopy.groupby('cluster')
-    total_dups = 0
     agreement_count = 0
     disagreement_count = 0
     for clust_num, clust in clusters:
-        # if we have more labels than the number of GT labelers, then do a 2-means clustering on the cluster.
-        if len(clust) > 3:
-            kmeans = KMeans(n_clusters=2)
-            kmeans.fit(clust.as_matrix(columns=['lat','lng']))
-            labels.set_value(clust.loc[kmeans.labels_ == 1].index,'cluster', newClustId)
-            newClustId += 1
 
-        # only include one label per user per cluster
-        no_dups = clust.drop_duplicates(subset=['turker_id'])
-        total_dups += (len(clust) - len(no_dups))
         # do majority vote
-        if len(no_dups) >= MAJORITY_THRESHOLD:
-            ave = np.mean(no_dups['coords'].tolist(), axis=0) # use ave pos of clusters
+        if len(clust) >= MAJORITY_THRESHOLD:
+            ave = np.mean(clust['coords'].tolist(), axis=0) # use ave pos of clusters
             included_labels.append((curr_type, ave[0], ave[1]))
             agreement_count += 1
         else:
-            #print no_dups.index
-            problem_label_indices.extend(no_dups.index)
+            problem_label_indices.extend(clust.index)
             disagreement_count += 1
 
     included = pd.DataFrame(included_labels, columns=['type', 'lat', 'lng'])
 
     if DEBUG:
-        print str(curr_type) + ' duplicates: ' + str(total_dups) + '\n'
         print 'We agreed on this many ' + curr_type + ' labels: ' + str(agreement_count)
         print 'We disagreed on this many ' + curr_type + ' labels: ' + str(disagreement_count)
 
-    return (curr_type, clust_thresh, agreement_count, disagreement_count, total_dups)
+    return (curr_type, clust_thresh, agreement_count, disagreement_count)
 
 
 if __name__ == '__main__':
 
-    MAJORITY_THRESHOLD = 3 # NOTE: This variable is not used right now; keeping it here in case we want to later.
+    MAJORITY_THRESHOLD = 3 # NOTE: This variable doesn't have any real effect, only used to print summary stats.
 
     # read in arguments from command line
     parser = argparse.ArgumentParser(description='Takes a set of labels from JSON, and outputs the labels grouped into clusters as JSON')
@@ -92,7 +87,7 @@ if __name__ == '__main__':
     try:
         url = None
         if HIT_ID: # this has been used primarily for GT
-            MAJORITY_THRESHOLD = 3
+            MAJORITY_THRESHOLD = 2
             url = 'http://localhost:9000/labelsToCluster/' + str(ROUTE_ID) + '/' + str(HIT_ID)
 
         else: # this is being used for clustering actual (non-researcher) turkers
@@ -138,10 +133,11 @@ if __name__ == '__main__':
         type_data = label_data[label_data.label_type == label_type]
         if type_data.shape[0] > 1:
             print cluster(type_data, CLUSTER_THRESHOLD)
+            # print type_data.filter(items=['turker_id','cluster']).sort_values('cluster')
             output_data = output_data.append(type_data.filter(items=['label_id', 'label_type', 'cluster']))
             output_data.loc[output_data['label_type'] == label_type, 'cluster'] += clustOffset
         elif type_data.shape[0] == 1:
-            type_data['cluster'] = 1 + clustOffset
+            type_data.loc[:,'cluster'] = 1 + clustOffset
             output_data = output_data.append(type_data.filter(items=['label_id', 'label_type', 'cluster']))
 
     # print output_data
