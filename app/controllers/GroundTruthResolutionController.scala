@@ -6,24 +6,14 @@ import javax.inject.Inject
 import com.mohiva.play.silhouette.api.{Environment, LogoutEvent, Silhouette}
 import com.mohiva.play.silhouette.impl.authenticators.SessionAuthenticator
 import controllers.headers.ProvidesHeader
-import formats.json.TaskFormats._
-import models.daos.slick.DBTableDefinitions.UserTable
-import models.label.LabelTable.LabelMetadata
 import models.label.{LabelPointTable, LabelTable}
-import models.user.{User, WebpageActivityTable}
-import models.daos.UserDAOImpl
-import models.user.UserRoleTable
-import org.geotools.geometry.jts.JTS
-import org.geotools.referencing.CRS
-import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
+import models.user.User
 import forms.SignInForm
-
 import formats.json.ClusteringFormats
+import models.amt.AMTAssignmentTable
 import models.clustering_session.ClusteringSessionTable
 import play.api.libs.json.{JsError, JsObject, Json}
 import play.api.mvc.BodyParsers
-import play.api.libs.json._
-import play.api.libs.functional.syntax._
 import models.gt.GTExistingLabelTable
 import models.gt.GTLabelTable
 import models.gt._
@@ -69,36 +59,47 @@ class GroundTruthResolutionController @Inject() (implicit val env: Environment[U
   }
 
   /**
-    * Takes in ground truth designated labels and adds the data to the relevant tables
+    * Gets the set of labels placed by a single GT labeler for the specified condition, so null severities can be fixed.
+    *
+    * @param conditionId
+    * @return
+    */
+  def getLabelsForGTSeverityFix(conditionId: String) = UserAwareAction.async { implicit request =>
+    val labels = AMTAssignmentTable.getLabelsFromGTLabelers(conditionId.toInt)
+    val json = Json.arr(labels.map(x => Json.obj(
+      "label_id" -> x.labelId, "cluster_id" -> x.clusterId, "route_id" -> x.routeId, "turker_id" -> x.turkerId,
+      "pano_id" -> x.gsvPanoramaId, "label_type" -> x.labelType, "sv_image_x" -> x.svImageX, "sv_image_y" -> x.svImageY,
+      "sv_canvas_x" -> x.canvasX, "sv_canvas_y" -> x.canvasY, "heading" -> x.heading, "pitch" -> x.pitch,
+      "zoom" -> x.zoom, "canvas_height" -> x.canvasHeight, "canvas_width" -> x.canvasWidth, "alpha_x" -> x.alphaX,
+      "alpha_y" -> x.alphaY, "lat" -> x.lat, "lng" -> x.lng, "description" -> x.description, "severity" -> x.severity,
+      "temporary" -> x.temporaryProblem
+    )))
+    Future.successful(Ok(json))
+  }
+
+  /**
+    * Takes in ground truth designated labels and adds the data to the gt_label and gt_existing_label tables
 */
-  def postGroundTruthResults(clustSessionId: Int) = UserAwareAction.async(BodyParsers.parse.json) {implicit request =>
+  def postGroundTruthResults = UserAwareAction.async(BodyParsers.parse.json) {implicit request =>
     val submission = request.body.validate[List[ClusteringFormats.GTLabelSubmission]]
     submission.fold(
       errors => {
         Future.successful(BadRequest(Json.obj("status" -> "Error", "message" -> JsError.toFlatJson(errors))))
       },
       submission => {
-        // get the route id for this clustering session, returning error if no session is found with that ID
-        val routeId: Option[Int] = ClusteringSessionTable.getRouteIdOfClusteringSession(clustSessionId)
-        routeId match {
-          case Some(id) =>
-            for (data <- submission) yield {
-              val gtLabelId: Int = GTLabelTable.save(GTLabel(
-                0, id, data.gsvPanoId, data.labelType, data.svImageX, data.svImageY, data.svCanvasX, data.svCanvasY,
-                data.heading, data.pitch, data.zoom, data.canvasHeight, data.canvasWidth, data.alphaX, data.alphaY,
-                data.lat, data.lng, data.description, data.severity, data.temporary
-              ))
-              if (data.labelId.isDefined) {
-                GTExistingLabelTable.save(GTExistingLabel(0, gtLabelId, data.labelId.get))
-              }
-            }
-          case None =>
-            Future.successful(BadRequest(Json.obj("status" -> "Error", "message" -> "No matching clustering session found")))
+        for (data <- submission) yield {
+          val gtLabelId: Int = GTLabelTable.save(GTLabel(
+            0, data.routeId, data.gsvPanoId, data.labelType, data.svImageX, data.svImageY, data.svCanvasX,
+            data.svCanvasY, data.heading, data.pitch, data.zoom, data.canvasHeight, data.canvasWidth, data.alphaX,
+            data.alphaY, data.lat, data.lng, data.description, data.severity, data.temporary
+          ))
+          if (data.labelId.isDefined) {
+            GTExistingLabelTable.save(GTExistingLabel(0, gtLabelId, data.labelId.get))
+          }
         }
       }
     )
-    val json = Json.obj()
-    println()
+    val json = Json.obj("Status" -> "Success!")
     Future.successful(Ok(json))
   }
 
