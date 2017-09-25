@@ -40,14 +40,12 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     var gtLabels = List[JsObject]()
     var streets = List[JsObject]()
     var labels = List[JsObject]()
-//    println("got gt labels")
 
     // get street data
     val routeIds: List[Int] = AMTConditionTable.getRouteIdsForAllConditions
     for (routeId <- routeIds) {
       streets = List.concat(streets, ClusteringSessionTable.getStreetGeomForIRR(routeId).map(_.toJSON).toList)
     }
-    println("got streets")
 
     //    val conditionIds: List[Int] = AMTConditionTable.getAllConditionIds
     val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing

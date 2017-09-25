@@ -160,7 +160,7 @@ object AMTAssignmentTable {
     // Find all (non-researcher) turkers who's assignments were accepted. Right now, accepted assignments have not been
     // marked, only rejected assignments have been. So we have to check for turkers who finished all the routes in a
     // condition, who did not have their HIT rejected.
-    val acceptedAsmts = AMTAssignmentTable.amtAssignments.filter(asmt => asmt.accepted.isEmpty && asmt.conditionId === conditionId)
+    val acceptedAsmts = AMTAssignmentTable.amtAssignments.filter(asmt => asmt.accepted.isEmpty && asmt.completed && asmt.conditionId === conditionId)
     val routeCounts = acceptedAsmts.groupBy(_.turkerId).map { case (id, group) => (id, group.length) }
     routeCounts.filter(_._2 === nRoutes).filterNot(_._1 inSet TurkerTable.researcherTurkerIds).map(_._1).list
   }
@@ -225,7 +225,6 @@ object AMTAssignmentTable {
   def getTurkerLabelsByCondition(conditionId: Int): List[TurkerLabel] = db.withSession { implicit session =>
 
     val turkers: Option[String] = getNonResearcherTurkersWithAcceptedHITForCondition(conditionId).headOption
-    println(turkers)
     val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
 
     // does a bunch of inner joins
