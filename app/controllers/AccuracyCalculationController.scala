@@ -35,20 +35,26 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
   def getAccuracyData(workerType: String, clusterNum: String) = UserAwareAction.async { implicit request =>
     val clustNum: Int = clusterNum.toInt
 
-    val gtLabels: List[JsObject] = GTLabelTable.all.map(_.toGeoJSON).toList
+
+//    val gtLabels: List[JsObject] = GTLabelTable.all.map(_.toGeoJSON).toList
+    var gtLabels = List[JsObject]()
     var streets = List[JsObject]()
     var labels = List[JsObject]()
+//    println("got gt labels")
 
     // get street data
     val routeIds: List[Int] = AMTConditionTable.getRouteIdsForAllConditions
     for (routeId <- routeIds) {
       streets = List.concat(streets, ClusteringSessionTable.getStreetGeomForIRR(routeId).map(_.toJSON).toList)
     }
+    println("got streets")
+
+    //    val conditionIds: List[Int] = AMTConditionTable.getAllConditionIds
+    val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
 
     // get labels from both GT and turkers/volunteers
-//    val conditionIds: List[Int] = AMTConditionTable.getAllConditionIds
-    val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
     for (conditionId <- conditionIds) {
+      gtLabels = List.concat(gtLabels, GTLabelTable.selectGTLabelsByCondition(conditionId).map(_.toGeoJSON).toList)
       labels = workerType match {
         case "turker" =>
           clustNum match {
@@ -95,7 +101,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
   def runNonGTClusteringForRoutesInCondition(conditionId: Int, nTurkers: Int): List[Int] = {
     var sessionIds = List[Int]()
 
-    AMTAssignmentTable.getNonResearcherTurkersWhoCompletedCondition(conditionId) match {
+    AMTAssignmentTable.getNonResearcherTurkersWithAcceptedHITForCondition(conditionId) match {
       case Nil => None
       case _ =>
         val routesToCluster: List[Int] = AMTConditionTable.getRouteIdsForACondition(conditionId)
