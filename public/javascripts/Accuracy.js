@@ -163,7 +163,7 @@ function setupAccuracy(data, clusterNum) {
     // let conditions = [...new Set(workerLabelData.features.map(label => label.properties.condition_id))];
     // let conditions = [72, 74, 85, 98, 100, 120, 122, 128, 131, 134, 136, 138];
     // let conditions = [72, 74, 98, 100, 122, 128];
-    let notReady = [71, 104, 105, 130, 94, 96   ];
+    let notReady = [71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139]; // last 6 have no volunteer labs
     let conditions = Array.from(new Array(71), (x,i) => i + 70).filter(c => notReady.indexOf(c) < 0);
 
     // remove "Other" label type for now since there are none of them in GT
@@ -173,6 +173,7 @@ function setupAccuracy(data, clusterNum) {
 
     // if we are only looking at 1 worker, they haven't gone through clustering, so just assign incrementing cluster ids
     let majorityThresh = Math.ceil(parseInt(clusterNum) / 2.0);
+    console.log(majorityThresh);
     if (parseInt(clusterNum) === 1) {
         for (let i = 0; i < workerLabelData.features.length; i++) {
             workerLabelData.features[i].properties.cluster_id = i;
@@ -210,6 +211,8 @@ function setupAccuracy(data, clusterNum) {
 
         output[conditionIndex].condition_id = currCondition;
         output[conditionIndex].workers = workerIds;
+        output[conditionIndex].n_workers = clusterNum;
+        output[conditionIndex].worker_thresh = majorityThresh;
 
         // print out label counts by type
         let gtLabelCounts2 = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
@@ -291,6 +294,8 @@ function calculateAccuracy(counts) {
         trueFalsePosNegCounts[conditionIndex] = {};
         accuracies[conditionIndex].workers = counts[conditionIndex].workers;
         accuracies[conditionIndex].condition_id = counts[conditionIndex].condition_id;
+        accuracies[conditionIndex].n_workers = counts[conditionIndex].n_workers;
+        accuracies[conditionIndex].worker_thresh = counts[conditionIndex].worker_thresh;
         for (let granularityIndex = 0; granularityIndex < granularities.length; granularityIndex++) {
             let granularity = granularities[granularityIndex];
             accuracies[conditionIndex][granularity] = {};
@@ -363,8 +368,8 @@ function calculateAccuracy(counts) {
 
 function convertToCSV(objArray) {
     let array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
-    let str = 'condition.id,worker1,worker2,worker3,worker4,worker5,prob.no.prob,n.workers,label.type,true.pos,' +
-        'false.pos,true.neg,false.neg,precision,recall,specificity,f.measure\r\n';
+    let str = 'condition.id,worker1,worker2,worker3,worker4,worker5,n.workers,worker.thresh,prob.no.prob,label.type,' +
+        'true.pos,false.pos,true.neg,false.neg,precision,recall,specificity,f.measure\r\n';
     let granularities = ["5_meter", "10_meter", "street"];
 
     for (let i = 0; i < array.length; i++) {
@@ -373,13 +378,14 @@ function convertToCSV(objArray) {
             for (let labelType in array[i][granularity]) {
                 if (array[i][granularity].hasOwnProperty(labelType)) {
                     let line = array[i].condition_id.toString();
-                    line += ","; line += array[i].workers[0] ? array[i].workers[0] : null;
-                    line += ","; line += array[i].workers[1] ? array[i].workers[1] : null;
-                    line += ","; line += array[i].workers[2] ? array[i].workers[2] : null;
-                    line += ","; line += array[i].workers[3] ? array[i].workers[3] : null;
-                    line += ","; line += array[i].workers[4] ? array[i].workers[4] : null;
+                    line += ","; line += array[i].workers[0] ? array[i].workers[0].replace(",","---") : null;
+                    line += ","; line += array[i].workers[1] ? array[i].workers[1].replace(",","---") : null;
+                    line += ","; line += array[i].workers[2] ? array[i].workers[2].replace(",","---") : null;
+                    line += ","; line += array[i].workers[3] ? array[i].workers[3].replace(",","---") : null;
+                    line += ","; line += array[i].workers[4] ? array[i].workers[4].replace(",","---") : null;
+                    line += "," + array[i].n_workers;
+                    line += "," + array[i].worker_thresh;
                     line += "," + PROB_NO_PROB.toString();
-                    line += ","; // TODO still needs n.workers
                     line += "," + labelType;
                     line += "," + array[i][granularity][labelType].truePos;
                     line += "," + array[i][granularity][labelType].falsePos;
