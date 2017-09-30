@@ -62,7 +62,7 @@ object AMTConditionTable {
   val amtAssignments = TableQuery[AMTAssignmentTable]
   val maxNumConditionAssignments: Int = 5
 
-  val registeredUserConditions: List[Int] = (72 to 122).toList
+  val registeredUserConditions: List[Int] = (70 to 122).toList
   val anonUserConditions: List[Int] = (123 to 140).toList
 
   def getVolunteerIdByConditionId(amtConditionId: Int): String = db.withTransaction { implicit session =>

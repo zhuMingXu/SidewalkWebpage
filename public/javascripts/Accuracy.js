@@ -162,7 +162,9 @@ function setupAccuracy(data, clusterNum) {
     // gets unique set of conditions that workers have completed
     // let conditions = [...new Set(workerLabelData.features.map(label => label.properties.condition_id))];
     // let conditions = [72, 74, 85, 98, 100, 120, 122, 128, 131, 134, 136, 138];
-    let conditions = [72, 74, 98, 100, 122, 128];
+    // let conditions = [72, 74, 98, 100, 122, 128];
+    let notReady = [71, 104, 105, 130, 94, 96   ];
+    let conditions = Array.from(new Array(71), (x,i) => i + 70).filter(c => notReady.indexOf(c) < 0);
 
     // remove "Other" label type for now since there are none of them in GT
     // TODO decide if we want to do some analysis of the "Other" label type
@@ -204,6 +206,10 @@ function setupAccuracy(data, clusterNum) {
         let routes = [...new Set(gtLabelData.features.filter(label => label.properties.condition_id === currCondition).map(label => label.properties.route_id))];
         let gtLabs = gtLabelData.features.filter(label => label.properties.condition_id === currCondition);
         let workerLabs = workerLabelData.features.filter(label => label.properties.condition_id === currCondition);
+        let workerIds = [...new Set(workerLabs.map(label => label.properties.user_id))];
+
+        output[conditionIndex].condition_id = currCondition;
+        output[conditionIndex].workers = workerIds;
 
         // print out label counts by type
         let gtLabelCounts2 = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
@@ -229,6 +235,7 @@ function setupAccuracy(data, clusterNum) {
             output[conditionIndex][String(segDist * 1000) + "_meter"] = getLabelCountsBySegment(chunks, gtLabs, workerLabs, majorityThresh);
         }
     }
+    console.log("Output:");
     console.log(output);
 
     // combine the results from all the conditions into a single, condensed object to be output as CSV
@@ -256,18 +263,23 @@ function setupAccuracy(data, clusterNum) {
 function calculateAccuracy(counts) {
     console.log(counts);
 
+    let granularities = ["5_meter", "10_meter", "street"];
     // set up average accuracy data structure
     let aveAccuracies = {};
     let definedAccuracyCounts = {};
-    for (let granularity in counts[0]) {
-        if (counts[0].hasOwnProperty(granularity)) {
-            aveAccuracies[granularity] = {};
-            definedAccuracyCounts[granularity] = {};
-            for (let labelType in counts[0][granularity]) {
-                if (counts[0][granularity].hasOwnProperty(labelType)) {
-                    aveAccuracies[granularity][labelType] = {precision: 0, recall: 0, specificity: 0, f_measure: 0};
-                    definedAccuracyCounts[granularity][labelType] = {precision: 0, recall: 0, specificity: 0, f_measure: 0};
-                }
+    for (let granularityIndex = 0; granularityIndex < granularities.length; granularityIndex++) {
+        let granularity = granularities[granularityIndex];
+        aveAccuracies[granularity] = {};
+        definedAccuracyCounts[granularity] = {};
+        for (let labelType in counts[0][granularity]) {
+            if (counts[0][granularity].hasOwnProperty(labelType)) {
+                aveAccuracies[granularity][labelType] = {precision: 0, recall: 0, specificity: 0, f_measure: 0};
+                definedAccuracyCounts[granularity][labelType] = {
+                    precision: 0,
+                    recall: 0,
+                    specificity: 0,
+                    f_measure: 0
+                };
             }
         }
     }
@@ -277,51 +289,53 @@ function calculateAccuracy(counts) {
     for (let conditionIndex = 0; conditionIndex < counts.length; conditionIndex++) {
         accuracies[conditionIndex] = {};
         trueFalsePosNegCounts[conditionIndex] = {};
-        for (let granularity in counts[conditionIndex]) {
-            if (counts[conditionIndex].hasOwnProperty(granularity)) {
-                accuracies[conditionIndex][granularity] = {};
-                trueFalsePosNegCounts[conditionIndex][granularity] = {};
-                for (let labelType in counts[conditionIndex][granularity]) {
-                    if (counts[conditionIndex][granularity].hasOwnProperty(labelType)) {
-                        let setOfCounts = counts[conditionIndex][granularity][labelType];
+        accuracies[conditionIndex].workers = counts[conditionIndex].workers;
+        accuracies[conditionIndex].condition_id = counts[conditionIndex].condition_id;
+        for (let granularityIndex = 0; granularityIndex < granularities.length; granularityIndex++) {
+            let granularity = granularities[granularityIndex];
+            accuracies[conditionIndex][granularity] = {};
+            trueFalsePosNegCounts[conditionIndex][granularity] = {};
+            for (let labelType in counts[conditionIndex][granularity]) {
+                if (counts[conditionIndex][granularity].hasOwnProperty(labelType)) {
+                    let setOfCounts = counts[conditionIndex][granularity][labelType];
 
-                        // count up number of true/false positives/negatives
-                        let truePos = 0;
-                        let trueNeg = 0;
-                        let falsePos = 0;
-                        let falseNeg = 0;
-                        for (let segIndex = 0; segIndex < setOfCounts.length; segIndex++) {
-                            truePos += Math.min(setOfCounts[segIndex].gt, setOfCounts[segIndex].worker);
-                            falsePos += Math.max(0, setOfCounts[segIndex].worker - setOfCounts[segIndex].gt);
-                            falseNeg += Math.max(0, setOfCounts[segIndex].gt - setOfCounts[segIndex].worker);
-                            if (Math.max(setOfCounts[segIndex].gt, setOfCounts[segIndex].worker) === 0) {
-                                trueNeg += 1;
-                            }
+                    // count up number of true/false positives/negatives
+                    let truePos = 0;
+                    let trueNeg = 0;
+                    let falsePos = 0;
+                    let falseNeg = 0;
+                    for (let segIndex = 0; segIndex < setOfCounts.length; segIndex++) {
+                        truePos += Math.min(setOfCounts[segIndex].gt, setOfCounts[segIndex].worker);
+                        falsePos += Math.max(0, setOfCounts[segIndex].worker - setOfCounts[segIndex].gt);
+                        falseNeg += Math.max(0, setOfCounts[segIndex].gt - setOfCounts[segIndex].worker);
+                        if (Math.max(setOfCounts[segIndex].gt, setOfCounts[segIndex].worker) === 0) {
+                            trueNeg += 1;
                         }
-                        trueFalsePosNegCounts[conditionIndex][granularity][labelType] = {
-                            truePos: truePos, trueNeg: trueNeg, falsePos: falsePos, falseNeg: falseNeg
-                        };
-
-                        // calculate accuracy measures for this label type in this condition
-                        let precision = truePos / (truePos + falsePos); // precision
-                        let recall = truePos / (truePos + falseNeg); // recall (sensitivity, true pos rate)
-                        let specificity = trueNeg / (trueNeg + falsePos); // true neg rate (specificity)
-                        let fMeasure = 2 * precision * recall / (precision + recall);
-                        accuracies[conditionIndex][granularity][labelType] = {
-                            precision: precision, recall: recall, specificity: specificity, f_measure: fMeasure
-                        };
-
-                        // add accuracy measures to sums of them across conditions so an average can be taken
-                        // TODO move this whole thing out into its own function called getAccuracySummaryStats
-                        aveAccuracies[granularity][labelType].precision += precision ? precision : 0;
-                        aveAccuracies[granularity][labelType].recall += recall ? recall : 0;
-                        aveAccuracies[granularity][labelType].specificity += specificity ? specificity : 0;
-                        aveAccuracies[granularity][labelType].f_measure += fMeasure ? fMeasure : 0;
-                        definedAccuracyCounts[granularity][labelType].precision += precision ? 1 : 0;
-                        definedAccuracyCounts[granularity][labelType].recall += recall ? 1 : 0;
-                        definedAccuracyCounts[granularity][labelType].specificity += specificity ? 1 : 0;
-                        definedAccuracyCounts[granularity][labelType].f_measure += fMeasure ? 1 : 0;
                     }
+                    trueFalsePosNegCounts[conditionIndex][granularity][labelType] = {
+                        truePos: truePos, trueNeg: trueNeg, falsePos: falsePos, falseNeg: falseNeg
+                    };
+
+                    // calculate accuracy measures for this label type in this condition
+                    let precision = truePos / (truePos + falsePos); // precision
+                    let recall = truePos / (truePos + falseNeg); // recall (sensitivity, true pos rate)
+                    let specificity = trueNeg / (trueNeg + falsePos); // true neg rate (specificity)
+                    let fMeasure = 2 * precision * recall / (precision + recall);
+                    accuracies[conditionIndex][granularity][labelType] = {
+                        truePos: truePos, trueNeg: trueNeg, falsePos: falsePos, falseNeg: falseNeg,
+                        precision: precision, recall: recall, specificity: specificity, f_measure: fMeasure
+                    };
+
+                    // add accuracy measures to sums of them across conditions so an average can be taken
+                    // TODO move this whole thing out into its own function called getAccuracySummaryStats
+                    aveAccuracies[granularity][labelType].precision += precision ? precision : 0;
+                    aveAccuracies[granularity][labelType].recall += recall ? recall : 0;
+                    aveAccuracies[granularity][labelType].specificity += specificity ? specificity : 0;
+                    aveAccuracies[granularity][labelType].f_measure += fMeasure ? fMeasure : 0;
+                    definedAccuracyCounts[granularity][labelType].precision += precision ? 1 : 0;
+                    definedAccuracyCounts[granularity][labelType].recall += recall ? 1 : 0;
+                    definedAccuracyCounts[granularity][labelType].specificity += specificity ? 1 : 0;
+                    definedAccuracyCounts[granularity][labelType].f_measure += fMeasure ? 1 : 0;
                 }
             }
         }
@@ -330,15 +344,14 @@ function calculateAccuracy(counts) {
     console.log(accuracies);
 
     // calculate final average
-    for (let granularity in aveAccuracies) {
-        if (aveAccuracies.hasOwnProperty(granularity)) {
-            for (let labelType in aveAccuracies[granularity]) {
-                if (aveAccuracies[granularity].hasOwnProperty(labelType)) {
-                    aveAccuracies[granularity][labelType].precision /= definedAccuracyCounts[granularity][labelType].precision;
-                    aveAccuracies[granularity][labelType].recall /= definedAccuracyCounts[granularity][labelType].recall;
-                    aveAccuracies[granularity][labelType].specificity /= definedAccuracyCounts[granularity][labelType].specificity;
-                    aveAccuracies[granularity][labelType].f_measure /= definedAccuracyCounts[granularity][labelType].f_measure;
-                }
+    for (let granularityIndex = 0; granularityIndex < granularities.length; granularityIndex++) {
+        let granularity = granularities[granularityIndex];
+        for (let labelType in aveAccuracies[granularity]) {
+            if (aveAccuracies[granularity].hasOwnProperty(labelType)) {
+                aveAccuracies[granularity][labelType].precision /= definedAccuracyCounts[granularity][labelType].precision;
+                aveAccuracies[granularity][labelType].recall /= definedAccuracyCounts[granularity][labelType].recall;
+                aveAccuracies[granularity][labelType].specificity /= definedAccuracyCounts[granularity][labelType].specificity;
+                aveAccuracies[granularity][labelType].f_measure /= definedAccuracyCounts[granularity][labelType].f_measure;
             }
         }
     }
@@ -350,15 +363,36 @@ function calculateAccuracy(counts) {
 
 function convertToCSV(objArray) {
     let array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
-    let str = '';
+    let str = 'condition.id,worker1,worker2,worker3,worker4,worker5,prob.no.prob,n.workers,label.type,true.pos,' +
+        'false.pos,true.neg,false.neg,precision,recall,specificity,f.measure\r\n';
+    let granularities = ["5_meter", "10_meter", "street"];
 
     for (let i = 0; i < array.length; i++) {
-        let line = '';
-        for (let index in array[i]) {
-            if (line !== '') line += ',';
-            line += array[i][index];
+        for (let granularityIndex = 0; granularityIndex < granularities.length; granularityIndex++) {
+            let granularity = granularities[granularityIndex];
+            for (let labelType in array[i][granularity]) {
+                if (array[i][granularity].hasOwnProperty(labelType)) {
+                    let line = array[i].condition_id.toString();
+                    line += ","; line += array[i].workers[0] ? array[i].workers[0] : null;
+                    line += ","; line += array[i].workers[1] ? array[i].workers[1] : null;
+                    line += ","; line += array[i].workers[2] ? array[i].workers[2] : null;
+                    line += ","; line += array[i].workers[3] ? array[i].workers[3] : null;
+                    line += ","; line += array[i].workers[4] ? array[i].workers[4] : null;
+                    line += "," + PROB_NO_PROB.toString();
+                    line += ","; // TODO still needs n.workers
+                    line += "," + labelType;
+                    line += "," + array[i][granularity][labelType].truePos;
+                    line += "," + array[i][granularity][labelType].falsePos;
+                    line += "," + array[i][granularity][labelType].trueNeg;
+                    line += "," + array[i][granularity][labelType].falseNeg;
+                    line += "," + array[i][granularity][labelType].precision;
+                    line += "," + array[i][granularity][labelType].recall;
+                    line += "," + array[i][granularity][labelType].specificity;
+                    line += "," + array[i][granularity][labelType].f_measure;
+                    str += line + '\r\n';
+                }
+            }
         }
-        str += line + '\r\n';
     }
     return str;
 }
@@ -410,13 +444,16 @@ function outputData(outputJson) {
             }
         }
     }
+}
 
+function outputAccuracyData(outputJson) {
 }
 
 function Accuracy(data, clusterNum, turf) {
     console.log("Data received: ", data);
     let output = setupAccuracy(data, clusterNum);
     // console.log(output);
-    calculateAccuracy(output);
+    let accuracies = calculateAccuracy(output);
+    exportCSVFile(accuracies, "accuracies.csv")
     // outputData(output);
 }

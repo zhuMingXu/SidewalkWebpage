@@ -48,10 +48,13 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     }
 
     //    val conditionIds: List[Int] = AMTConditionTable.getAllConditionIds
-    val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
+//    val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
+    val conditionIds: List[Int] = (70 to 140).toList.filterNot(List(71, 104, 105, 130, 94, 96, 139).contains(_))
+//        val conditionIds: List[Int] = List(140) // a few conditions for testing
 
     // get labels from both GT and turkers/volunteers
     for (conditionId <- conditionIds) {
+//      println(conditionId)
       gtLabels = List.concat(gtLabels, GTLabelTable.selectGTLabelsByCondition(conditionId).map(_.toGeoJSON).toList)
       labels = workerType match {
         case "turker" =>
@@ -85,7 +88,9 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     * @return
     */
   def runNonGTClustering(routeId: Int, nTurkers: Int): Int = {
+//    println(routeId)
     val clusteringOutput = ("python label_clustering.py " + routeId + " --n_labelers " + nTurkers).!!
+//    println(clusteringOutput)
     ClusteringSessionTable.getNewestClusteringSessionId
   }
 
