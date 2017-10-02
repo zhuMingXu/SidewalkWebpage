@@ -450,3 +450,9 @@ function Accuracy(data, clusterNum, turf) {
     exportCSVFile([accuracies], "accuracies.csv")
     // outputData(output);
 }
+
+
+let allButton = document.getElementById('allAccuracy');
+allButton.onclick = function() {
+    $("#all-accuracy-result").html("Success! Enjoy your CSV!");
+};
