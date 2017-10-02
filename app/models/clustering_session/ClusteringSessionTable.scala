@@ -81,7 +81,7 @@ case class ClusteredTurkerLabel(routeId: Int, turkerId: String, clusterId: Int, 
     val properties = Json.obj(
       "condition_id" -> AMTConditionTable.getConditionIdForRoute(routeId),
       "route_id" -> routeId,
-      "turker_id" -> turkerId,
+      "worker_id" -> turkerId,
       "label_id" -> labelId,
       "label_type" -> labelType,
       "severity" -> severity,

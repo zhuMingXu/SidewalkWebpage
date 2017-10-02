@@ -30,7 +30,7 @@ case class TurkerLabel(conditionId: Int, routeId: Int, turkerId: String, labelId
     val properties = Json.obj(
       "condition_id" -> conditionId,
       "route_id" -> routeId,
-      "turker_id" -> turkerId,
+      "worker_id" -> turkerId,
       "label_id" -> labelId,
       "label_type" -> labelType,
       "severity" -> severity,

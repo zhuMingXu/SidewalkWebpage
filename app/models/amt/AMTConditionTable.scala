@@ -29,7 +29,7 @@ case class VolunteerLabel(conditionId: Int, routeId: Int, userId: String, labelI
     val properties = Json.obj(
       "condition_id" -> conditionId,
       "route_id" -> routeId,
-      "user_id" -> userId,
+      "worker_id" -> userId,
       "label_id" -> labelId,
       "label_type" -> labelType,
       "severity" -> severity,

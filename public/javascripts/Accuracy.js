@@ -163,7 +163,7 @@ function setupAccuracy(data, clusterNum) {
     // let conditions = [...new Set(workerLabelData.features.map(label => label.properties.condition_id))];
     // let conditions = [72, 74, 85, 98, 100, 120, 122, 128, 131, 134, 136, 138];
     // let conditions = [72, 74, 98, 100, 122, 128];
-    let notReady = [71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139]; // last 6 have no volunteer labs
+    let notReady = [71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139, 80, 91, 121, 138];
     let conditions = Array.from(new Array(71), (x,i) => i + 70).filter(c => notReady.indexOf(c) < 0);
 
     // remove "Other" label type for now since there are none of them in GT
@@ -173,6 +173,7 @@ function setupAccuracy(data, clusterNum) {
 
     // if we are only looking at 1 worker, they haven't gone through clustering, so just assign incrementing cluster ids
     let majorityThresh = Math.ceil(parseInt(clusterNum) / 2.0);
+    // let majorityThresh = 1;
     console.log(majorityThresh);
     if (parseInt(clusterNum) === 1) {
         for (let i = 0; i < workerLabelData.features.length; i++) {
@@ -207,7 +208,7 @@ function setupAccuracy(data, clusterNum) {
         let routes = [...new Set(gtLabelData.features.filter(label => label.properties.condition_id === currCondition).map(label => label.properties.route_id))];
         let gtLabs = gtLabelData.features.filter(label => label.properties.condition_id === currCondition);
         let workerLabs = workerLabelData.features.filter(label => label.properties.condition_id === currCondition);
-        let workerIds = [...new Set(workerLabs.map(label => label.properties.user_id))];
+        let workerIds = [...new Set(workerLabs.map(label => label.properties.worker_id))];
 
         output[conditionIndex].condition_id = currCondition;
         output[conditionIndex].workers = workerIds;
@@ -366,13 +367,15 @@ function calculateAccuracy(counts) {
     return accuracies;
 }
 
+// TODO use multiple object arrays
 function convertToCSV(objArray) {
     let array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
-    let str = 'condition.id,worker1,worker2,worker3,worker4,worker5,n.workers,worker.thresh,prob.no.prob,label.type,' +
-        'true.pos,false.pos,true.neg,false.neg,precision,recall,specificity,f.measure\r\n';
+    let str = 'condition.id,worker1,worker2,worker3,worker4,worker5,n.workers,worker.thresh,prob.no.prob,granularity,' +
+        'label.type,true.pos,false.pos,true.neg,false.neg,precision,recall,specificity,f.measure\r\n';
     let granularities = ["5_meter", "10_meter", "street"];
 
     for (let i = 0; i < array.length; i++) {
+        // let granularities = keys(array[i]);
         for (let granularityIndex = 0; granularityIndex < granularities.length; granularityIndex++) {
             let granularity = granularities[granularityIndex];
             for (let labelType in array[i][granularity]) {
@@ -386,6 +389,7 @@ function convertToCSV(objArray) {
                     line += "," + array[i].n_workers;
                     line += "," + array[i].worker_thresh;
                     line += "," + PROB_NO_PROB.toString();
+                    line += "," + granularity;
                     line += "," + labelType;
                     line += "," + array[i][granularity][labelType].truePos;
                     line += "," + array[i][granularity][labelType].falsePos;
@@ -426,28 +430,6 @@ function exportCSVFile(items, fileTitle) {
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-        }
-    }
-}
-
-// TODO Takes the results of the IRR setup and outputs the CSVs on the client machine. Maybe all in a .tar or something?
-function outputData(outputJson) {
-
-    for (let category in outputJson) {
-        if (outputJson.hasOwnProperty(category)) {
-            console.log(category);
-            console.log(outputJson[category]);
-
-            let categoryJson = outputJson[category];
-            for (let labelType in categoryJson) {
-                if (categoryJson.hasOwnProperty(labelType)) {
-                    let fileTitle = category + '_' + labelType;
-                    console.log(labelType + ' ' + fileTitle);
-
-                    // Call the exportCSVFile() to trigger the download
-                    exportCSVFile(categoryJson[labelType], fileTitle);
-                }
-            }
         }
     }
 }
