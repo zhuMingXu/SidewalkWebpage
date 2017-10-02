@@ -368,38 +368,47 @@ function calculateAccuracy(counts) {
 }
 
 // TODO use multiple object arrays
-function convertToCSV(objArray) {
-    let array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
+function convertToCSV(resultObjects) {
     let str = 'condition.id,worker1,worker2,worker3,worker4,worker5,n.workers,worker.thresh,prob.no.prob,granularity,' +
         'label.type,true.pos,false.pos,true.neg,false.neg,precision,recall,specificity,f.measure\r\n';
     let granularities = ["5_meter", "10_meter", "street"];
 
-    for (let i = 0; i < array.length; i++) {
-        // let granularities = keys(array[i]);
-        for (let granularityIndex = 0; granularityIndex < granularities.length; granularityIndex++) {
-            let granularity = granularities[granularityIndex];
-            for (let labelType in array[i][granularity]) {
-                if (array[i][granularity].hasOwnProperty(labelType)) {
-                    let line = array[i].condition_id.toString();
-                    line += ","; line += array[i].workers[0] ? array[i].workers[0].replace(",","---") : null;
-                    line += ","; line += array[i].workers[1] ? array[i].workers[1].replace(",","---") : null;
-                    line += ","; line += array[i].workers[2] ? array[i].workers[2].replace(",","---") : null;
-                    line += ","; line += array[i].workers[3] ? array[i].workers[3].replace(",","---") : null;
-                    line += ","; line += array[i].workers[4] ? array[i].workers[4].replace(",","---") : null;
-                    line += "," + array[i].n_workers;
-                    line += "," + array[i].worker_thresh;
-                    line += "," + PROB_NO_PROB.toString();
-                    line += "," + granularity;
-                    line += "," + labelType;
-                    line += "," + array[i][granularity][labelType].truePos;
-                    line += "," + array[i][granularity][labelType].falsePos;
-                    line += "," + array[i][granularity][labelType].trueNeg;
-                    line += "," + array[i][granularity][labelType].falseNeg;
-                    line += "," + array[i][granularity][labelType].precision;
-                    line += "," + array[i][granularity][labelType].recall;
-                    line += "," + array[i][granularity][labelType].specificity;
-                    line += "," + array[i][granularity][labelType].f_measure;
-                    str += line + '\r\n';
+    let outerArray = typeof resultObjects !== 'object' ? JSON.parse(resultObjects) : resultObjects;
+
+    for (let objectIndex = 0; objectIndex < outerArray.length; objectIndex++) {
+        let array = outerArray[objectIndex];
+        for (let i = 0; i < array.length; i++) {
+            // let granularities = keys(array[i]);
+            for (let granularityIndex = 0; granularityIndex < granularities.length; granularityIndex++) {
+                let granularity = granularities[granularityIndex];
+                for (let labelType in array[i][granularity]) {
+                    if (array[i][granularity].hasOwnProperty(labelType)) {
+                        let line = array[i].condition_id.toString();
+                        line += ",";
+                        line += array[i].workers[0] ? array[i].workers[0].replace(",", "---") : null;
+                        line += ",";
+                        line += array[i].workers[1] ? array[i].workers[1].replace(",", "---") : null;
+                        line += ",";
+                        line += array[i].workers[2] ? array[i].workers[2].replace(",", "---") : null;
+                        line += ",";
+                        line += array[i].workers[3] ? array[i].workers[3].replace(",", "---") : null;
+                        line += ",";
+                        line += array[i].workers[4] ? array[i].workers[4].replace(",", "---") : null;
+                        line += "," + array[i].n_workers;
+                        line += "," + array[i].worker_thresh;
+                        line += "," + PROB_NO_PROB.toString();
+                        line += "," + granularity;
+                        line += "," + labelType;
+                        line += "," + array[i][granularity][labelType].truePos;
+                        line += "," + array[i][granularity][labelType].falsePos;
+                        line += "," + array[i][granularity][labelType].trueNeg;
+                        line += "," + array[i][granularity][labelType].falseNeg;
+                        line += "," + array[i][granularity][labelType].precision;
+                        line += "," + array[i][granularity][labelType].recall;
+                        line += "," + array[i][granularity][labelType].specificity;
+                        line += "," + array[i][granularity][labelType].f_measure;
+                        str += line + '\r\n';
+                    }
                 }
             }
         }
@@ -434,14 +443,10 @@ function exportCSVFile(items, fileTitle) {
     }
 }
 
-function outputAccuracyData(outputJson) {
-}
-
 function Accuracy(data, clusterNum, turf) {
     console.log("Data received: ", data);
     let output = setupAccuracy(data, clusterNum);
-    // console.log(output);
     let accuracies = calculateAccuracy(output);
-    exportCSVFile(accuracies, "accuracies.csv")
+    exportCSVFile([accuracies], "accuracies.csv")
     // outputData(output);
 }
