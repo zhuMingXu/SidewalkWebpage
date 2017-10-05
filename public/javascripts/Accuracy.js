@@ -31,10 +31,16 @@ function splitIntoChunks(streets, segDist) {
     return chunks;
 }
 
-function getLabelCountsBySegment(chunks, gtLabs, workerLabs, majorityThresh) {
+function getLabelCountsBySegment(chunks, gtLabs, workerLabs, workerThresh, options) {
+
+    // unpack optional arguments
+    options = options || {};
+    let binary = options.binary || true;
+    let removeLowSeverity = options.remove_low_severity || false;
+    let probNoProb = options.prob_no_prob || false;
 
     let segOutput = {};
-    if (PROB_NO_PROB) {
+    if (probNoProb) {
         segOutput = {"Problem": {}};
     } else {
         segOutput = {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
@@ -59,10 +65,10 @@ function getLabelCountsBySegment(chunks, gtLabs, workerLabs, majorityThresh) {
             let clusterIds = [...new Set(labs.map(label => label.properties.cluster_id))];
             for (let clustIndex = 0; clustIndex < clusterIds.length; clustIndex++) {
                 let currLabels = labs.filter(label => label.properties.cluster_id === clusterIds[clustIndex]);
-                if (REMOVE_LOW_SEVERITY && ["Obstacle", "SurfaceProblem"].indexOf(currLabels[0].properties.label_type) > 0) {
+                if (removeLowSeverity && ["Obstacle", "SurfaceProblem"].indexOf(currLabels[0].properties.label_type) > 0) {
                     currLabels = currLabels.filter(label => label.properties.temporary !== false);
                 }
-                if (labelSource === "gt" || currLabels.length >= majorityThresh) {
+                if (labelSource === "gt" || currLabels.length >= workerThresh) {
                     let centerPoint = turf.centerOfMass({"features": currLabels, "type": "FeatureCollection"});
                     let repLabel = turf.nearest(centerPoint, {"features": currLabels, "type": "FeatureCollection"});
                     let currType = repLabel.properties.label_type;
@@ -85,15 +91,15 @@ function getLabelCountsBySegment(chunks, gtLabs, workerLabs, majorityThresh) {
                     // TODO don't include volunteer labels that are way past the end of the final segment
                     // increment this segment's count of labels (of this label type), distributing labels based on turker_id
                     let labelCount = currLabels.length;
-                    if (PROB_NO_PROB) {
-                        if (BINARY) {
+                    if (probNoProb) {
+                        if (binary) {
                             let curr = segOutput["Problem"][chunkIndex][labelSource];
                             segOutput["Problem"][chunkIndex][labelSource] = Math.max(curr, Math.min(labelCount, 1));
                         } else {
                             segOutput["Problem"][chunkIndex][labelSource] += labelCount;
                         }
                     } else {
-                        if (BINARY) {
+                        if (binary) {
                             let curr = segOutput[currType][chunkIndex][labelSource];
                             segOutput[currType][chunkIndex][labelSource] = Math.max(curr, Math.min(labelCount, 1));
                         } else {
@@ -151,10 +157,45 @@ function clipStreets(streetsData, routes) {
     return streets;
 }
 
+
+function clipAllStreets(data) {
+    let streetsData = data.streets;
+    let gtLabelData = data.gt_labels;
+
+    let conditions = Array.from(new Array(71), (x,i) => i + 70).filter(c => notReady.indexOf(c) < 0);
+
+    for(let conditionIndex = 0; conditionIndex < conditions.length; conditionIndex++) {
+        let currCondition = conditions[conditionIndex];
+        let routes = [...new Set(gtLabelData.features.filter(label => label.properties.condition_id === currCondition).map(label => label.properties.route_id))];
+
+        streetsData = clipStreets(streetsData, routes);
+
+    }
+}
+
+
 // Takes a set of points and a set of street geometries. Fits labels to those streets, giving counts of how many labels
 // of each label type are closest to each street. Streets are then also split up into smaller line segments, and the
 // same counts are then tabulated for each of those segments.
-function setupAccuracy(data, clusterNum) {
+function setupAccuracy(data, clusterNum, options) {
+    // const BINARY = true;
+    // const REMOVE_LOW_SEVERITY = false;
+    // const PROB_NO_PROB = false;
+
+    // unpack optional arguments
+    options = options || {};
+    let binary = options.binary || false;
+    let removeLowSeverity = options.remove_low_severity || false;
+    let probNoProb = options.prob_no_prob || false;
+    let workerThresh = options.worker_thresh || Math.ceil(parseInt(clusterNum) / 2.0);
+
+    let futureOpts = {
+        binary: binary,
+        remove_low_severity: removeLowSeverity,
+        prob_no_prob: probNoProb,
+        worker_thresh: workerThresh
+    };
+
     // unpack different pieces of data
     let streetsData = data.streets;
     let gtLabelData = data.gt_labels;
@@ -172,9 +213,6 @@ function setupAccuracy(data, clusterNum) {
     workerLabelData.features = workerLabelData.features.filter(label => labelsToAnalyze.indexOf(label.properties.label_type) >= 0);
 
     // if we are only looking at 1 worker, they haven't gone through clustering, so just assign incrementing cluster ids
-    let majorityThresh = Math.ceil(parseInt(clusterNum) / 2.0);
-    // let majorityThresh = 1;
-    console.log(majorityThresh);
     if (parseInt(clusterNum) === 1) {
         for (let i = 0; i < workerLabelData.features.length; i++) {
             workerLabelData.features[i].properties.cluster_id = i;
@@ -195,12 +233,12 @@ function setupAccuracy(data, clusterNum) {
     for (let i = 0; i < gtLabelData.features.length; i++) {
         gtLabelCounts[gtLabelData.features[i].properties.label_type] += 1;
     }
-    console.log(gtLabelCounts);
+    // console.log(gtLabelCounts);
     let workerLabelCounts = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
     for (let i = 0; i < workerLabelData.features.length; i++) {
         workerLabelCounts[workerLabelData.features[i].properties.label_type] += 1;
     }
-    console.log(workerLabelCounts);
+    // console.log(workerLabelCounts);
 
 
     for(let conditionIndex = 0; conditionIndex < conditions.length; conditionIndex++) {
@@ -213,30 +251,34 @@ function setupAccuracy(data, clusterNum) {
         output[conditionIndex].condition_id = currCondition;
         output[conditionIndex].workers = workerIds;
         output[conditionIndex].n_workers = clusterNum;
-        output[conditionIndex].worker_thresh = majorityThresh;
+        output[conditionIndex].worker_thresh = workerThresh;
+        output[conditionIndex].binary = binary;
+        output[conditionIndex].remove_low_severity = removeLowSeverity;
+        output[conditionIndex].prob_no_prob = probNoProb;
 
         // print out label counts by type
         let gtLabelCounts2 = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
         for (let i = 0; i < gtLabs.length; i++) {
             gtLabelCounts2[gtLabs[i].properties.label_type] += 1;
         }
-        console.log(gtLabelCounts2);
+        // console.log(gtLabelCounts2);
         let workerLabelCounts2 = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
         for (let i = 0; i < workerLabs.length; i++) {
             workerLabelCounts2[workerLabs[i].properties.label_type] += 1;
         }
-        console.log(workerLabelCounts2);
+        // console.log(workerLabelCounts2);
 
         let streets = clipStreets(streetsData, routes);
 
-        output[conditionIndex].street = getLabelCountsBySegment(streets, gtLabs, workerLabs, majorityThresh);
+        output[conditionIndex].street = getLabelCountsBySegment(streets, gtLabs, workerLabs, workerThresh, futureOpts);
 
 
         let segDists = [0.005, 0.01]; // in kilometers
         for(let segDistIndex = 0; segDistIndex < segDists.length; segDistIndex++) {
             let segDist = segDists[segDistIndex];
             let chunks = splitIntoChunks(streets, segDist);
-            output[conditionIndex][String(segDist * 1000) + "_meter"] = getLabelCountsBySegment(chunks, gtLabs, workerLabs, majorityThresh);
+            output[conditionIndex][String(segDist * 1000) + "_meter"] =
+                getLabelCountsBySegment(chunks, gtLabs, workerLabs, workerThresh, futureOpts);
         }
     }
     console.log("Output:");
@@ -297,6 +339,9 @@ function calculateAccuracy(counts) {
         accuracies[conditionIndex].condition_id = counts[conditionIndex].condition_id;
         accuracies[conditionIndex].n_workers = counts[conditionIndex].n_workers;
         accuracies[conditionIndex].worker_thresh = counts[conditionIndex].worker_thresh;
+        accuracies[conditionIndex].binary = counts[conditionIndex].binary;
+        accuracies[conditionIndex].remove_low_severity = counts[conditionIndex].remove_low_severity;
+        accuracies[conditionIndex].prob_no_prob = counts[conditionIndex].prob_no_prob;
         for (let granularityIndex = 0; granularityIndex < granularities.length; granularityIndex++) {
             let granularity = granularities[granularityIndex];
             accuracies[conditionIndex][granularity] = {};
@@ -305,11 +350,12 @@ function calculateAccuracy(counts) {
                 if (counts[conditionIndex][granularity].hasOwnProperty(labelType)) {
                     let setOfCounts = counts[conditionIndex][granularity][labelType];
 
-                    // count up number of true/false positives/negatives
+                    // Count up number of true/false positives/negatives
                     let truePos = 0;
                     let trueNeg = 0;
                     let falsePos = 0;
                     let falseNeg = 0;
+                    // These counts work in both binary and ordinal case.
                     for (let segIndex = 0; segIndex < setOfCounts.length; segIndex++) {
                         truePos += Math.min(setOfCounts[segIndex].gt, setOfCounts[segIndex].worker);
                         falsePos += Math.max(0, setOfCounts[segIndex].worker - setOfCounts[segIndex].gt);
@@ -367,10 +413,20 @@ function calculateAccuracy(counts) {
     return accuracies;
 }
 
-// TODO use multiple object arrays
+
 function convertToCSV(resultObjects) {
-    let str = 'condition.id,worker1,worker2,worker3,worker4,worker5,n.workers,worker.thresh,prob.no.prob,granularity,' +
-        'label.type,true.pos,false.pos,true.neg,false.neg,precision,recall,specificity,f.measure\r\n';
+    let str =
+        'condition.id,' +
+        'worker1,worker2,worker3,worker4,worker5,' +
+        'n.workers,' +
+        'worker.thresh,' +
+        'binary,' +
+        'remove.low.severity,' +
+        'prob.no.prob,' +
+        'granularity,' +
+        'label.type,' +
+        'true.pos,false.pos,true.neg,false.neg,' +
+        'precision,recall,specificity,f.measure\r\n';
     let granularities = ["5_meter", "10_meter", "street"];
 
     let outerArray = typeof resultObjects !== 'object' ? JSON.parse(resultObjects) : resultObjects;
@@ -396,7 +452,9 @@ function convertToCSV(resultObjects) {
                         line += array[i].workers[4] ? array[i].workers[4].replace(",", "---") : null;
                         line += "," + array[i].n_workers;
                         line += "," + array[i].worker_thresh;
-                        line += "," + PROB_NO_PROB.toString();
+                        line += "," + array[i].binary.toString();
+                        line += "," + array[i].remove_low_severity.toString();
+                        line += "," + array[i].prob_no_prob.toString();
                         line += "," + granularity;
                         line += "," + labelType;
                         line += "," + array[i][granularity][labelType].truePos;
@@ -448,11 +506,122 @@ function Accuracy(data, clusterNum, turf) {
     let output = setupAccuracy(data, clusterNum);
     let accuracies = calculateAccuracy(output);
     exportCSVFile([accuracies], "accuracies.csv")
-    // outputData(output);
 }
 
 
-let allButton = document.getElementById('allAccuracy');
-allButton.onclick = function() {
-    $("#all-accuracy-result").html("Success! Enjoy your CSV!");
+let allVolunteerButton = document.getElementById('allVolunteerAccuracy');
+allVolunteerButton.onclick = function() {
+
+    // Get data
+    $.getJSON("/accuracyData/volunteer/1", function (volunteerData) {
+        let accuracyOutputArray = [];
+        let optsArray =
+            [
+                { binary: true, prob_no_prob: true },
+                { binary: true, prob_no_prob: false },
+                { binary: false, prob_no_prob: true },
+                { binary: false, prob_no_prob: false }
+            ];
+        // console.log(volunteerData);
+
+        for (let i = 0; i < optsArray.length; i++) {
+
+            // let volunteerDataCopy = $.extend({}, volunteerData);
+            // let volunteerDataCopy = JSON.parse(JSON.stringify(volunteerData));
+            let output = setupAccuracy(volunteerData, 1, optsArray[i]);
+            accuracyOutputArray[i] = calculateAccuracy(output);
+            console.log("" + (i + 1) + " down, " + (optsArray.length - i - 1) + " to go!");
+        }
+
+        // export CSV
+        exportCSVFile(accuracyOutputArray, "accuracies-volunteer");
+
+        $("#all-accuracy-result").html("Success! Enjoy your CSV!");
+    });
+};
+
+
+let allTurkerButton = document.getElementById('allTurkerAccuracy');
+allTurkerButton.onclick = function() {
+
+    // 1 turker
+    $.getJSON("/accuracyData/turker/1", function (oneTurkerData) {
+        let accuracyOutputArray = [];
+        let optsArrayOneTurker =
+            [
+                { binary: true, prob_no_prob: true },
+                { binary: true, prob_no_prob: false },
+                { binary: false, prob_no_prob: true },
+                { binary: false, prob_no_prob: false }
+            ];
+        // console.log(volunteerData);
+
+        for (let i = 0; i < optsArrayOneTurker.length; i++) {
+
+            let output = setupAccuracy(oneTurkerData, 1, optsArrayOneTurker[i]);
+            accuracyOutputArray[i] = calculateAccuracy(output);
+            console.log("" + (i + 1) + " down, " + (optsArrayOneTurker.length - i - 1) + " to go!");
+        }
+
+        // 3 turkers
+        $.getJSON("/accuracyData/turker/3", function (threeTurkerData) {
+            let optsArrayThreeTurkers =
+                [
+                    {binary: true, prob_no_prob: true, worker_thresh: 1},
+                    {binary: true, prob_no_prob: true, worker_thresh: 2},
+                    {binary: true, prob_no_prob: true, worker_thresh: 3},
+                    {binary: true, prob_no_prob: false, worker_thresh: 1},
+                    {binary: true, prob_no_prob: false, worker_thresh: 2},
+                    {binary: true, prob_no_prob: false, worker_thresh: 3},
+                    {binary: false, prob_no_prob: true, worker_thresh: 1},
+                    {binary: false, prob_no_prob: true, worker_thresh: 2},
+                    {binary: false, prob_no_prob: true, worker_thresh: 3},
+                    {binary: false, prob_no_prob: false, worker_thresh: 1},
+                    {binary: false, prob_no_prob: false, worker_thresh: 2},
+                    {binary: false, prob_no_prob: false, worker_thresh: 3},
+                ];
+            // console.log(threeTurkerData);
+
+            let offset = optsArrayOneTurker.length;
+            for (let j = 0; j < optsArrayThreeTurkers.length; j++) {
+
+                let output = setupAccuracy(threeTurkerData, 3, optsArrayThreeTurkers[j]);
+                accuracyOutputArray[j + offset] = calculateAccuracy(output);
+                console.log("" + (j + 1) + " down, " + (optsArrayThreeTurkers.length - j - 1) + " to go!");
+            }
+
+
+            // 5 turkers
+            $.getJSON("/accuracyData/turker/5", function (fiveTurkerData) {
+                let optsArrayFiveTurkers =
+                    [
+                        {binary: true, prob_no_prob: true, worker_thresh: 1},
+                        {binary: true, prob_no_prob: true, worker_thresh: 3},
+                        {binary: true, prob_no_prob: true, worker_thresh: 5},
+                        {binary: true, prob_no_prob: false, worker_thresh: 1},
+                        {binary: true, prob_no_prob: false, worker_thresh: 3},
+                        {binary: true, prob_no_prob: false, worker_thresh: 5},
+                        {binary: false, prob_no_prob: true, worker_thresh: 1},
+                        {binary: false, prob_no_prob: true, worker_thresh: 3},
+                        {binary: false, prob_no_prob: true, worker_thresh: 5},
+                        {binary: false, prob_no_prob: false, worker_thresh: 1},
+                        {binary: false, prob_no_prob: false, worker_thresh: 3},
+                        {binary: false, prob_no_prob: false, worker_thresh: 5},
+                    ];
+                // console.log(fiveTurkerData);
+
+                let offset = optsArrayOneTurker.length + optsArrayFiveTurkers.length;
+                for (let k = 0; k < optsArrayFiveTurkers.length; k++) {
+
+                    let output = setupAccuracy(fiveTurkerData, 5, optsArrayFiveTurkers[k]);
+                    accuracyOutputArray[k + offset] = calculateAccuracy(output);
+                    console.log("" + (k + 1) + " down, " + (optsArrayFiveTurkers.length - k - 1) + " to go!");
+                }
+
+                // export CSV
+                exportCSVFile(accuracyOutputArray, "accuracies-turker");
+                $("#all-accuracy-result").html("Success! Enjoy your CSV!");
+            });
+        });
+    });
 };
