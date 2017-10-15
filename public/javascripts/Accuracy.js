@@ -35,7 +35,7 @@ function getLabelCountsBySegment(chunks, gtLabs, workerLabs, workerThresh, optio
 
     // unpack optional arguments
     options = options || {};
-    let binary = options.binary || true;
+    let binary = options.binary || false;
     let removeLowSeverity = options.remove_low_severity || false;
     let probNoProb = options.prob_no_prob || false;
 
