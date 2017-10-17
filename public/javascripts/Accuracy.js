@@ -1,8 +1,3 @@
-const BINARY = true;
-const REMOVE_LOW_SEVERITY = false;
-const PROB_NO_PROB = false;
-
-
 // Split streets into a bunch of little segments based on segDist and length of each contiguous segment. For
 // each contiguous set of streets, split the contiguous line up into equally sized segments, as close as
 // possible to segDist.
@@ -178,9 +173,6 @@ function clipAllStreets(data) {
 // of each label type are closest to each street. Streets are then also split up into smaller line segments, and the
 // same counts are then tabulated for each of those segments.
 function setupAccuracy(data, clusterNum, options) {
-    // const BINARY = true;
-    // const REMOVE_LOW_SEVERITY = false;
-    // const PROB_NO_PROB = false;
 
     // unpack optional arguments
     options = options || {};
@@ -284,25 +276,6 @@ function setupAccuracy(data, clusterNum, options) {
     console.log("Output:");
     console.log(output);
 
-    // combine the results from all the conditions into a single, condensed object to be output as CSV
-    // let out = {};
-    // for (let level in output[0]) {
-    //     if (output[0].hasOwnProperty(level)) {
-    //         if (PROB_NO_PROB) {
-    //             out[level] = {"Problem": {}};
-    //         } else {
-    //             out[level] = {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
-    //         }
-    //         for (let labelType in out[level]) {
-    //             if (out[level].hasOwnProperty(labelType)) {
-    //                 out[level][labelType] = [];
-    //                 for (let j = 0; j < 2; j++) {
-    //                     out[level][labelType] = out[level][labelType].concat(output[j][level][labelType]);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
     return output;
 }
 
