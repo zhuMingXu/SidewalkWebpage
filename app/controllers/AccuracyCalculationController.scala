@@ -54,6 +54,8 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
 //    val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
     val conditionIds: List[Int] = (70 to 140).toList.filterNot(
       List(71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139, 80, 91, 121, 138).contains(_))
+//    val conditionIds: List[Int] = (72 to 72).toList // for testing
+
 //        val conditionIds: List[Int] = List(140) // a few conditions for testing
 
     // get labels from both GT and turkers/volunteers
