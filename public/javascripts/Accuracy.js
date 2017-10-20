@@ -63,7 +63,7 @@ function getLabelCountsBySegment(chunks, gtLabs, workerLabs, workerThresh, optio
                 let currLabels = labs.filter(label => label.properties.cluster_id === clusterIds[clustIndex]);
 
                 let probsWithSev = ["Obstacle", "SurfaceProblem", "NoCurbRamp"];
-                if (removeLowSeverity && labelSource === "gt" && probsWithSev.indexOf(currLabels[0].properties.label_type) > 0) {
+                if (removeLowSeverity && labelSource === "gt" && probsWithSev.indexOf(currLabels[0].properties.label_type) >= 0) {
                     // currLabels = currLabels.filter(label => label.properties.temporary !== false);
                     currLabels = currLabels.filter(label => label.properties.severity >= lowSeverityThreshold);
                 }
