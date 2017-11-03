@@ -81,16 +81,35 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     * @return
     */
   def getLabelsToCluster(routeId: String, hitId: String) = UserAwareAction.async { implicit request =>
-//    if (isAdmin(request.identity)) {
+    //    if (isAdmin(request.identity)) {
     val labsToCluster: List[LabelToCluster] = ClusteringSessionTable.getLabelsToCluster(routeId.toInt, hitId)
     val json = Json.arr(labsToCluster.map(x => Json.obj(
       "label_id" -> x.labelId, "label_type" -> x.labelType, "lat" -> x.lat, "lng" -> x.lng, "severity" -> x.severity,
       "temporary" -> x.temp, "turker_id" -> x.turkerId
     )))
-      Future.successful(Ok(json))
-//    } else {
-//      Future.successful(Redirect("/"))
-//    }
+    Future.successful(Ok(json))
+    //    } else {
+    //      Future.successful(Redirect("/"))
+    //    }
+  }
+
+  /**
+    * Returns the set of labels associated with the given user
+    *
+    * @param userId
+    * @return
+    */
+  def getUserLabelsToCluster(userId: String) = UserAwareAction.async { implicit request =>
+    //    if (isAdmin(request.identity)) {
+    val labsToCluster: List[UserLabelToCluster] = ClusteringSessionTable.getUserLabelsToCluster(userId)
+    val json = Json.arr(labsToCluster.map(x => Json.obj(
+      "label_id" -> x.labelId, "label_type" -> x.labelType, "lat" -> x.lat, "lng" -> x.lng, "severity" -> x.severity,
+      "temporary" -> x.temp
+    )))
+    Future.successful(Ok(json))
+    //    } else {
+    //      Future.successful(Redirect("/"))
+    //    }
   }
 
   /**

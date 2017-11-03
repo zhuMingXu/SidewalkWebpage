@@ -138,6 +138,7 @@ GET     /labelsForGTFixSeverity/:conditionId                 @controllers.Ground
 GET     /clusteringsessions                                  @controllers.ClusteringSessionController.getClusteringSessionsWithoutDeleted
 GET     /clusterRoute/:routeId/:hitId                        @controllers.ClusteringSessionController.runClustering(routeId: Int, hitId: String)
 GET     /labelsToCluster/:routeId/:hitId                     @controllers.ClusteringSessionController.getLabelsToCluster(routeId, hitId)
+GET     /userLabelsToCluster/:userId                         @controllers.ClusteringSessionController.getUserLabelsToCluster(userId)
 GET     /nonGTLabelsToCluster/:routeId/:n                    @controllers.ClusteringSessionController.getNonGTLabelsToCluster(routeId, n)
 POST    /clusteringResults/:routeId/:threshold               @controllers.ClusteringSessionController.postClusteringResults(routeId, threshold)
 

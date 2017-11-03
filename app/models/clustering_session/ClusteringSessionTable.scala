@@ -6,8 +6,10 @@ package models.clustering_session
 import com.vividsolutions.jts.geom.{Coordinate, LineString}
 import models.amt.{AMTAssignmentTable, AMTConditionTable, AMTVolunteerRouteTable}
 import models.audit.AuditTaskTable
+import models.daos.slick.DBTableDefinitions.UserTable
 import models.label.{LabelTable, ProblemDescriptionTable, ProblemTemporarinessTable}
 import models.route.{Route, RouteTable}
+import models.user.User
 import models.utils.MyPostgresDriver.simple._
 import play.api.Logger
 import play.api.Play.current
@@ -20,8 +22,11 @@ import scala.slick.lifted.ForeignKeyQuery
 case class ClusteringSession(clusteringSessionId: Int, routeId: Option[Int], clusteringThreshold: Double,
                              timeCreated: java.sql.Timestamp, deleted: Boolean, userId: Option[String])
 
+// TODO combine these into one type
 case class LabelToCluster(labelId: Int, labelType: String, lat: Option[Float], lng: Option[Float],
                           severity: Option[Int], temp: Boolean, turkerId: String)
+case class UserLabelToCluster(labelId: Int, labelType: String, lat: Option[Float], lng: Option[Float],
+                          severity: Option[Int], temp: Boolean)
 
 case class LabelsForResolution(labelId: Int, clusterId: Int, routeId: Int, turkerId: String, gsvPanoramaId: String,
                                labelType: String, svImageX: Int, svImageY: Int, canvasX: Int, canvasY: Int,
@@ -176,7 +181,7 @@ object ClusteringSessionTable{
     // left joins to get severity for any labels that have them
     val labelsWithSeverity = for {
       (_labs, _severity) <- labels.leftJoin(LabelTable.severities).on(_._2 === _.labelId)
-    } yield (_labs._1, _labs._2, _labs._3, _labs._4, _labs._5,  _severity.severity.?)
+    } yield (_labs._1, _labs._2, _labs._3, _labs._4, _labs._5, _severity.severity.?)
 
     // left joins to get temporariness for any labels that have them (those that don't are marked as temporary=false)
     val labelsWithTemporariness = for {
@@ -184,6 +189,36 @@ object ClusteringSessionTable{
     } yield (_labs._2, _labs._3, _labs._4, _labs._5, _labs._6, _temporariness.temporaryProblem.?, _labs._1)
 
     labelsWithTemporariness.list.map(x => LabelToCluster.tupled((x._1, x._2, x._3, x._4, x._5, x._6.getOrElse(false), x._7)))
+  }
+
+  /**
+    * Returns labels that were placed by the specified user, in the form needed for clustering
+    *
+    * @param userId
+    * @return
+    */
+  def getUserLabelsToCluster(userId: String): List[UserLabelToCluster] = db.withSession { implicit session =>
+
+    val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
+
+    val labels = for {
+      _tasks <- AuditTaskTable.auditTasks if _tasks.userId === userId
+      _labs <- nonOnboardingLabs if _labs.auditTaskId === _tasks.auditTaskId
+      _latlngs <- LabelTable.labelPoints if _labs.labelId === _latlngs.labelId
+      _types <- LabelTable.labelTypes if _labs.labelTypeId === _types.labelTypeId
+    } yield (_labs.labelId, _types.labelType, _latlngs.lat, _latlngs.lng)
+
+    // left joins to get severity for any labels that have them
+    val labelsWithSeverity = for {
+      (_labs, _severity) <- labels.leftJoin(LabelTable.severities).on(_._1 === _.labelId)
+    } yield (_labs._1, _labs._2, _labs._3, _labs._4, _severity.severity.?)
+
+    // left joins to get temporariness for any labels that have them (those that don't are marked as temporary=false)
+    val labelsWithTemporariness = for {
+      (_labs, _temporariness) <- labelsWithSeverity.leftJoin(ProblemTemporarinessTable.problemTemporarinesses).on(_._1 === _.labelId)
+    } yield (_labs._1, _labs._2, _labs._3, _labs._4, _labs._5, _temporariness.temporaryProblem.?)
+
+    labelsWithTemporariness.list.map(x => UserLabelToCluster.tupled((x._1, x._2, x._3, x._4, x._5, x._6.getOrElse(false))))
   }
 
   /**
