@@ -17,8 +17,8 @@ import play.extras.geojson
 import scala.slick.jdbc.{GetResult, StaticQuery => Q}
 import scala.slick.lifted.ForeignKeyQuery
 
-case class ClusteringSession(clusteringSessionId: Int, routeId: Int, clusteringThreshold: Double,
-                             timeCreated: java.sql.Timestamp, deleted: Boolean)
+case class ClusteringSession(clusteringSessionId: Int, routeId: Option[Int], clusteringThreshold: Double,
+                             timeCreated: java.sql.Timestamp, deleted: Boolean, userId: Option[String])
 
 case class LabelToCluster(labelId: Int, labelType: String, lat: Option[Float], lng: Option[Float],
                           severity: Option[Int], temp: Boolean, turkerId: String)
@@ -97,11 +97,12 @@ case class ClusteredTurkerLabel(routeId: Int, turkerId: String, clusterId: Int, 
   */
 class ClusteringSessionTable(tag: Tag) extends Table[ClusteringSession](tag, Some("sidewalk"), "clustering_session") {
   def clusteringSessionId = column[Int]("clustering_session_id", O.NotNull, O.PrimaryKey, O.AutoInc)
-  def routeId = column[Int]("route_id", O.NotNull)
+  def routeId = column[Option[Int]]("route_id", O.Nullable)
   def clusteringThreshold = column[Double]("clustering_threshold", O.NotNull)
-  def deleted = column[Boolean]("deleted", O.NotNull)
   def timeCreated = column[java.sql.Timestamp]("time_created",O.NotNull)
-  def * = (clusteringSessionId, routeId, clusteringThreshold, timeCreated, deleted) <> ((ClusteringSession.apply _).tupled, ClusteringSession.unapply)
+  def deleted = column[Boolean]("deleted", O.NotNull)
+  def userId = column[Option[String]]("user_id",O.Nullable)
+  def * = (clusteringSessionId, routeId, clusteringThreshold, timeCreated, deleted, userId) <> ((ClusteringSession.apply _).tupled, ClusteringSession.unapply)
 
   def route: ForeignKeyQuery[RouteTable, Route] =
     foreignKey("clustering_session_route_id_fkey", routeId, TableQuery[RouteTable])(_.routeId)
@@ -142,7 +143,10 @@ object ClusteringSessionTable{
 
   def getRouteIdOfClusteringSession(clusteringSessionId: Int): Option[Int] = db.withSession { implicit session =>
     val routeIds = clusteringSessions.filter(_.clusteringSessionId === clusteringSessionId).map(_.routeId).list
-    routeIds.headOption
+    routeIds.headOption match {
+      case Some(r) => r
+      case None => None
+    }
   }
 
   def getNewestClusteringSessionId: Int = db.withTransaction { implicit session =>
@@ -236,6 +240,7 @@ object ClusteringSessionTable{
     // Does a bunch of inner joins to go from clustering session to label, label_point, label_type tables.
     val labels = for {
       _session <- clusteringSessions if _session.clusteringSessionId inSet clusteringSessionIds
+      if !_session.routeId.isEmpty
       _clusters <- ClusteringSessionClusterTable.clusteringSessionClusters if _session.clusteringSessionId === _clusters.clusteringSessionId
       _clustLabs <- ClusteringSessionLabelTable.clusteringSessionLabels if _clusters.clusteringSessionClusterId === _clustLabs.clusteringSessionClusterId
       _labs <- LabelTable.labels if _clustLabs.labelId === _labs.labelId
@@ -243,7 +248,7 @@ object ClusteringSessionTable{
       _amtAsmt <- amtAssignments if _tasks.amtAssignmentId === _amtAsmt.amtAssignmentId
       _labPoints <- LabelTable.labelPoints if _labs.labelId === _labPoints.labelId
       _types <- LabelTable.labelTypes if _labs.labelTypeId === _types.labelTypeId
-    } yield (_session.routeId, _amtAsmt.turkerId, _clusters.clusteringSessionClusterId, _labs.labelId, _types.labelType,
+    } yield (_session.routeId.get, _amtAsmt.turkerId, _clusters.clusteringSessionClusterId, _labs.labelId, _types.labelType,
              _labPoints.lat, _labPoints.lng)
 
     // left joins to get severity for any labels that have them
@@ -270,6 +275,7 @@ object ClusteringSessionTable{
     // does a bunch of inner joins to get most of the label data
     val labels = for {
       _session <- clusteringSessions if _session.clusteringSessionId === clusteringSessionId
+      if !_session.routeId.isEmpty
       _clusters <- ClusteringSessionClusterTable.clusteringSessionClusters if _session.clusteringSessionId === _clusters.clusteringSessionId
       _clustLabs <- ClusteringSessionLabelTable.clusteringSessionLabels if _clusters.clusteringSessionClusterId === _clustLabs.clusteringSessionClusterId
       _labs <- LabelTable.labels if _clustLabs.labelId === _labs.labelId
@@ -277,7 +283,7 @@ object ClusteringSessionTable{
       _amtAsmt <- amtAssignments if _tasks.amtAssignmentId === _amtAsmt.amtAssignmentId
       _labPoints <- LabelTable.labelPoints if _labs.labelId === _labPoints.labelId
       _types <- LabelTable.labelTypes if _labs.labelTypeId === _types.labelTypeId
-    } yield (_labs.labelId, _clusters.clusteringSessionClusterId, _session.routeId, _amtAsmt.turkerId,
+    } yield (_labs.labelId, _clusters.clusteringSessionClusterId, _session.routeId.get, _amtAsmt.turkerId,
              _labs.gsvPanoramaId, _types.labelType, _labPoints.svImageX, _labPoints.svImageY, _labPoints.canvasX,
              _labPoints.canvasY, _labPoints.heading, _labPoints.pitch, _labPoints.zoom, _labPoints.canvasHeight,
              _labPoints.canvasWidth, _labPoints.alphaX, _labPoints.alphaY, _labPoints.lat, _labPoints.lng)

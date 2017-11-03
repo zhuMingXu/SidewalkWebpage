@@ -55,16 +55,18 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     * Returns all records in clustering_session table that are not marked as deleted.
     */
   def getClusteringSessionsWithoutDeleted = UserAwareAction.async { implicit request =>
-    val clusteringSessions= ClusteringSessionTable.selectSessionsWithoutDeleted
+    val clusteringSessions: List[ClusteringSession] = ClusteringSessionTable.selectSessionsWithoutDeleted
 
     val ses: List[JsObject] = clusteringSessions.map { clusteringSession =>
       val clusteringSessionId: Int = clusteringSession.clusteringSessionId
-      val routeId: Int = clusteringSession.routeId
+      val routeId: Option[Int] = clusteringSession.routeId
       val clusteringThreshold: Double = clusteringSession.clusteringThreshold
       val timeCreated: java.sql.Timestamp = clusteringSession.timeCreated
       val deleted: Boolean = clusteringSession.deleted
+      val userId: Option[String] = clusteringSession.userId
       Json.obj("clusteringSessionId" -> clusteringSessionId, "routeId" -> routeId,
-               "clustering_threshold" -> clusteringThreshold, "time_created" -> timeCreated, "deleted" -> deleted)
+               "clustering_threshold" -> clusteringThreshold, "time_created" -> timeCreated, "deleted" -> deleted,
+               "user_id" -> userId)
     }
     val sessionCollection = Json.obj("sessions" -> ses)
     Future.successful(Ok(sessionCollection))
@@ -80,11 +82,11 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     */
   def getLabelsToCluster(routeId: String, hitId: String) = UserAwareAction.async { implicit request =>
 //    if (isAdmin(request.identity)) {
-      val labsToCluster: List[LabelToCluster] = ClusteringSessionTable.getLabelsToCluster(routeId.toInt, hitId)
-      val json = Json.arr(labsToCluster.map(x => Json.obj(
-        "label_id" -> x.labelId, "label_type" -> x.labelType, "lat" -> x.lat, "lng" -> x.lng, "severity" -> x.severity,
-        "temporary" -> x.temp, "turker_id" -> x.turkerId
-      )))
+    val labsToCluster: List[LabelToCluster] = ClusteringSessionTable.getLabelsToCluster(routeId.toInt, hitId)
+    val json = Json.arr(labsToCluster.map(x => Json.obj(
+      "label_id" -> x.labelId, "label_type" -> x.labelType, "lat" -> x.lat, "lng" -> x.lng, "severity" -> x.severity,
+      "temporary" -> x.temp, "turker_id" -> x.turkerId
+    )))
       Future.successful(Ok(json))
 //    } else {
 //      Future.successful(Redirect("/"))
@@ -127,9 +129,9 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
       submission => {
         val now = new DateTime(DateTimeZone.UTC)
         val timestamp: Timestamp = new Timestamp(now.getMillis)
-        val sessionId: Int = ClusteringSessionTable.save(ClusteringSession(0, routeId.toInt, threshold.toDouble, timestamp, deleted = false))
+        val sessionId: Int = ClusteringSessionTable.save(ClusteringSession(0, Some(routeId.toInt), threshold.toDouble, timestamp, deleted = false, userId = None))
         submission.groupBy(_.clusterNum).map { case (clust, labels) =>
-            val clustId: Int = ClusteringSessionClusterTable.save(ClusteringSessionCluster(0, sessionId))
+            val clustId: Int = ClusteringSessionClusterTable.save(sessionId)
             for (label <- labels) yield {
               ClusteringSessionLabelTable.save(ClusteringSessionLabel(0, clustId, label.labelId))
             }
