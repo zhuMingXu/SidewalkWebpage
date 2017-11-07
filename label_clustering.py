@@ -21,10 +21,14 @@ def custom_dist(u, v):
         return haversine([u[0], u[1]], [v[0], v[1]])
 
 # for each label type, cluster based on distance
-def cluster(labels, clust_thresh):
-    dist_matrix = pdist(np.array(labels[['lat','lng', 'turker_id']].as_matrix()), custom_dist)
+def cluster(labels, clust_thresh, single_user):
+    if single_user:
+        dist_matrix = pdist(np.array(labels[['lat', 'lng']].as_matrix()), lambda x, y: haversine(x, y))
+    else:
+        dist_matrix = pdist(np.array(labels[['lat', 'lng', 'turker_id']].as_matrix()), custom_dist)
     link = linkage(dist_matrix, method='complete')
     curr_type = labels.label_type.iloc[1]
+
     # cuts tree so that only labels less than clust_threth kilometers apart are clustered, adds a col
     # to dataframe with label for the cluster they are in
     labels.loc[:,'cluster'] = fcluster(link, t=clust_thresh, criterion='distance')
@@ -35,7 +39,7 @@ def cluster(labels, clust_thresh):
     # Majority vote to decide what is included. If a cluster has at least 3 people agreeing on the type
     # of the label, that is included. Any less, and we add it to the list of problem_clusters, so that
     # we can look at them by hand through the admin interface to decide.
-    included_labels = [] # list of tuples (label_type, lat, lng)
+    included_labels = [] # list of tuples (label_type, cluster_num, lat, lng, severity, temporary)
     problem_label_indices = [] # list of indices in dataset of labels that need to be verified
     clusters = labelsCopy.groupby('cluster')
     agreement_count = 0
@@ -45,19 +49,21 @@ def cluster(labels, clust_thresh):
         # do majority vote
         if len(clust) >= MAJORITY_THRESHOLD:
             ave = np.mean(clust['coords'].tolist(), axis=0) # use ave pos of clusters
-            included_labels.append((curr_type, ave[0], ave[1]))
+            ave_sev = int(round(np.nanmedian(clust['severity'])))
+            ave_temp = bool(1 - round(1 - np.mean(clust['temporary'])))
+            included_labels.append((curr_type, clust_num, ave[0], ave[1], ave_sev, ave_temp))
             agreement_count += 1
         else:
             problem_label_indices.extend(clust.index)
             disagreement_count += 1
 
-    included = pd.DataFrame(included_labels, columns=['type', 'lat', 'lng'])
+    included = pd.DataFrame(included_labels, columns=['label_type', 'cluster', 'lat', 'lng', 'severity', 'temporary'])
 
     if DEBUG:
         print 'We agreed on this many ' + curr_type + ' labels: ' + str(agreement_count)
         print 'We disagreed on this many ' + curr_type + ' labels: ' + str(disagreement_count)
 
-    return (curr_type, clust_thresh, agreement_count, disagreement_count)
+    return (included, curr_type, clust_thresh, agreement_count, disagreement_count)
 
 
 if __name__ == '__main__':
@@ -70,8 +76,10 @@ if __name__ == '__main__':
                         help='Route Id who\'s labels should be clustered.')
     parser.add_argument('--hit_id', type=str,
                         help='HIT Id who\'s labels should be clustered.')
-    parser.add_argument('--n_labelers', type=int, default=5,
+    parser.add_argument('--n_labelers', type=int, default=1,
                         help='Number of turkers to cluster.')
+    parser.add_argument('--user_id', type=str,
+                        help='User id of a single user who\'s labels should be clustered.')
     parser.add_argument('--clust_thresh', type=float, default=0.0075,
                         help='Cluster distance threshold (in meters)')
     parser.add_argument('--debug', action='store_true',
@@ -82,10 +90,15 @@ if __name__ == '__main__':
     ROUTE_ID = args.route_id
     HIT_ID = args.hit_id
     N_LABELERS = args.n_labelers
+    USER_ID = args.user_id
+    SINGLE_USER = False
 
 
     try:
         url = None
+        if USER_ID:
+            url = "http://localhost:9000/userLabelsToCluster/" + str(USER_ID)
+            SINGLE_USER = True
         if HIT_ID: # this has been used primarily for GT
             MAJORITY_THRESHOLD = 2
             url = 'http://localhost:9000/labelsToCluster/' + str(ROUTE_ID) + '/' + str(HIT_ID)
@@ -125,27 +138,37 @@ if __name__ == '__main__':
     label_data['id'] =  label_data.index.values
 
     # cluster labels for each datatype, and add the results to output_data
-    output_data = pd.DataFrame(columns=['label_id', 'label_type', 'cluster'])
+    cluster_cols = ['label_id', 'label_type', 'cluster']
+    label_cols = ['label_type', 'cluster', 'lat', 'lng', 'severity', 'temporary']
+    label_output = pd.DataFrame(columns=cluster_cols)
+    cluster_output = pd.DataFrame(columns=label_cols)
     clustOffset = 0
     for label_type in included_types:
-        if not output_data.empty:
-            clustOffset = np.max(output_data.cluster)
+        if not label_output.empty:
+            clustOffset = np.max(label_output.cluster)
         type_data = label_data[label_data.label_type == label_type]
         if type_data.shape[0] > 1:
-            print cluster(type_data, CLUSTER_THRESHOLD)
+            cluster_output = cluster_output.append(cluster(type_data, CLUSTER_THRESHOLD, SINGLE_USER)[0])
             # print type_data.filter(items=['turker_id','cluster']).sort_values('cluster')
-            output_data = output_data.append(type_data.filter(items=['label_id', 'label_type', 'cluster']))
-            output_data.loc[output_data['label_type'] == label_type, 'cluster'] += clustOffset
+            label_output = label_output.append(type_data.filter(items=cluster_cols))
+            label_output.loc[label_output['label_type'] == label_type, 'cluster'] += clustOffset
         elif type_data.shape[0] == 1:
             type_data.loc[:,'cluster'] = 1 + clustOffset
-            output_data = output_data.append(type_data.filter(items=['label_id', 'label_type', 'cluster']))
+            label_output = label_output.append(type_data.filter(items=cluster_cols))
+            cluster_output = cluster_output.append(type_data.filter(items=label_cols))
 
-    # print output_data
-    output_json = output_data.to_json(orient='records', lines=False)
+    # Convert to JSON
+    cluster_json = cluster_output.to_json(orient='records', lines=False)
+    label_json = label_output.to_json(orient='records', lines=False)
+    output_json = json.dumps({'labels': json.loads(label_json), 'clusters': json.loads(cluster_json)})
+    # print output_json
 
-    url = 'http://localhost:9000/clusteringResults/' + str(ROUTE_ID) + '/' + str(CLUSTER_THRESHOLD)
+    url = ''
+    if SINGLE_USER:
+        url = 'http://localhost:9000/singlePersonClusteringResults/' + str(USER_ID) + '/' + str(CLUSTER_THRESHOLD)
+    else:
+        url = 'http://localhost:9000/clusteringResults/' + str(ROUTE_ID) + '/' + str(CLUSTER_THRESHOLD)
     headers = {'content-type': 'application/json; charset=utf-8'}
-    # j = json.dumps(output_json)
 
     response = requests.post(url, data=output_json, headers=headers)
 

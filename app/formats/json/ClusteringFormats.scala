@@ -14,6 +14,9 @@ import play.api.libs.functional.syntax._
 object ClusteringFormats {
 
   case class ClusteredLabelSubmission(labelId: Int, labelType: String, clusterNum: Int)
+  case class ClusterSubmission(labelType: String, clusterNum: Int, lat: Float, lng: Float, severity: Option[Int], temporary: Boolean)
+  case class ClusteringSubmission(labels: List[ClusteredLabelSubmission], clusters: List[ClusterSubmission])
+
   case class GTLabelSubmission(labelId: Option[Int], clusterId: Int, routeId: Int, gsvPanoId: String, labelType: Int,
                                svImageX: Int, svImageY: Int, svCanvasX: Int, svCanvasY: Int, heading: Float,
                                pitch: Float, zoom: Int, canvasHeight: Int, canvasWidth: Int, alphaX: Float,
@@ -26,6 +29,20 @@ object ClusteringFormats {
       (JsPath \ "label_type").read[String] and
       (JsPath \ "cluster").read[Int]
     )(ClusteredLabelSubmission.apply _)
+
+  implicit val clusterSubmissionReads: Reads[ClusterSubmission] = (
+    (JsPath \ "label_type").read[String] and
+      (JsPath \ "cluster").read[Int] and
+      (JsPath \ "lat").read[Float] and
+      (JsPath \ "lng").read[Float] and
+      (JsPath \ "severity").readNullable[Int] and
+      (JsPath \ "temporary").read[Boolean]
+    )(ClusterSubmission.apply _)
+
+  implicit val clusteringSubmissionReads: Reads[ClusteringSubmission] = (
+    (JsPath \ "labels").read[List[ClusteredLabelSubmission]] and
+      (JsPath \ "clusters").read[List[ClusterSubmission]]
+    )(ClusteringSubmission.apply _)
 
   implicit val gtLabelSubmissionReads: Reads[GTLabelSubmission] = (
     (JsPath \ "label_id").readNullable[Int] and
@@ -44,8 +61,8 @@ object ClusteringFormats {
       (JsPath \ "canvas_width").read[Int] and
       (JsPath \ "alpha_x").read[Float] and
       (JsPath \ "alpha_y").read[Float] and
-      (JsPath \ "lat").read[Option[Float]] and
-      (JsPath \ "lng").read[Option[Float]] and
+      (JsPath \ "lat").readNullable[Float] and
+      (JsPath \ "lng").readNullable[Float] and
       (JsPath \ "description").readNullable[String] and
       (JsPath \ "severity").readNullable[Int] and
       (JsPath \ "temporary").readNullable[Boolean]

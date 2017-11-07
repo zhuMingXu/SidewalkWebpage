@@ -137,10 +137,12 @@ GET     /labelsForGTFixSeverity/:conditionId                 @controllers.Ground
 # Clustering session end points
 GET     /clusteringsessions                                  @controllers.ClusteringSessionController.getClusteringSessionsWithoutDeleted
 GET     /clusterRoute/:routeId/:hitId                        @controllers.ClusteringSessionController.runClustering(routeId: Int, hitId: String)
+GET     /clusterUser/:userId                                 @controllers.ClusteringSessionController.runUserClustering(userId: String)
 GET     /labelsToCluster/:routeId/:hitId                     @controllers.ClusteringSessionController.getLabelsToCluster(routeId, hitId)
 GET     /userLabelsToCluster/:userId                         @controllers.ClusteringSessionController.getUserLabelsToCluster(userId)
 GET     /nonGTLabelsToCluster/:routeId/:n                    @controllers.ClusteringSessionController.getNonGTLabelsToCluster(routeId, n)
 POST    /clusteringResults/:routeId/:threshold               @controllers.ClusteringSessionController.postClusteringResults(routeId, threshold)
+POST    /singlePersonClusteringResults/:userId/:threshold    @controllers.ClusteringSessionController.postSinglePersonClusteringResults(userId, threshold)
 
 # IRR Related
 GET     /getIRRData/:hitId/:routeId                          @controllers.IRRController.getDataForIRR(hitId: String, routeId: Int)
