@@ -49,8 +49,8 @@ def cluster(labels, clust_thresh, single_user):
         # do majority vote
         if len(clust) >= MAJORITY_THRESHOLD:
             ave = np.mean(clust['coords'].tolist(), axis=0) # use ave pos of clusters
-            ave_sev = int(round(np.nanmedian(clust['severity'])))
-            ave_temp = bool(1 - round(1 - np.mean(clust['temporary'])))
+            ave_sev = None if pd.isnull(clust['severity']).all() else int(round(np.nanmedian(clust['severity'])))
+            ave_temp = None if pd.isnull(clust['temporary']).all() else bool(1 - round(1 - np.mean(clust['temporary'])))
             included_labels.append((curr_type, clust_num, ave[0], ave[1], ave_sev, ave_temp))
             agreement_count += 1
         else:
@@ -99,13 +99,14 @@ if __name__ == '__main__':
         if USER_ID:
             url = "http://localhost:9000/userLabelsToCluster/" + str(USER_ID)
             SINGLE_USER = True
-        if HIT_ID: # this has been used primarily for GT
+            MAJORITY_THRESHOLD = 1
+        elif HIT_ID: # this has been used primarily for GT
             MAJORITY_THRESHOLD = 2
             url = 'http://localhost:9000/labelsToCluster/' + str(ROUTE_ID) + '/' + str(HIT_ID)
-
         else: # this is being used for clustering actual (non-researcher) turkers
             MAJORITY_THRESHOLD = math.ceil(N_LABELERS / 2.0)
             url = 'http://localhost:9000/nonGTLabelsToCluster/' + str(ROUTE_ID) + '/' + str(N_LABELERS)
+        print url
         response = requests.get(url)
         data = response.json()
         label_data = json_normalize(data[0])
@@ -133,29 +134,31 @@ if __name__ == '__main__':
         for label_type in included_types:
             print 'Number of ' + label_type + ' labels: ' + str(sum(label_data.label_type == label_type))
 
-    # put lat-lng in a tuple so it plays nice w/ haversine function
+    # Put lat-lng in a tuple so it plays nice w/ haversine function
     label_data['coords'] = label_data.apply(lambda x: (x.lat, x.lng), axis = 1)
     label_data['id'] =  label_data.index.values
 
-    # cluster labels for each datatype, and add the results to output_data
-    cluster_cols = ['label_id', 'label_type', 'cluster']
-    label_cols = ['label_type', 'cluster', 'lat', 'lng', 'severity', 'temporary']
-    label_output = pd.DataFrame(columns=cluster_cols)
-    cluster_output = pd.DataFrame(columns=label_cols)
+    # Cluster labels for each datatype, and add the results to output_data
+    label_cols = ['label_id', 'label_type', 'cluster']
+    cluster_cols = ['label_type', 'cluster', 'lat', 'lng', 'severity', 'temporary']
+    label_output = pd.DataFrame(columns=label_cols)
+    cluster_output = pd.DataFrame(columns=cluster_cols)
     clustOffset = 0
     for label_type in included_types:
         if not label_output.empty:
             clustOffset = np.max(label_output.cluster)
+
         type_data = label_data[label_data.label_type == label_type]
         if type_data.shape[0] > 1:
             cluster_output = cluster_output.append(cluster(type_data, CLUSTER_THRESHOLD, SINGLE_USER)[0])
-            # print type_data.filter(items=['turker_id','cluster']).sort_values('cluster')
-            label_output = label_output.append(type_data.filter(items=cluster_cols))
+            cluster_output.loc[cluster_output['label_type'] == label_type, 'cluster'] += clustOffset
+
+            label_output = label_output.append(type_data.filter(items=label_cols))
             label_output.loc[label_output['label_type'] == label_type, 'cluster'] += clustOffset
         elif type_data.shape[0] == 1:
             type_data.loc[:,'cluster'] = 1 + clustOffset
-            label_output = label_output.append(type_data.filter(items=cluster_cols))
-            cluster_output = cluster_output.append(type_data.filter(items=label_cols))
+            label_output = label_output.append(type_data.filter(items=label_cols))
+            cluster_output = cluster_output.append(type_data.filter(items=cluster_cols))
 
     # Convert to JSON
     cluster_json = cluster_output.to_json(orient='records', lines=False)
