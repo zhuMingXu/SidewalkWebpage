@@ -69,6 +69,7 @@ def cluster(labels, clust_thresh, single_user):
 if __name__ == '__main__':
 
     MAJORITY_THRESHOLD = 3 # NOTE: This variable doesn't have any real effect, only used to print summary stats.
+    POST_HEADER = {'content-type': 'application/json; charset=utf-8'}
 
     # read in arguments from command line
     parser = argparse.ArgumentParser(description='Takes a set of labels from JSON, and outputs the labels grouped into clusters as JSON')
@@ -94,27 +95,35 @@ if __name__ == '__main__':
     SINGLE_USER = False
 
 
+    getURL = None
+    postURL = None
+    if USER_ID:
+        getURL = "http://localhost:9000/userLabelsToCluster/" + str(USER_ID)
+        postURL = 'http://localhost:9000/singlePersonClusteringResults/' + str(USER_ID) + '/' + str(CLUSTER_THRESHOLD)
+        SINGLE_USER = True
+        MAJORITY_THRESHOLD = 1
+    elif HIT_ID: # this has been used primarily for GT
+        MAJORITY_THRESHOLD = 2
+        getURL = 'http://localhost:9000/labelsToCluster/' + str(ROUTE_ID) + '/' + str(HIT_ID)
+        postURL = 'http://localhost:9000/clusteringResults/' + str(ROUTE_ID) + '/' + str(CLUSTER_THRESHOLD)
+    else: # this is being used for clustering actual (non-researcher) turkers
+        MAJORITY_THRESHOLD = math.ceil(N_LABELERS / 2.0)
+        getURL = 'http://localhost:9000/nonGTLabelsToCluster/' + str(ROUTE_ID) + '/' + str(N_LABELERS)
+        postURL = 'http://localhost:9000/clusteringResults/' + str(ROUTE_ID) + '/' + str(CLUSTER_THRESHOLD)
+
+    # Send GET request to get labels to be clustered.
     try:
-        url = None
-        if USER_ID:
-            url = "http://localhost:9000/userLabelsToCluster/" + str(USER_ID)
-            SINGLE_USER = True
-            MAJORITY_THRESHOLD = 1
-        elif HIT_ID: # this has been used primarily for GT
-            MAJORITY_THRESHOLD = 2
-            url = 'http://localhost:9000/labelsToCluster/' + str(ROUTE_ID) + '/' + str(HIT_ID)
-        else: # this is being used for clustering actual (non-researcher) turkers
-            MAJORITY_THRESHOLD = math.ceil(N_LABELERS / 2.0)
-            url = 'http://localhost:9000/nonGTLabelsToCluster/' + str(ROUTE_ID) + '/' + str(N_LABELERS)
-        print url
-        response = requests.get(url)
+        response = requests.get(getURL)
         data = response.json()
         label_data = json_normalize(data[0])
-
     except:
         print "bleep bloop fail"
         sys.exit()
 
+    # Check if there are 0 labels. If so, just send the post request and exit.
+    if len(label_data) == 0:
+        response = requests.post(postURL, data=json.dumps({'clusters': [], 'labels': []}), headers=POST_HEADER)
+        sys.exit()
 
     # remove other, occlusion, and no sidewalk label types
     included_types = ['CurbRamp', 'SurfaceProblem', 'Obstacle', 'NoCurbRamp', 'NoSidewalk', 'Occlusion', 'Other']
@@ -166,13 +175,6 @@ if __name__ == '__main__':
     output_json = json.dumps({'labels': json.loads(label_json), 'clusters': json.loads(cluster_json)})
     # print output_json
 
-    url = ''
-    if SINGLE_USER:
-        url = 'http://localhost:9000/singlePersonClusteringResults/' + str(USER_ID) + '/' + str(CLUSTER_THRESHOLD)
-    else:
-        url = 'http://localhost:9000/clusteringResults/' + str(ROUTE_ID) + '/' + str(CLUSTER_THRESHOLD)
-    headers = {'content-type': 'application/json; charset=utf-8'}
-
-    response = requests.post(url, data=output_json, headers=headers)
+    response = requests.post(postURL, data=output_json, headers=POST_HEADER)
 
     sys.exit()
