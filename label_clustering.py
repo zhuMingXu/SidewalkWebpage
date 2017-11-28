@@ -11,6 +11,7 @@ import pandas as pd
 from pandas.io.json import json_normalize
 import json
 import argparse
+import re
 from sklearn.cluster import KMeans
 
 # Custom distance function that returns max float if from the same turker id, haversine distance otherwise
@@ -20,7 +21,7 @@ def custom_dist(u, v):
     else:
         return haversine([u[0], u[1]], [v[0], v[1]])
 
-# for each label type, cluster based on distance
+# For each label type, cluster based on distance
 def cluster(labels, clust_thresh, single_user):
     if single_user:
         dist_matrix = pdist(np.array(labels[['lat', 'lng']].as_matrix()), lambda x, y: haversine(x, y))
@@ -33,18 +34,16 @@ def cluster(labels, clust_thresh, single_user):
     if single_user and curr_type in ['CurbRamp','NoCurbRamp']:
         clust_thresh = 0.0025
 
-    # cuts tree so that only labels less than clust_threth kilometers apart are clustered, adds a col
+    # Cuts tree so that only labels less than clust_threth kilometers apart are clustered, adds a col
     # to dataframe with label for the cluster they are in
     labels.loc[:,'cluster'] = fcluster(link, t=clust_thresh, criterion='distance')
     labelsCopy = labels.copy()
     newClustId = np.max(labels.cluster) + 1
-    #print pd.DataFrame(pd.DataFrame(labels.groupby('cluster').size().rename('points_count')).groupby('points_count').size().rename('points_count_frequency'))
 
-    # Majority vote to decide what is included. If a cluster has at least 3 people agreeing on the type
-    # of the label, that is included. Any less, and we add it to the list of problem_clusters, so that
-    # we can look at them by hand through the admin interface to decide.
+    # Majority vote to decide what is included. If a cluster has at least MAJORITY_VOTE people agreeing on the type
+    # of the label, it is included.
     included_labels = [] # list of tuples (label_type, cluster_num, lat, lng, severity, temporary)
-    problem_label_indices = [] # list of indices in dataset of labels that need to be verified
+    problem_label_indices = [] # list of indices in dataset of labels that were not agreed upon (not currently used)
     clusters = labelsCopy.groupby('cluster')
     agreement_count = 0
     disagreement_count = 0
@@ -72,12 +71,11 @@ def cluster(labels, clust_thresh, single_user):
 
 if __name__ == '__main__':
 
-    MAJORITY_THRESHOLD = 3 # NOTE: This variable doesn't have any real effect, only used to print summary stats.
     POST_HEADER = {'content-type': 'application/json; charset=utf-8'}
 
-    # read in arguments from command line
+    # Read in arguments from command line
     parser = argparse.ArgumentParser(description='Takes a set of labels from JSON, and outputs the labels grouped into clusters as JSON')
-    parser.add_argument('route_id', type=int,
+    parser.add_argument('--route_id', type=int,
                         help='Route Id who\'s labels should be clustered.')
     parser.add_argument('--hit_id', type=str,
                         help='HIT Id who\'s labels should be clustered.')
@@ -85,10 +83,14 @@ if __name__ == '__main__':
                         help='Number of turkers to cluster.')
     parser.add_argument('--user_id', type=str,
                         help='User id of a single user who\'s labels should be clustered.')
+    parser.add_argument('--turker_id', type=str,
+                        help='Turker id of a single turker who\'s labels should be clustered.')
     parser.add_argument('--clust_thresh', type=float, default=0.0075,
                         help='Cluster distance threshold (in meters)')
     parser.add_argument('--debug', action='store_true',
                         help='Debug mode adds print statements')
+    parser.add_argument('--session_ids', nargs='+', type=int,
+                        help='List of clustering session ids from which to get labels for clustering')
     args = parser.parse_args()
     DEBUG = args.debug
     CLUSTER_THRESHOLD = args.clust_thresh
@@ -96,32 +98,67 @@ if __name__ == '__main__':
     HIT_ID = args.hit_id
     N_LABELERS = args.n_labelers
     USER_ID = args.user_id
+    TURKER_ID = args.turker_id
     SINGLE_USER = False
+    SESSION_IDS = args.session_ids
 
 
+    # Determine what type of clustering should be done from command line args, and set variable accordingly.
+    MAJORITY_THRESHOLD = None
     getURL = None
     postURL = None
-    if USER_ID:
-        getURL = "http://localhost:9000/userLabelsToCluster/" + str(USER_ID)
-        postURL = 'http://localhost:9000/singlePersonClusteringResults/' + str(USER_ID) + '/' + str(CLUSTER_THRESHOLD)
+    if SESSION_IDS:
+        getURL = 'http://localhost:9000/clusteredTurkerLabels/' + re.sub('[\[\] ]', '', str(SESSION_IDS))
+        if ROUTE_ID: getURL += ('?routeId=' + str(ROUTE_ID))
+        postURL = 'http://localhost:9000/clusteringResults' \
+                  '/' +str(ROUTE_ID) +\
+                  '/' + str(CLUSTER_THRESHOLD) +\
+                  '?fromClusters=true'
+        MAJORITY_THRESHOLD = math.ceil(N_LABELERS / 2.0)
+        SINGLE_USER = False
+    elif ROUTE_ID and TURKER_ID:
+        getURL = 'http://localhost:9000/singleTurkerLabels/' + str(TURKER_ID) + '/' + str(ROUTE_ID)
+        postURL = 'http://localhost:9000/singleUserClusteringResults' \
+                  '?volunteerOrTurkerId=' + str(TURKER_ID) +\
+                  '&threshold=' + str(CLUSTER_THRESHOLD) +\
+                  '&routeId=' + str(ROUTE_ID)
+        SINGLE_USER = True
+        MAJORITY_THRESHOLD = 1
+    elif ROUTE_ID and USER_ID:
+        getURL = 'http://localhost:9000/volunteerLabelsToCluster/' + str(ROUTE_ID)
+        postURL = 'http://localhost:9000/singleUserClusteringResults' \
+                  '?volunteerOrTurkerId=' + str(USER_ID) + \
+                  '&threshold=' + str(CLUSTER_THRESHOLD) + \
+                  '&routeId=' + str(ROUTE_ID)
+        SINGLE_USER = True
+        MAJORITY_THRESHOLD = 1
+    elif USER_ID:
+        getURL = 'http://localhost:9000/userLabelsToCluster/' + str(USER_ID)
+        postURL = 'http://localhost:9000/singleUserClusteringResults' \
+                  '?volunteerOrTurkerId=' + str(USER_ID) + \
+                  '&threshold=' + str(CLUSTER_THRESHOLD)
         SINGLE_USER = True
         MAJORITY_THRESHOLD = 1
     elif HIT_ID: # this has been used primarily for GT
         MAJORITY_THRESHOLD = 2
+        SINGLE_USER = False
         getURL = 'http://localhost:9000/labelsToCluster/' + str(ROUTE_ID) + '/' + str(HIT_ID)
         postURL = 'http://localhost:9000/clusteringResults/' + str(ROUTE_ID) + '/' + str(CLUSTER_THRESHOLD)
     else: # this is being used for clustering actual (non-researcher) turkers
         MAJORITY_THRESHOLD = math.ceil(N_LABELERS / 2.0)
+        SINGLE_USER = False
         getURL = 'http://localhost:9000/nonGTLabelsToCluster/' + str(ROUTE_ID) + '/' + str(N_LABELERS)
         postURL = 'http://localhost:9000/clusteringResults/' + str(ROUTE_ID) + '/' + str(CLUSTER_THRESHOLD)
 
     # Send GET request to get labels to be clustered.
     try:
+        # print getURL
+        # print postURL
         response = requests.get(getURL)
         data = response.json()
         label_data = json_normalize(data[0])
     except:
-        print "bleep bloop fail"
+        print "Failed to get labels needed to cluster."
         sys.exit()
 
     # Check if there are 0 labels. If so, just send the post request and exit.
@@ -129,14 +166,14 @@ if __name__ == '__main__':
         response = requests.post(postURL, data=json.dumps({'clusters': [], 'labels': []}), headers=POST_HEADER)
         sys.exit()
 
-    # remove other, occlusion, and no sidewalk label types
+    # Pick which label types should be included in clustering
     included_types = ['CurbRamp', 'SurfaceProblem', 'Obstacle', 'NoCurbRamp', 'NoSidewalk', 'Occlusion', 'Other']
     label_data = label_data[label_data.label_type.isin(included_types)]
 
-    # remove NAs
+    # Remove NAs
     # label_data.dropna(inplace=True)
 
-    # remove weird entries with longitude values (on the order of 10^14)
+    # Remove weird entries with longitude values (on the order of 10^14)
     if sum(label_data.lng > 360) > 0:
         print 'There are %d invalid longitude vals, removing those entries.' % sum(label_data.lng > 360)
         label_data = label_data.drop(label_data[label_data.lng > 360].index)
@@ -162,6 +199,7 @@ if __name__ == '__main__':
             clustOffset = np.max(label_output.cluster)
 
         type_data = label_data[label_data.label_type == label_type]
+
         if type_data.shape[0] > 1:
             cluster_output = cluster_output.append(cluster(type_data, CLUSTER_THRESHOLD, SINGLE_USER)[0])
             cluster_output.loc[cluster_output['label_type'] == label_type, 'cluster'] += clustOffset
@@ -179,6 +217,11 @@ if __name__ == '__main__':
     output_json = json.dumps({'labels': json.loads(label_json), 'clusters': json.loads(cluster_json)})
     # print output_json
 
-    response = requests.post(postURL, data=output_json, headers=POST_HEADER)
+    # Clustering for a single user has a different POST function than for clustering multiple users.
+    # TODO combine these two functions
+    if SINGLE_USER:
+        response = requests.post(postURL, data=output_json, headers=POST_HEADER)
+    else:
+        response = requests.post(postURL, data=label_json, headers=POST_HEADER)
 
     sys.exit()

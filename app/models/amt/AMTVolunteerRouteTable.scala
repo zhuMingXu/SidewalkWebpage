@@ -46,7 +46,7 @@ object AMTVolunteerRouteTable {
   def assignRouteByConditionIdAndWorkerId(conditionId: Int, workerId: String): Option[Int] = db.withTransaction { implicit session =>
     // Find the first route in the list of routes associated with volunteerId (these are obtained using
     // findRoutesIdsByVolunteerId) that hasnt been audited by workerId (this can be checked in the amt_assignment table)
-    val volunteerId: String = AMTConditionTable.getVolunteerIdByConditionId(conditionId)
+    val volunteerId: String = AMTConditionTable.getVolunteerIdByCondition(conditionId)
     val availableRoutes: List[Int] = findRoutesIdsByVolunteerId(volunteerId)
     val auditedRoutes: List[Int] = amtAssignments.filter(_.turkerId === workerId).filter(_.completed).map(_.routeId).list.map(route => route.get)
     var assignedRoute: Option[Int] = (availableRoutes diff auditedRoutes).headOption
@@ -54,7 +54,7 @@ object AMTVolunteerRouteTable {
   }
 
   def getRoutesByConditionId(conditionId: Int): List[Int] = db.withTransaction{ implicit session =>
-    val volunteerId: String = AMTConditionTable.getVolunteerIdByConditionId(conditionId)
+    val volunteerId: String = AMTConditionTable.getVolunteerIdByCondition(conditionId)
     val availableRoutes: List[Int] = findRoutesIdsByVolunteerId(volunteerId)
     availableRoutes
   }

@@ -7,20 +7,22 @@ import com.mohiva.play.silhouette.api.{Environment, Silhouette}
 import com.mohiva.play.silhouette.impl.authenticators.SessionAuthenticator
 import controllers.headers.ProvidesHeader
 import formats.json.ClusteringFormats
-import models.amt.AMTConditionTable
+import models.amt.{AMTAssignmentTable, AMTConditionTable, TurkerLabel}
 import models.clustering_session._
 import models.daos.slick.DBTableDefinitions.{DBUser, UserTable}
 import models.label.LabelTypeTable
 import models.user.User
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json.{JsError, JsObject, Json}
-import play.api.mvc.BodyParsers
+import play.api.mvc.{Action, AnyContent, BodyParsers}
 
 import scala.concurrent.Future
 import scala.sys.process._
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import play.api.Logger
+
+import scala.util.matching.Regex
 
 
 class ClusteringSessionController @Inject()(implicit val env: Environment[User, SessionAuthenticator])
@@ -44,8 +46,7 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
 
   def runClustering(routeId: Int, hitId: String) = UserAwareAction.async { implicit request =>
     //    if (isAdmin(request.identity)) {
-    val clusteringOutput = ("python label_clustering.py " + routeId + " --hit_id " + hitId).!!
-    //      println(clusteringOutput)
+    val clusteringOutput = ("python label_clustering.py --route_id " + routeId + " --hit_id " + hitId).!!
     val testJson = Json.obj("what did we run?" -> "clustering!", "output" -> "something")
     Future.successful(Ok(testJson))
     //    } else {
@@ -55,8 +56,7 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
 
   def runUserClustering(userId: String) = UserAwareAction.async { implicit request =>
     //    if (isAdmin(request.identity)) {
-    val clusteringOutput = ("python label_clustering.py 1" + " --user_id " + userId).!!
-    //      println(clusteringOutput)
+    val clusteringOutput = ("python label_clustering.py" + " --user_id " + userId).!!
     val testJson = Json.obj("what did we run?" -> "clustering!", "output" -> "something")
     Future.successful(Ok(testJson))
     //    } else {
@@ -107,7 +107,7 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
   }
 
   /**
-    * Returns the set of labels associated with the given user
+    * Returns the set of all labels associated with the given user, in the format needed for clustering.
     *
     * @param userId
     * @return
@@ -116,7 +116,11 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     //    if (isAdmin(request.identity)) {
     val labsToCluster: List[UserLabelToCluster] = ClusteringSessionTable.getUserLabelsToCluster(userId)
     val json = Json.arr(labsToCluster.map(x => Json.obj(
-      "label_id" -> x.labelId, "label_type" -> x.labelType, "lat" -> x.lat, "lng" -> x.lng, "severity" -> x.severity,
+      "label_id" -> x.labelId,
+      "label_type" -> x.labelType,
+      "lat" -> x.lat,
+      "lng" -> x.lng,
+      "severity" -> x.severity,
       "temporary" -> x.temp
     )))
     Future.successful(Ok(json))
@@ -126,13 +130,56 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
   }
 
   /**
+    * Returns the set of volunteer labels associated with the given route, in the format needed for clustering.
+    *
+    * @param routeId
+    * @return
+    */
+  def getVolunteerLabelsToClusterForRoute(routeId: Int) = UserAwareAction.async { implicit request =>
+
+    println(routeId)
+    val labsToCluster: List[UserLabelToCluster] = AMTConditionTable.getVolunteerLabelsByRoute(routeId).map(_.toUserLabelToCluster)
+    val json = Json.arr(labsToCluster.map(x =>
+      Json.obj(
+        "label_id" -> x.labelId,
+        "label_type" -> x.labelType,
+        "lat" -> x.lat,
+        "lng" -> x.lng,
+        "severity" -> x.severity,
+        "temporary" -> x.temp
+      )
+    ))
+    Future.successful(Ok(json))
+  }
+
+  /**
+    * Returns the set of labels associated with the given turker and route, in the format needed for clustering.
+    *
+    * @param routeId
+    * @return
+    */
+  def getSingleTurkerLabelsToCluster(turkerId: String, routeId: Int): Action[AnyContent] = UserAwareAction.async { implicit request =>
+
+    val labsToCluster: List[TurkerLabel] = AMTAssignmentTable.getTurkerLabelsForRoute(Some(turkerId), routeId)
+    val json = Json.arr(labsToCluster.map(x => Json.obj(
+      "label_id" -> x.labelId,
+      "label_type" -> x.labelType,
+      "lat" -> x.lat,
+      "lng" -> x.lng,
+      "severity" -> x.severity,
+      "temporary" -> x.temporary
+    )))
+    Future.successful(Ok(json))
+  }
+
+  /**
     * Returns the labels that were placed by the first n turkers to finish the condition in JSON.
     *
     * @param routeId
-    * @param n
+    * @param n number of turkers
     * @return
     */
-  def getNonGTLabelsToCluster(routeId: String, n: String) = UserAwareAction.async { implicit request =>
+  def getTurkerLabelsToCluster(routeId: String, n: String) = UserAwareAction.async { implicit request =>
     val conditionId: Int = AMTConditionTable.getConditionIdForRoute(routeId.toInt)
     val labelsToCluster: List[LabelToCluster] = ClusteringSessionTable.getNonGTLabelsToCluster(conditionId, routeId.toInt, n.toInt)
     val json = Json.arr(labelsToCluster.map(x => Json.obj(
@@ -148,11 +195,22 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
   }
 
   /**
-    * Takes in results of clustering, and adds the data to the relevant tables
+    * Takes in results of single-user clustering, and adds the data to the relevant tables
+    *
+    * @param volunteerOrTurkerId
+    * @param threshold
+    * @param routeId
+    * @return
     */
-  def postSinglePersonClusteringResults(userId: String, threshold: String) = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>
+  def postSingleUserClusteringResults(volunteerOrTurkerId: String, threshold: Double, routeId: Option[Int]) = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>
     // Validation https://www.playframework.com/documentation /2.3.x/ScalaJson
-//    val submission = request.body.validate[List[ClusteringFormats.ClusteredLabelSubmission]]
+
+    val userIdRegex: Regex = raw".+-.+-.+-.+".r
+    val userType: String = volunteerOrTurkerId match {
+      case userIdRegex() => "volunteer"
+      case _ => "turker"
+    }
+
     val submission = request.body.validate[ClusteringFormats.ClusteringSubmission]
     submission.fold(
       errors => {
@@ -162,48 +220,51 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
       submission => {
         val clusters: List[ClusteringFormats.ClusterSubmission] = submission.clusters
         val labels: List[ClusteringFormats.ClusteredLabelSubmission] = submission.labels
-        println(labels.length)
-        println(clusters.length)
-        val grouped_labels: Map[Int, List[ClusteringFormats.ClusteredLabelSubmission]] = labels.groupBy(_.clusterNum)
+
+        val groupedLabels: Map[Int, List[ClusteringFormats.ClusteredLabelSubmission]] = labels.groupBy(_.clusterNum)
         val now = new DateTime(DateTimeZone.UTC)
         val timestamp: Timestamp = new Timestamp(now.getMillis)
-        val sessionId: Int = ClusteringSessionTable.save(
-          ClusteringSession(0, None, threshold.toDouble, timestamp, deleted = false, userId = Some(userId))
-        )
-
+        val sessionId: Int = userType match {
+          case "volunteer" => ClusteringSessionTable.save(
+            ClusteringSession(0, routeId, threshold, timestamp, deleted = false, userId = Some(volunteerOrTurkerId), turkerId = None)
+          )
+          case "turker" => ClusteringSessionTable.save(
+            ClusteringSession(0, routeId, threshold, timestamp, deleted = false, userId = None, turkerId = Some(volunteerOrTurkerId))
+          )
+        }
         // Add the cluster to clustering_session_cluster table
         for (cluster <- clusters) yield {
           val clustId: Int =
             ClusteringSessionClusterTable.save(
               ClusteringSessionCluster(0,
-                                       sessionId,
-                                       Some(LabelTypeTable.labelTypeToId(cluster.labelType)),
-                                       Some(cluster.lat),
-                                       Some(cluster.lng),
-                                       cluster.severity,
-                                       Some(cluster.temporary)
+                sessionId,
+                Some(LabelTypeTable.labelTypeToId(cluster.labelType)),
+                Some(cluster.lat),
+                Some(cluster.lng),
+                cluster.severity,
+                Some(cluster.temporary)
               )
             )
           // Add all the associated labels to the clustering_session_label table
-          grouped_labels get cluster.clusterNum match {
+          groupedLabels get cluster.clusterNum match {
             case Some(group) =>
               for (label <- group) yield {
-                ClusteringSessionLabelTable.save(ClusteringSessionLabel(0, clustId, label.labelId))
+                ClusteringSessionLabelTable.save(ClusteringSessionLabel(0, clustId, Some(label.labelId), None))
               }
             case None =>
               Logger.warn("Cluster sent with no accompanying labels. Seems wrong!")
           }
         }
+        val json = Json.obj("session" -> sessionId)
+        Future.successful(Ok(json))
       }
     )
-    val json = Json.obj()
-    Future.successful(Ok(json))
   }
 
   /**
     * Takes in results of clustering, and adds the data to the relevant tables
     */
-  def postClusteringResults(routeId: String, threshold: String) = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>
+  def postClusteringResults(routeId: String, threshold: String, fromClusters: Option[Boolean]) = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>
     // Validation https://www.playframework.com/documentation /2.3.x/ScalaJson
     val submission = request.body.validate[List[ClusteringFormats.ClusteredLabelSubmission]]
     submission.fold(
@@ -214,17 +275,19 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
       submission => {
         val now = new DateTime(DateTimeZone.UTC)
         val timestamp: Timestamp = new Timestamp(now.getMillis)
-        val sessionId: Int = ClusteringSessionTable.save(ClusteringSession(0, Some(routeId.toInt), threshold.toDouble, timestamp, deleted = false, userId = None))
+        val sessionId: Int = ClusteringSessionTable.save(ClusteringSession(0, Some(routeId.toInt), threshold.toDouble, timestamp, deleted = false, userId = None, turkerId = None))
         submission.groupBy(_.clusterNum).map { case (clust, labels) =>
           val clustId: Int = ClusteringSessionClusterTable.save(sessionId)
           for (label <- labels) yield {
-            ClusteringSessionLabelTable.save(ClusteringSessionLabel(0, clustId, label.labelId))
+            fromClusters match {
+              case Some(true) => ClusteringSessionLabelTable.save(ClusteringSessionLabel(0, clustId, None, Some(label.labelId)))
+              case _          => ClusteringSessionLabelTable.save(ClusteringSessionLabel(0, clustId, Some(label.labelId), None))
+            }
           }
         }
       }
     )
-    val json = Json.obj()
-    Future.successful(Ok(json))
+    Future.successful(Ok(Json.obj()))
   }
 
   def getLabelsForGtResolution(clusteringSessionId: String) = UserAwareAction.async { implicit request =>
@@ -239,5 +302,4 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     )))
     Future.successful(Ok(json))
   }
-
 }

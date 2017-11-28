@@ -494,7 +494,7 @@ let allVolunteerButton = document.getElementById('allVolunteerAccuracy');
 allVolunteerButton.onclick = function() {
 
     // Get data
-    $.getJSON("/accuracyData/volunteer/1", function (volunteerData) {
+    $.getJSON("/accuracyDataWithSinglePersonClust/volunteer/1", function (volunteerData) {
         let accuracyOutputArray = [];
         let optsArray =
             [
@@ -534,7 +534,7 @@ let allTurkerButton = document.getElementById('allTurkerAccuracy');
 allTurkerButton.onclick = function() {
 
     // 1 turker
-    $.getJSON("/accuracyData/turker/1", function (oneTurkerData) {
+    $.getJSON("/accuracyDataWithSinglePersonClust/turker/1", function (oneTurkerData) {
         let accuracyOutputArray = [];
         let optsArrayOneTurker =
             [
@@ -561,7 +561,7 @@ allTurkerButton.onclick = function() {
         }
 
         // 3 turkers
-        $.getJSON("/accuracyData/turker/3", function (threeTurkerData) {
+        $.getJSON("/accuracyDataWithSinglePersonClust/turker/3", function (threeTurkerData) {
             let optsArrayThreeTurkers =
                 [
                     {binary: true, prob_no_prob: true, worker_thresh: 1, remove_low_severity: false},
@@ -613,7 +613,7 @@ allTurkerButton.onclick = function() {
 
 
             // 5 turkers
-            $.getJSON("/accuracyData/turker/5", function (fiveTurkerData) {
+            $.getJSON("/accuracyDataWithSinglePersonClust/turker/5", function (fiveTurkerData) {
                 let optsArrayFiveTurkers =
                     [
                         {binary: true, prob_no_prob: true, worker_thresh: 1, remove_low_severity: false},

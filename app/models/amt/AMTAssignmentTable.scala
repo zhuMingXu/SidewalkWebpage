@@ -131,7 +131,7 @@ object AMTAssignmentTable {
     * @param conditionId
     * @return
     */
-  def getNonResearcherTurkersWhoCompletedCondition(conditionId: Int): List[String] = db.withSession { implicit session =>
+  def getTurkersWhoCompletedCondition(conditionId: Int): List[String] = db.withSession { implicit session =>
     // figure out number of routes in the condition
     val nRoutes: Int = (for {
       _condition <- AMTConditionTable.amtConditions if _condition.amtConditionId === conditionId
@@ -150,7 +150,7 @@ object AMTAssignmentTable {
     * @param conditionId
     * @return
     */
-  def getNonResearcherTurkersWithAcceptedHITForCondition(conditionId: Int): List[String] = db.withSession { implicit session =>
+  def getTurkersWithAcceptedHITForCondition(conditionId: Int): List[String] = db.withSession { implicit session =>
     // figure out number of routes in the condition
     val nRoutes: Int = (for {
       _condition <- AMTConditionTable.amtConditions if _condition.amtConditionId === conditionId
@@ -213,23 +213,28 @@ object AMTAssignmentTable {
     amtAssignments.filter(_.hitId === hitId).map(_.routeId.getOrElse(-1)).run.distinct.toList
   }
 
+  def getTurkerLabelsForCondition(turkerId: Option[String], conditionId: Int): List[TurkerLabel] = db.withSession { implicit session =>
+    val routeIds: List[Int] = AMTConditionTable.getRouteIdsForACondition(conditionId)
+    routeIds.flatMap(getTurkerLabelsForRoute(turkerId, _))
+  }
+
+
   /**
     * Returns labels that were placed by turkers in the specified condition.
     *
     * This only labels from turkers who have completed all of the routes in that condition. It also excludes turkerIds
     * associated with researchers.
     *
-    * @param conditionId
+    * @param routeId
     * @return
     */
-  def getTurkerLabelsByCondition(conditionId: Int): List[TurkerLabel] = db.withSession { implicit session =>
+  def getTurkerLabelsForRoute(turkerId: Option[String], routeId: Int): List[TurkerLabel] = db.withSession { implicit session =>
 
-    val turkers: Option[String] = getNonResearcherTurkersWithAcceptedHITForCondition(conditionId).headOption
     val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
 
     // does a bunch of inner joins
     val labels = for {
-      _asmts <- amtAssignments.filter(asmt => asmt.turkerId === turkers && asmt.conditionId === conditionId)
+      _asmts <- amtAssignments.filter(asmt => asmt.turkerId === turkerId && asmt.routeId === routeId)
       _tasks <- AuditTaskTable.auditTasks if _asmts.amtAssignmentId === _tasks.amtAssignmentId
       _labs <- nonOnboardingLabs if _tasks.auditTaskId === _labs.auditTaskId
       _latlngs <- LabelTable.labelPoints if _labs.labelId === _latlngs.labelId
@@ -238,8 +243,8 @@ object AMTAssignmentTable {
 
     // left joins to get severity for any labels that have them
     val labelsWithSeverity = for {
-      (_labs, _severity) <- labels.leftJoin(LabelTable.severities).on(_._2 === _.labelId)
-    } yield (_labs._1, _labs._2, _labs._3, _labs._4, _labs._5, _labs._6, _labs._7,  _severity.severity.?)
+      (_labs, _severity) <- labels leftJoin LabelTable.severities on (_._4 === _.labelId)
+    } yield (_labs._1, _labs._2, _labs._3, _labs._4, _labs._5, _labs._6, _labs._7, _severity.severity.?)
 
     // left joins to get temporariness for any labels that have them (those that don't are marked as temporary=false)
     val labelsWithTemporariness = for {

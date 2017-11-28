@@ -6,6 +6,7 @@ package models.amt
 
 import models.amt.AMTAssignmentTable.db
 import models.audit.{AuditTaskEnvironmentTable, AuditTaskTable}
+import models.clustering_session.UserLabelToCluster
 import models.label.{LabelTable, ProblemTemporarinessTable}
 import models.route.RouteStreetTable
 import models.utils.MyPostgresDriver.simple._
@@ -37,6 +38,10 @@ case class VolunteerLabel(conditionId: Int, routeId: Int, userId: String, labelI
     )
     Json.obj("type" -> "Feature", "geometry" -> latlngs, "properties" -> properties)
   }
+
+  def toUserLabelToCluster: UserLabelToCluster = {
+    UserLabelToCluster(labelId, labelType, lat, lng, severity, temporary)
+  }
 }
 
 
@@ -65,8 +70,13 @@ object AMTConditionTable {
   val registeredUserConditions: List[Int] = (70 to 122).toList
   val anonUserConditions: List[Int] = (123 to 140).toList
 
-  def getVolunteerIdByConditionId(amtConditionId: Int): String = db.withTransaction { implicit session =>
+  def getVolunteerIdByCondition(amtConditionId: Int): String = db.withTransaction { implicit session =>
     val vId = amtConditions.filter(_.amtConditionId === amtConditionId).map(_.volunteerId).list.headOption
+    vId.get
+  }
+
+  def getVolunteerIdByRouteId(routeId: Int): String = db.withTransaction { implicit session =>
+    val vId = AMTVolunteerRouteTable.amtVolunteerRoutes.filter(_.routeId === routeId).map(_.volunteerId).list.headOption
     vId.get
   }
 
@@ -127,23 +137,31 @@ object AMTConditionTable {
   }
 
   /**
-    * Returns labels that were placed by turkers in the specified condition.
-    *
-    * This only labels from turkers who have completed all of the routes in that condition. It also excludes turkerIds
-    * associated with researchers.
+    * Returns labels that were placed by a volunteer in the specified condition.
     *
     * @param conditionId
     * @return
     */
   def getVolunteerLabelsByCondition(conditionId: Int): List[VolunteerLabel] = db.withSession { implicit session =>
+    val routeIds: List[Int] = getRouteIdsForACondition(conditionId)
+    routeIds.flatMap(getVolunteerLabelsByRoute(_))
+  }
+
+  /**
+    * Returns labels that were placed by a volunteer in the specified route.
+    *
+    * @param routeId
+    * @return
+    */
+  def getVolunteerLabelsByRoute(routeId: Int): List[VolunteerLabel] = db.withSession { implicit session =>
 
     val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
 
-    val labels = conditionId match {
-      case cId if registeredUserConditions.contains(cId) =>
+    val labels = routeId match {
+      case rId if registeredUserConditions.contains(getConditionIdForRoute(rId)) =>
         for {
-          _condition <- AMTConditionTable.amtConditions if _condition.amtConditionId === conditionId
-          _routes <- AMTVolunteerRouteTable.amtVolunteerRoutes if _routes.volunteerId === _condition.volunteerId
+          _routes <- AMTVolunteerRouteTable.amtVolunteerRoutes if _routes.routeId === rId
+          _condition <- AMTConditionTable.amtConditions if _condition.volunteerId === _routes.volunteerId
           _streets <- RouteStreetTable.routesStreets if _streets.routeId === _routes.routeId
           _tasks <- AuditTaskTable.auditTasks if _tasks.streetEdgeId === _streets.current_street_edge_id && _tasks.completed
           _labs <- nonOnboardingLabs if _tasks.auditTaskId === _labs.auditTaskId
@@ -151,10 +169,10 @@ object AMTConditionTable {
           _types <- LabelTable.labelTypes if _labs.labelTypeId === _types.labelTypeId
         } yield (_condition.amtConditionId, _streets.routeId, _routes.volunteerId, _labs.labelId, _types.labelType, _latlngs.lat, _latlngs.lng)
 
-      case cId if anonUserConditions.contains(cId) =>
+      case rId if anonUserConditions.contains(getConditionIdForRoute(rId)) =>
         val tasks = for {
-          _condition <- AMTConditionTable.amtConditions if _condition.amtConditionId === conditionId
-          _routes <- AMTVolunteerRouteTable.amtVolunteerRoutes if _routes.volunteerId === _condition.volunteerId
+          _routes <- AMTVolunteerRouteTable.amtVolunteerRoutes if _routes.routeId === rId
+          _condition <- AMTConditionTable.amtConditions if _condition.volunteerId === _routes.volunteerId
           _streets <- RouteStreetTable.routesStreets if _streets.routeId === _routes.routeId
           _tasks <- AuditTaskTable.auditTasks if _tasks.streetEdgeId === _streets.current_street_edge_id && _tasks.completed
           _env <- AuditTaskEnvironmentTable.auditTaskEnvironments if _env.auditTaskId === _tasks.auditTaskId

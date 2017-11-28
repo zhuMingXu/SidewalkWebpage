@@ -4,7 +4,7 @@ package models.clustering_session
   * Created by hmaddali on 7/26/17.
   */
 import com.vividsolutions.jts.geom.{Coordinate, LineString}
-import models.amt.{AMTAssignmentTable, AMTConditionTable, AMTVolunteerRouteTable}
+import models.amt._
 import models.audit.AuditTaskTable
 import models.daos.slick.DBTableDefinitions.UserTable
 import models.label.{LabelTable, ProblemDescriptionTable, ProblemTemporarinessTable}
@@ -19,8 +19,13 @@ import play.extras.geojson
 import scala.slick.jdbc.{GetResult, StaticQuery => Q}
 import scala.slick.lifted.ForeignKeyQuery
 
-case class ClusteringSession(clusteringSessionId: Int, routeId: Option[Int], clusteringThreshold: Double,
-                             timeCreated: java.sql.Timestamp, deleted: Boolean, userId: Option[String])
+case class ClusteringSession(clusteringSessionId: Int,
+                             routeId: Option[Int],
+                             clusteringThreshold: Double,
+                             timeCreated: java.sql.Timestamp,
+                             deleted: Boolean,
+                             userId: Option[String],
+                             turkerId: Option[String])
 
 // TODO combine these into one type
 case class LabelToCluster(labelId: Int, labelType: String, lat: Option[Float], lng: Option[Float],
@@ -107,7 +112,8 @@ class ClusteringSessionTable(tag: Tag) extends Table[ClusteringSession](tag, Som
   def timeCreated = column[java.sql.Timestamp]("time_created",O.NotNull)
   def deleted = column[Boolean]("deleted", O.NotNull)
   def userId = column[Option[String]]("user_id",O.Nullable)
-  def * = (clusteringSessionId, routeId, clusteringThreshold, timeCreated, deleted, userId) <> ((ClusteringSession.apply _).tupled, ClusteringSession.unapply)
+  def turkerId = column[Option[String]]("turker_id",O.Nullable)
+  def * = (clusteringSessionId, routeId, clusteringThreshold, timeCreated, deleted, userId, turkerId) <> ((ClusteringSession.apply _).tupled, ClusteringSession.unapply)
 
   def route: ForeignKeyQuery[RouteTable, Route] =
     foreignKey("clustering_session_route_id_fkey", routeId, TableQuery[RouteTable])(_.routeId)
@@ -192,7 +198,38 @@ object ClusteringSessionTable{
   }
 
   /**
-    * Returns labels that were placed by the specified user, in the form needed for clustering
+    * Returns clusters from specified clustering session ids, in the format needed for another round of clustering.
+    *
+    * @param clusteringSessionIds
+    * @return
+    */
+  def getClusteredTurkerLabelsToCluster(clusteringSessionIds: List[Int], routeId: Option[Int]): List[LabelToCluster] = db.withSession { implicit session =>
+
+    val possibleSessions = routeId match {
+      case Some(rId) => clusteringSessions.filter(_.routeId === rId)
+      case None => clusteringSessions
+    }
+
+    val labels = for {
+      _session <- possibleSessions if _session.clusteringSessionId inSet clusteringSessionIds
+      if !_session.turkerId.isEmpty
+      _clusters <- ClusteringSessionClusterTable.clusteringSessionClusters if _session.clusteringSessionId === _clusters.clusteringSessionId
+      _types <- LabelTable.labelTypes if _clusters.labelTypeId === _types.labelTypeId
+    } yield (
+      _clusters.clusteringSessionClusterId,
+      _types.labelType,
+      _clusters.lat,
+      _clusters.lng,
+      _clusters.severity,
+      _clusters.temporary.getOrElse(false),
+      _session.turkerId.get
+    )
+
+    labels.list.map(x => LabelToCluster.tupled(x))
+  }
+
+  /**
+    * Returns labels that were placed by the specified user, in the form needed for clustering.
     *
     * @param userId
     * @return
@@ -232,7 +269,7 @@ object ClusteringSessionTable{
   def getNonGTLabelsToCluster(conditionId: Int, routeId: Int, n: Int): List[LabelToCluster] = db.withSession { implicit session =>
 
     // Get list of turkers who have completed this condition
-    val turkers: List[String] = AMTAssignmentTable.getNonResearcherTurkersWithAcceptedHITForCondition(conditionId).take(n)
+    val turkers: List[String] = AMTAssignmentTable.getTurkersWithAcceptedHITForCondition(conditionId).take(n)
     if (turkers.length != n) {
       Logger.warn(s"Trying to cluster $n turkers for condition $conditionId, but only ${turkers.length} have finished it.")
     }
@@ -283,8 +320,8 @@ object ClusteringSessionTable{
       _amtAsmt <- amtAssignments if _tasks.amtAssignmentId === _amtAsmt.amtAssignmentId
       _labPoints <- LabelTable.labelPoints if _labs.labelId === _labPoints.labelId
       _types <- LabelTable.labelTypes if _labs.labelTypeId === _types.labelTypeId
-    } yield (_session.routeId.get, _amtAsmt.turkerId, _clusters.clusteringSessionClusterId, _labs.labelId, _types.labelType,
-             _labPoints.lat, _labPoints.lng)
+    } yield (_session.routeId, _amtAsmt.turkerId, _clusters.clusteringSessionClusterId, _labs.labelId, _types.labelType,
+      _labPoints.lat, _labPoints.lng)
 
     // left joins to get severity for any labels that have them
     val labelsWithSev = for {
@@ -297,7 +334,98 @@ object ClusteringSessionTable{
     } yield (_labs._1, _labs._2, _labs._3, _labs._4, _labs._5, _labs._6, _labs._7, _labs._8, _temp.temporaryProblem.?)
 
     labelsWithTemporariness.list.map(x =>
+      ClusteredTurkerLabel.tupled((x._1.get, x._2, x._3, x._4, x._5, x._6, x._7, x._8, x._9.getOrElse(false))))
+  }
+
+
+  /**
+    * Returns the labels that were used in the specified clustering sessions, in the format needed to calculate accuracy.
+    *
+    * @param clusteringSessionIds
+    * @return
+    */
+  def getClusteredLabelsForAccuracy(clusteringSessionIds: List[Int]): List[ClusteredTurkerLabel] = db.withTransaction { implicit session =>
+
+    val labels = for {
+      _session <- clusteringSessions if _session.clusteringSessionId inSet clusteringSessionIds
+      if !_session.routeId.isEmpty
+      _clusters <- ClusteringSessionClusterTable.clusteringSessionClusters if _session.clusteringSessionId === _clusters.clusteringSessionId
+      _clustLabs <- ClusteringSessionLabelTable.clusteringSessionLabels if _clusters.clusteringSessionClusterId === _clustLabs.clusteringSessionClusterId
+      _labs <- ClusteringSessionClusterTable.clusteringSessionClusters if _clustLabs.originatingClusterId === _labs.clusteringSessionClusterId
+      _types <- LabelTable.labelTypes if _labs.labelTypeId === _types.labelTypeId
+      _origSess <- clusteringSessions if _origSess.clusteringSessionId === _labs.clusteringSessionId
+    } yield (
+      _session.routeId.get,
+      _origSess.turkerId.get,
+      _clusters.clusteringSessionClusterId,
+      _clustLabs.originatingClusterId.get,
+      _types.labelType,
+      _labs.lat,
+      _labs.lng,
+      _labs.severity,
+      _labs.temporary
+    )
+
+    labels.list.map(x =>
       ClusteredTurkerLabel.tupled((x._1, x._2, x._3, x._4, x._5, x._6, x._7, x._8, x._9.getOrElse(false))))
+  }
+
+
+  /**
+    * Returns the labels that were used in the specified clustering sessions, in the format needed to calculate accuracy.
+    *
+    * @param clusteringSessionIds
+    * @return
+    */
+  def getSingleClusteredTurkerLabelsForAccuracy(clusteringSessionIds: List[Int]): List[TurkerLabel] = db.withTransaction { implicit session =>
+    val labels = for {
+      _sessions <- clusteringSessions if _sessions.clusteringSessionId inSet clusteringSessionIds
+      _clust <- ClusteringSessionClusterTable.clusteringSessionClusters if _clust.clusteringSessionId === _sessions.clusteringSessionId
+      _clustLab <- ClusteringSessionLabelTable.clusteringSessionLabels if _clustLab.clusteringSessionClusterId === _clust.clusteringSessionClusterId
+      _labType <- LabelTable.labelTypes if _labType.labelTypeId === _clust.labelTypeId
+      _asmt <- AMTAssignmentTable.amtAssignments if _asmt.routeId === _sessions.routeId && _asmt.turkerId === _sessions.turkerId
+    } yield (
+      _asmt.conditionId,
+      _sessions.routeId.get,
+      _sessions.turkerId.get,
+      _clustLab.labelId.get,
+      _labType.labelType,
+      _clust.lat,
+      _clust.lng,
+      _clust.severity,
+      _clust.temporary.getOrElse(false)
+    )
+    labels.list.map(x => TurkerLabel.tupled(x))
+  }
+
+
+  /**
+    * Returns the labels that were used in the specified clustering sessions, in the format needed to calculate accuracy.
+    *
+    * @param clusteringSessionIds
+    * @return
+    */
+  def getSingleClusteredVolunteerLabelsForAccuracy(clusteringSessionIds: List[Int]): List[VolunteerLabel] = db.withTransaction { implicit session =>
+    val labels = for {
+      _sessions <- clusteringSessions if _sessions.clusteringSessionId inSet clusteringSessionIds
+      _clust <- ClusteringSessionClusterTable.clusteringSessionClusters if _clust.clusteringSessionId === _sessions.clusteringSessionId
+      _clustLab <- ClusteringSessionLabelTable.clusteringSessionLabels if _clustLab.clusteringSessionClusterId === _clust.clusteringSessionClusterId
+      _labType <- LabelTable.labelTypes if _labType.labelTypeId === _clust.labelTypeId
+      // Get condition id
+      _volunteerRoute <- AMTVolunteerRouteTable.amtVolunteerRoutes if _volunteerRoute.routeId === _sessions.routeId
+      _condition <- AMTConditionTable.amtConditions if _condition.volunteerId === _volunteerRoute.volunteerId
+    } yield (
+      _condition.amtConditionId,
+      _sessions.routeId.get,
+      _sessions.userId.get,
+      _clustLab.labelId.get,
+      _labType.labelType,
+      _clust.lat,
+      _clust.lng,
+      _clust.severity,
+      _clust.temporary.getOrElse(false)
+    )
+    labels.list.map(x => VolunteerLabel.tupled(x))
   }
 
   /**
