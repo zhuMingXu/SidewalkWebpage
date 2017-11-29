@@ -53,7 +53,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     // query only got 4 turkers for following conditions: 80, 91, 121
     // query only got 0 turkers for following conditions: 138
     // following conditions have no volunteer labels: 123, 124, 127, 128, 135, 139
-    // val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
+//     val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
     // val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
     val conditionIds: List[Int] = (70 to 140).toList.filterNot(
       List(71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139, 80, 91, 121, 138).contains(_))
@@ -98,8 +98,8 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     val routeIds: List[Int] = AMTConditionTable.getRouteIdsForAllConditions
     val streets: List[JsObject] = routeIds.flatMap(ClusteringSessionTable.getStreetGeomForIRR(_).map(_.toJSON))
 
-    // val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
-    // val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
+//     val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
+//     val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
    val conditionIds: List[Int] = (70 to 140).toList.filterNot(
      List(71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139, 80, 91, 121, 138).contains(_))
 
@@ -203,9 +203,9 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
       case ("turker", true, Some(turkerId), Some(route), _, _) =>
         "python label_clustering.py --turker_id " + turkerId + " --route_id " + route
       case ("turker", false, _, Some(route), _, Some(sessions)) =>
-        "python label_clustering.py --route_id " + route + " --session_ids " + sessionIds.mkString(" ")
+        "python label_clustering.py --route_id " + route + " --session_ids " + sessions.mkString(" ")
       case ("turker", false, _, None, _, Some(sessions)) =>
-        "python label_clustering.py --session_ids " + sessionIds.mkString(" ")
+        "python label_clustering.py --session_ids " + sessions.mkString(" ")
       case ("turker", false, _, Some(route), Some(n), _) => // old version of clustering
         "python label_clustering.py --route_id " + route + " --n_labelers " + n
       case _ =>

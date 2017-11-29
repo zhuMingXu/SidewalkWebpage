@@ -56,7 +56,7 @@ function getLabelCountsBySegment(chunks, gtLabs, workerLabs, workerThresh, optio
         if (setsOfLabels.hasOwnProperty(labelSource)) {
             let labs = setsOfLabels[labelSource];
 
-            // for each cluster, find the label nearest the center of the cluster, find which segment this label is
+            // For each cluster, find the label nearest the center of the cluster, find which segment this label is
             // nearest, and mark all labels from that cluster as being in that segment
             let clusterIds = [...new Set(labs.map(label => label.properties.cluster_id))];
             for (let clustIndex = 0; clustIndex < clusterIds.length; clustIndex++) {
@@ -535,6 +535,7 @@ allTurkerButton.onclick = function() {
 
     // 1 turker
     $.getJSON("/accuracyDataWithSinglePersonClust/turker/1", function (oneTurkerData) {
+    // $.getJSON("/accuracyData/turker/1", function (oneTurkerData) {
         let accuracyOutputArray = [];
         let optsArrayOneTurker =
             [
@@ -562,6 +563,7 @@ allTurkerButton.onclick = function() {
 
         // 3 turkers
         $.getJSON("/accuracyDataWithSinglePersonClust/turker/3", function (threeTurkerData) {
+        // $.getJSON("/accuracyData/turker/3", function (threeTurkerData) {
             let optsArrayThreeTurkers =
                 [
                     {binary: true, prob_no_prob: true, worker_thresh: 1, remove_low_severity: false},
@@ -614,6 +616,7 @@ allTurkerButton.onclick = function() {
 
             // 5 turkers
             $.getJSON("/accuracyDataWithSinglePersonClust/turker/5", function (fiveTurkerData) {
+            // $.getJSON("/accuracyData/turker/5", function (fiveTurkerData) {
                 let optsArrayFiveTurkers =
                     [
                         {binary: true, prob_no_prob: true, worker_thresh: 1, remove_low_severity: false},

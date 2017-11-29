@@ -137,7 +137,6 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     */
   def getVolunteerLabelsToClusterForRoute(routeId: Int) = UserAwareAction.async { implicit request =>
 
-    println(routeId)
     val labsToCluster: List[UserLabelToCluster] = AMTConditionTable.getVolunteerLabelsByRoute(routeId).map(_.toUserLabelToCluster)
     val json = Json.arr(labsToCluster.map(x =>
       Json.obj(

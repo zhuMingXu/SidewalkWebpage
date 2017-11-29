@@ -381,14 +381,15 @@ object ClusteringSessionTable{
     val labels = for {
       _sessions <- clusteringSessions if _sessions.clusteringSessionId inSet clusteringSessionIds
       _clust <- ClusteringSessionClusterTable.clusteringSessionClusters if _clust.clusteringSessionId === _sessions.clusteringSessionId
-      _clustLab <- ClusteringSessionLabelTable.clusteringSessionLabels if _clustLab.clusteringSessionClusterId === _clust.clusteringSessionClusterId
       _labType <- LabelTable.labelTypes if _labType.labelTypeId === _clust.labelTypeId
-      _asmt <- AMTAssignmentTable.amtAssignments if _asmt.routeId === _sessions.routeId && _asmt.turkerId === _sessions.turkerId
+      // Get condition id
+      _volunteerRoute <- AMTVolunteerRouteTable.amtVolunteerRoutes if _volunteerRoute.routeId === _sessions.routeId
+      _condition <- AMTConditionTable.amtConditions if _condition.volunteerId === _volunteerRoute.volunteerId
     } yield (
-      _asmt.conditionId,
+      _condition.amtConditionId,
       _sessions.routeId.get,
       _sessions.turkerId.get,
-      _clustLab.labelId.get,
+      _clust.clusteringSessionClusterId,
       _labType.labelType,
       _clust.lat,
       _clust.lng,
@@ -409,7 +410,6 @@ object ClusteringSessionTable{
     val labels = for {
       _sessions <- clusteringSessions if _sessions.clusteringSessionId inSet clusteringSessionIds
       _clust <- ClusteringSessionClusterTable.clusteringSessionClusters if _clust.clusteringSessionId === _sessions.clusteringSessionId
-      _clustLab <- ClusteringSessionLabelTable.clusteringSessionLabels if _clustLab.clusteringSessionClusterId === _clust.clusteringSessionClusterId
       _labType <- LabelTable.labelTypes if _labType.labelTypeId === _clust.labelTypeId
       // Get condition id
       _volunteerRoute <- AMTVolunteerRouteTable.amtVolunteerRoutes if _volunteerRoute.routeId === _sessions.routeId
@@ -418,7 +418,7 @@ object ClusteringSessionTable{
       _condition.amtConditionId,
       _sessions.routeId.get,
       _sessions.userId.get,
-      _clustLab.labelId.get,
+      _clust.clusteringSessionClusterId,
       _labType.labelType,
       _clust.lat,
       _clust.lng,

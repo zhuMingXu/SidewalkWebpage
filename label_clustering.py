@@ -50,15 +50,15 @@ def cluster(labels, clust_thresh, single_user):
     for clust_num, clust in clusters:
 
         # do majority vote
-        if len(clust) >= MAJORITY_THRESHOLD:
-            ave = np.mean(clust['coords'].tolist(), axis=0) # use ave pos of clusters
-            ave_sev = None if pd.isnull(clust['severity']).all() else int(round(np.nanmedian(clust['severity'])))
-            ave_temp = None if pd.isnull(clust['temporary']).all() else bool(1 - round(1 - np.mean(clust['temporary'])))
-            included_labels.append((curr_type, clust_num, ave[0], ave[1], ave_sev, ave_temp))
-            agreement_count += 1
-        else:
-            problem_label_indices.extend(clust.index)
-            disagreement_count += 1
+        # if len(clust) >= MAJORITY_THRESHOLD:
+        ave = np.mean(clust['coords'].tolist(), axis=0) # use ave pos of clusters
+        ave_sev = None if pd.isnull(clust['severity']).all() else int(round(np.nanmedian(clust['severity'])))
+        ave_temp = None if pd.isnull(clust['temporary']).all() else bool(1 - round(1 - np.mean(clust['temporary'])))
+        included_labels.append((curr_type, clust_num, ave[0], ave[1], ave_sev, ave_temp))
+        # agreement_count += 1
+        # else:
+        #     problem_label_indices.extend(clust.index)
+        #     disagreement_count += 1
 
     included = pd.DataFrame(included_labels, columns=['label_type', 'cluster', 'lat', 'lng', 'severity', 'temporary'])
 
