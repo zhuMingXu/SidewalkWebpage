@@ -6,7 +6,7 @@ import com.mohiva.play.silhouette.api.{Environment, Silhouette}
 import com.mohiva.play.silhouette.impl.authenticators.SessionAuthenticator
 import controllers.headers.ProvidesHeader
 import models.amt.AMTAssignmentTable.getTurkersWithAcceptedHITForCondition
-import models.amt.AMTConditionTable.{getVolunteerIdByCondition, getVolunteerLabelsByCondition}
+import models.amt.AMTConditionTable.{getVolunteerIdByRouteId, getVolunteerLabelsByCondition}
 import models.amt.{AMTAssignmentTable, AMTConditionTable}
 import models.clustering_session.{ClusteringSessionTable, LabelToCluster}
 import models.gt.GTLabelTable
@@ -199,7 +199,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
 
     val command: String = (volunteerOrTurker, singleUser, id, routeId, nTurkers, sessionIds) match {
       case ("volunteer", _, _, Some(route), _, _) =>
-        "python label_clustering.py --user_id " + getVolunteerIdByCondition(route) + " --route_id " + route
+        "python label_clustering.py --user_id " + getVolunteerIdByRouteId(route) + " --route_id " + route
       case ("turker", true, Some(turkerId), Some(route), _, _) =>
         "python label_clustering.py --turker_id " + turkerId + " --route_id " + route
       case ("turker", false, _, Some(route), _, Some(sessions)) =>
