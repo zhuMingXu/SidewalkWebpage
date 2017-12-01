@@ -98,10 +98,10 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     val routeIds: List[Int] = AMTConditionTable.getRouteIdsForAllConditions
     val streets: List[JsObject] = routeIds.flatMap(ClusteringSessionTable.getStreetGeomForIRR(_).map(_.toJSON))
 
-//     val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
-//     val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
-   val conditionIds: List[Int] = (70 to 140).toList.filterNot(
-     List(71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139, 80, 91, 121, 138).contains(_))
+    //     val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
+    //     val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
+    val conditionIds: List[Int] = (70 to 140).toList.filterNot(
+      List(71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139, 80, 91, 121, 138).contains(_))
 
     val gtLabels: List[JsObject] = conditionIds.flatMap(GTLabelTable.selectGTLabelsByCondition(_).map(_.toGeoJSON))
 
@@ -137,6 +137,47 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
       "streets" -> Json.obj("type" -> "FeatureCollection", "features" -> streets)
     )
 
+    Future.successful(Ok(finalJson))
+  }
+
+  /**
+    * Returns set of street edges, GT labs, & clustered labels for each turker associated w/ every MTurk condition.
+    *
+    * @return
+    */
+  def getAccuracyForEachTurker() = UserAwareAction.async { implicit request =>
+
+    // Get street data
+    val routeIds: List[Int] = AMTConditionTable.getRouteIdsForAllConditions
+    val streets: List[JsObject] = routeIds.flatMap(ClusteringSessionTable.getStreetGeomForIRR(_).map(_.toJSON))
+
+//         val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
+//         val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
+    val conditionIds: List[Int] = (70 to 140).toList.filterNot(
+      List(71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139, 80, 91, 121, 138).contains(_))
+
+    val gtLabels: List[JsObject] = conditionIds.flatMap(GTLabelTable.selectGTLabelsByCondition(_).map(_.toGeoJSON))
+
+    // Run single-user clustering for the first 5 turkers in every condition.
+    val sessions: List[(Int, Int)] = conditionIds.flatMap { conditionId =>
+      runSingleTurkerClusteringForRoutesInCondition(conditionId, 5)
+    }
+
+    // 5 turkers did each route, so split the clustering session ids into 5 groups, with 1 turker from each route going
+    // in each group
+    val groupedSessions: List[List[Int]] = (0 to 4).toList.map(n => sessions.groupBy(_._2).flatMap(_._2.map(_._1).lift(n)).toList)
+
+    // output json as feature collection
+    val finalJson = Json.arr(
+      groupedSessions.map { sIds =>
+        val labs: List[JsObject] = ClusteringSessionTable.getSingleClusteredTurkerLabelsForAccuracy(sIds).map(_.toJSON)
+        Json.obj(
+          "gt_labels" -> Json.obj("type" -> "FeatureCollection", "features" -> gtLabels),
+          "worker_labels" -> Json.obj("type" -> "FeatureCollection", "features" -> labs),
+          "streets" -> Json.obj("type" -> "FeatureCollection", "features" -> streets)
+        )
+      }
+    )
     Future.successful(Ok(finalJson))
   }
 

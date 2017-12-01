@@ -673,3 +673,44 @@ allTurkerButton.onclick = function() {
         });
     });
 };
+
+let allIndividualTurkerButton = document.getElementById('allIndividualTurkerAccuracy');
+allIndividualTurkerButton.onclick = function() {
+
+    $.getJSON("/accuracyForEachTurker", function (oneTurkerData) {
+        console.log(oneTurkerData);
+        let accuracyOutputArray = [];
+        let optsArrayOneTurker =
+            [
+                {binary: true, prob_no_prob: true, remove_low_severity: false},
+                {binary: true, prob_no_prob: true, remove_low_severity: true, low_severity_threshold: 3},
+                {binary: true, prob_no_prob: true, remove_low_severity: true, low_severity_threshold: 4},
+                {binary: true, prob_no_prob: false, remove_low_severity: false},
+                {binary: true, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 3},
+                {binary: true, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 4},
+                {binary: false, prob_no_prob: true, remove_low_severity: false},
+                {binary: false, prob_no_prob: true, remove_low_severity: true, low_severity_threshold: 3},
+                {binary: false, prob_no_prob: true, remove_low_severity: true, low_severity_threshold: 4},
+                {binary: false, prob_no_prob: false, remove_low_severity: false},
+                {binary: false, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 3},
+                {binary: false, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 4}
+            ];
+        // console.log(oneTurkerData);
+
+        let outputIndex = 0;
+        for (let i = 0; i < oneTurkerData[0].length; i++) {
+            for (let j = 0; j < optsArrayOneTurker.length; j++) {
+
+                let output = setupAccuracy(oneTurkerData[0][i], 1, optsArrayOneTurker[j]);
+                accuracyOutputArray[outputIndex] = calculateAccuracy(output);
+                outputIndex += 1;
+                console.log("" + (j + 1) + " down, " + (optsArrayOneTurker.length - j - 1) + " to go!");
+            }
+        }
+
+        // export CSV
+        exportCSVFile(accuracyOutputArray, "accuracies-turker");
+        $("#all-accuracy-result").html("Success! Enjoy your CSV!");
+    });
+
+};
