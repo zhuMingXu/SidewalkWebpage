@@ -10,6 +10,7 @@ import formats.json.UserFormats._
 import formats.json.TaskFormats._
 import forms._
 import models.audit.{AuditTaskInteraction, AuditTaskInteractionTable, AuditTaskTable, InteractionWithLabel}
+import models.clustering_session.{ClusteredLabel, ClusteringSessionTable}
 import models.label.LabelTable
 import models.mission.MissionTable
 import models.user.User
@@ -146,6 +147,35 @@ class UserProfileController @Inject() (implicit val env: Environment[User, Sessi
             "audit_task_id" -> label.auditTaskId,
             "label_id" -> label.labelId,
             "gsv_panorama_id" -> label.gsvPanoramaId,
+            "label_type" -> label.labelType
+          )
+          Json.obj("type" -> "Feature", "geometry" -> point, "properties" -> properties)
+        }
+        val featureCollection = Json.obj("type" -> "FeatureCollection", "features" -> features)
+        Future.successful(Ok(featureCollection))
+      case None =>  Future.successful(Ok(Json.obj(
+        "error" -> "0",
+        "message" -> "Your user id could not be found."
+      )))
+    }
+  }
+
+  /**
+    * Get list of the user's clustered labels.
+    *
+    * @return
+    */
+  def getClusteredLabels() = UserAwareAction.async { implicit request =>
+    request.identity match {
+      case Some(user) =>
+        val labels: List[ClusteredLabel] = ClusteringSessionTable.getSingleClusteredVolunteerLabels(user.userId)
+
+        val features: List[JsObject] = labels.map { label =>
+          val point = geojson.Point(geojson.LatLng(label.lat.toDouble, label.lng.toDouble))
+          val properties = Json.obj(
+            "clustering_session_id" -> label.sessionId,
+            "cluster_id" -> label.clusterId,
+            "threshold" -> label.threshold,
             "label_type" -> label.labelType
           )
           Json.obj("type" -> "Feature", "geometry" -> point, "properties" -> properties)

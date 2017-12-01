@@ -3,13 +3,15 @@ package models.clustering_session
 /**
   * Created by hmaddali on 7/26/17.
   */
+import java.util.UUID
+
 import com.vividsolutions.jts.geom.{Coordinate, LineString}
 import models.amt._
 import models.audit.AuditTaskTable
 import models.daos.slick.DBTableDefinitions.UserTable
 import models.label.{LabelTable, ProblemDescriptionTable, ProblemTemporarinessTable}
 import models.route.{Route, RouteTable}
-import models.user.User
+import models.user.{UserRoleTable}
 import models.utils.MyPostgresDriver.simple._
 import play.api.Logger
 import play.api.Play.current
@@ -38,6 +40,8 @@ case class LabelsForResolution(labelId: Int, clusterId: Int, routeId: Int, turke
                                heading: Float, pitch: Float, zoom: Int, canvasHeight: Int, canvasWidth: Int,
                                alphaX: Float, alphaY: Float, lat: Option[Float], lng: Option[Float],
                                description: Option[String], severity: Option[Int], temporaryProblem: Boolean)
+case class ClusteredLabel(sessionId: Int, clusterId: Int, labelType: String, workerId: String, role: String,
+                          lat: Float, lng: Float, threshold: Double)
 
 case class LineStringCaseClass(streetEdgeId: Int, routeId: Int, geom: LineString) {
   /**
@@ -426,6 +430,34 @@ object ClusteringSessionTable{
       _clust.temporary.getOrElse(false)
     )
     labels.list.map(x => VolunteerLabel.tupled(x))
+  }
+
+  /**
+    * Gets list of all clusters from non-deleted clustering sessions for this user.
+    *
+    * @param userId
+    * @return
+    */
+  def getSingleClusteredVolunteerLabels(userId: UUID): List[ClusteredLabel] = db.withSession { implicit session =>
+    val labels = for {
+      _sessions <- clusteringSessions if _sessions.userId === userId.toString && _sessions.deleted === false
+      _clust <- ClusteringSessionClusterTable.clusteringSessionClusters if _clust.clusteringSessionId === _sessions.clusteringSessionId
+      _labType <- LabelTable.labelTypes if _labType.labelTypeId === _clust.labelTypeId
+      // Get role
+      _userRole <- UserRoleTable.userRoles if _userRole.userId === _sessions.userId
+      _role <- UserRoleTable.roles if _role.roleId === _userRole.roleId
+      if !_clust.lat.isEmpty && !_clust.lng.isEmpty
+    } yield (
+      _sessions.clusteringSessionId,
+      _clust.clusteringSessionClusterId,
+      _labType.labelType,
+      _sessions.userId.get,
+      _role.role,
+      _clust.lat.get,
+      _clust.lng.get,
+      _sessions.clusteringThreshold
+    )
+    labels.list.map(x => ClusteredLabel.tupled(x))
   }
 
   /**
