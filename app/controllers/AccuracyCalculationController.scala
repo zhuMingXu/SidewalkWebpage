@@ -110,14 +110,14 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
         clustNum match {
           case 1 => // single turker: do single-user clustering
             conditionIds.flatMap { conditionId =>
-              val clustSessionIds: List[(Int, Int)] = runSingleTurkerClusteringForRoutesInCondition(conditionId, clustNum)
+              val clustSessionIds: List[(Int, Int)] = runSingleTurkerClusteringForRoutesInCondition(conditionId, clustNum, None)
               ClusteringSessionTable.getSingleClusteredTurkerLabelsForAccuracy(clustSessionIds.map(_._1)).map(_.toJSON)
             }
           case _ => // more than one turker: do single-user clustering on each, then cluster their clusters
             conditionIds.flatMap { conditionId =>
-              val clustSessionIds: List[(Int, Int)] = runSingleTurkerClusteringForRoutesInCondition(conditionId, clustNum)
+              val clustSessionIds: List[(Int, Int)] = runSingleTurkerClusteringForRoutesInCondition(conditionId, clustNum, None)
               val doubleClusteredSessions: List[Int] = clustSessionIds.groupBy(_._2).map {
-                case (rId, lst) => runClustering("turker", singleUser = false, None, Some(rId), None, Some(lst.map(_._1)))
+                case (rId, lst) => runClustering("turker", singleUser = false, None, None, Some(rId), None, Some(lst.map(_._1)))
               }.toList
               ClusteringSessionTable.getClusteredLabelsForAccuracy(doubleClusteredSessions).map(_.toJSON)
             }
@@ -145,14 +145,14 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     *
     * @return
     */
-  def getAccuracyForEachTurker() = UserAwareAction.async { implicit request =>
+  def getAccuracyForEachTurker(threshold: Option[Float]) = UserAwareAction.async { implicit request =>
 
     // Get street data
     val routeIds: List[Int] = AMTConditionTable.getRouteIdsForAllConditions
     val streets: List[JsObject] = routeIds.flatMap(ClusteringSessionTable.getStreetGeomForIRR(_).map(_.toJSON))
 
-//         val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
-//         val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
+//    val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
+//    val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
     val conditionIds: List[Int] = (70 to 140).toList.filterNot(
       List(71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139, 80, 91, 121, 138).contains(_))
 
@@ -160,7 +160,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
 
     // Run single-user clustering for the first 5 turkers in every condition.
     val sessions: List[(Int, Int)] = conditionIds.flatMap { conditionId =>
-      runSingleTurkerClusteringForRoutesInCondition(conditionId, 5)
+      runSingleTurkerClusteringForRoutesInCondition(conditionId, 5, threshold)
     }
 
     // 5 turkers did each route, so split the clustering session ids into 5 groups, with 1 turker from each route going
@@ -193,7 +193,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     AMTAssignmentTable.getTurkersWithAcceptedHITForCondition(conditionId) match {
       case Nil => List[Int]()
       case _ => AMTConditionTable.getRouteIdsForACondition(conditionId).map(routeId =>
-        runClustering("turker", singleUser = false, None, Some(routeId), Some(nTurkers), None))
+        runClustering("turker", singleUser = false, None, None, Some(routeId), Some(nTurkers), None))
     }
   }
 
@@ -234,20 +234,23 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
   def runClustering(volunteerOrTurker: String,
                     singleUser: Boolean,
                     id: Option[String],
+                    threshold: Option[Float],
                     routeId: Option[Int],
                     nTurkers: Option[Int],
                     sessionIds: Option[List[Int]]): Int = {
 
-    val command: String = (volunteerOrTurker, singleUser, id, routeId, nTurkers, sessionIds) match {
-      case ("volunteer", _, _, Some(route), _, _) =>
+    val command: String = (volunteerOrTurker, singleUser, id, threshold, routeId, nTurkers, sessionIds) match {
+      case ("volunteer", _, _, _, Some(route), _, _) =>
         "python label_clustering.py --user_id " + getVolunteerIdByRouteId(route) + " --route_id " + route
-      case ("turker", true, Some(turkerId), Some(route), _, _) =>
+      case ("turker", true, Some(turkerId), Some(thresh), Some(route), _, _) =>
+        "python label_clustering.py --turker_id " + turkerId + " --route_id " + route + " --clust_thresh " + thresh
+      case ("turker", true, Some(turkerId), _, Some(route), _, _) =>
         "python label_clustering.py --turker_id " + turkerId + " --route_id " + route
-      case ("turker", false, _, Some(route), _, Some(sessions)) =>
+      case ("turker", false, _, _, Some(route), _, Some(sessions)) =>
         "python label_clustering.py --route_id " + route + " --session_ids " + sessions.mkString(" ")
-      case ("turker", false, _, None, _, Some(sessions)) =>
+      case ("turker", false, _, _, None, _, Some(sessions)) =>
         "python label_clustering.py --session_ids " + sessions.mkString(" ")
-      case ("turker", false, _, Some(route), Some(n), _) => // old version of clustering
+      case ("turker", false, _, _, Some(route), Some(n), _) => // old version of clustering
         "python label_clustering.py --route_id " + route + " --n_labelers " + n
       case _ =>
         Logger.error("Incorrect parameters to Python script.")
@@ -269,7 +272,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
   def runSingleVolunteerClusteringForRoutesInCondition(conditionId: Int): List[(Int, Int)] = {
 
     val routes: List[Int] = AMTConditionTable.getRouteIdsForACondition(conditionId)
-    routes.map(routeId => (runClustering("volunteer", singleUser = true, None, Some(routeId), None, None), routeId))
+    routes.map(routeId => (runClustering("volunteer", singleUser = true, None, None, Some(routeId), None, None), routeId))
   }
 
   /**
@@ -279,7 +282,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     * @param nTurkers
     * @return list of clustering session ids w/ associated route id
     */
-  def runSingleTurkerClusteringForRoutesInCondition(conditionId: Int, nTurkers: Int): List[(Int, Int)] = {
+  def runSingleTurkerClusteringForRoutesInCondition(conditionId: Int, nTurkers: Int, threshold: Option[Float]): List[(Int, Int)] = {
 
     val turkerIds: List[String] = AMTAssignmentTable.getTurkersWithAcceptedHITForCondition(conditionId).take(nTurkers)
     val routesToCluster: List[Int] = AMTConditionTable.getRouteIdsForACondition(conditionId)
@@ -290,7 +293,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
 
     routesToCluster.flatMap(routeId =>
       turkerIds.map(turkerId =>
-        (runClustering("turker", singleUser = true, Some(turkerId), Some(routeId), None, None), routeId)))
+        (runClustering("turker", singleUser = true, Some(turkerId), threshold, Some(routeId), None, None), routeId)))
   }
 
 

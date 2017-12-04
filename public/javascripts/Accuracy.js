@@ -712,5 +712,42 @@ allIndividualTurkerButton.onclick = function() {
         exportCSVFile(accuracyOutputArray, "accuracies-turker");
         $("#all-accuracy-result").html("Success! Enjoy your CSV!");
     });
+};
 
+let testDifferentThresholdsButton = document.getElementById('testDifferentThresholds');
+testDifferentThresholdsButton.onclick = function() {
+
+    let floatBuffer = 0.000001;
+    function runClusteringForThreshold(firstThreshold, thresholdIncrement, index, maxThreshold) {
+        let currentThreshold = firstThreshold + thresholdIncrement * index;
+
+        $.getJSON("/accuracyForEachTurker?threshold=" + currentThreshold, function (oneTurkerData) {
+            // console.log(oneTurkerData);
+            let accuracyOutputArray = [];
+            let optsArrayOneTurker = {binary: true, prob_no_prob: false, remove_low_severity: false};
+
+            // data from the GET should be an array of length 5, b/c 5 turkers completed each condition
+            let outputIndex = 0;
+            for (let i = 0; i < oneTurkerData[0].length; i++) {
+
+                let output = setupAccuracy(oneTurkerData[0][i], 1, optsArrayOneTurker);
+                accuracyOutputArray[outputIndex] = calculateAccuracy(output);
+                outputIndex += 1;
+            }
+
+            // export CSV
+            exportCSVFile(accuracyOutputArray, "accuracies-turker-" + currentThreshold.toFixed(3));
+
+            // recursive call to run clustering on a new threshold
+            if (currentThreshold + thresholdIncrement < maxThreshold + floatBuffer) {
+                console.log("" + (index + 1) + " down, " + ((maxThreshold / thresholdIncrement) - index) + " to go!");
+                runClusteringForThreshold(firstThreshold, thresholdIncrement, index + 1, maxThreshold);
+            } else {
+                console.log("Finished all " + (index + 1) + "!");
+                $("#all-accuracy-result").html("Success! Enjoy your CSVs!");
+            }
+        });
+    }
+
+    runClusteringForThreshold(0.0, 0.001, 0, 0.05);
 };

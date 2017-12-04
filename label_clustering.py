@@ -30,10 +30,6 @@ def cluster(labels, clust_thresh, single_user):
     link = linkage(dist_matrix, method='complete')
     curr_type = labels.label_type.iloc[1]
 
-    # We expect distinct curb ramps to be close together more often than the other label types, so reduce their thresh.
-    if single_user and curr_type in ['CurbRamp','NoCurbRamp']:
-        clust_thresh = 0.0025
-
     # Cuts tree so that only labels less than clust_threth kilometers apart are clustered, adds a col
     # to dataframe with label for the cluster they are in
     labels.loc[:,'cluster'] = fcluster(link, t=clust_thresh, criterion='distance')
