@@ -19,7 +19,7 @@ case class ClusteringSessionLabelTypeThreshold(clusteringSessionLabelTypeThresho
 /**
   *
   */
-class ClusteringSessionLabelTypeThresholdTable(tag: Tag) extends Table[ClusteringSessionLabelTypeThreshold](tag, Some("sidewalk"), "amt_volunteer_route") {
+class ClusteringSessionLabelTypeThresholdTable(tag: Tag) extends Table[ClusteringSessionLabelTypeThreshold](tag, Some("sidewalk"), "clustering_session_label_type_threshold") {
   def clusteringSessionLabelTypeThresholdId = column[Int]("clustering_session_label_type_threshold_id", O.NotNull, O.PrimaryKey)
   def clusteringSessionId = column[Int]("clustering_session_id", O.NotNull)
   def labelTypeId = column[Int]("label_type_id", O.NotNull)
@@ -36,9 +36,9 @@ class ClusteringSessionLabelTypeThresholdTable(tag: Tag) extends Table[Clusterin
 }
 
 /**
-  * Data access object for the AMTVolunteerRoute table
+  * Data access object for the ClusteringSessionLabelTypeThreshold table
   */
-object AMTVolunteerRouteTable {
+object ClusteringSessionLabelTypeThresholdTable {
   val db = play.api.db.slick.DB
   val clusteringSessionLabelTypeThresholds = TableQuery[ClusteringSessionLabelTypeThresholdTable]
   val clusteringSessions = TableQuery[ClusteringSessionTable]

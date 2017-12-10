@@ -13,9 +13,12 @@ import play.api.libs.functional.syntax._
 //}
 object ClusteringFormats {
 
+  case class ClusteringThresholdSubmission(labelType: String, threshold: Float)
   case class ClusteredLabelSubmission(labelId: Int, labelType: String, clusterNum: Int)
   case class ClusterSubmission(labelType: String, clusterNum: Int, lat: Float, lng: Float, severity: Option[Int], temporary: Boolean)
-  case class ClusteringSubmission(labels: List[ClusteredLabelSubmission], clusters: List[ClusterSubmission])
+  case class ClusteringSubmission(thresholds: List[ClusteringThresholdSubmission],
+                                  labels: List[ClusteredLabelSubmission],
+                                  clusters: List[ClusterSubmission])
 
   case class GTLabelSubmission(labelId: Option[Int], clusterId: Int, routeId: Int, gsvPanoId: String, labelType: Int,
                                svImageX: Int, svImageY: Int, svCanvasX: Int, svCanvasY: Int, heading: Float,
@@ -23,6 +26,11 @@ object ClusteringFormats {
                                alphaY: Float, lat: Option[Float], lng: Option[Float], description: Option[String],
                                severity: Option[Int], temporary: Option[Boolean])
 
+
+  implicit val clusteringThresholdSubmissionReads: Reads[ClusteringThresholdSubmission] = (
+    (JsPath \ "label_type").read[String] and
+      (JsPath \ "threshold").read[Float]
+  )(ClusteringThresholdSubmission.apply _)
 
   implicit val clusteredLabelSubmissionReads: Reads[ClusteredLabelSubmission] = (
     (JsPath \ "label_id").read[Int] and
@@ -40,7 +48,8 @@ object ClusteringFormats {
     )(ClusterSubmission.apply _)
 
   implicit val clusteringSubmissionReads: Reads[ClusteringSubmission] = (
-    (JsPath \ "labels").read[List[ClusteredLabelSubmission]] and
+    (JsPath \ "thresholds").read[List[ClusteringThresholdSubmission]] and
+      (JsPath \ "labels").read[List[ClusteredLabelSubmission]] and
       (JsPath \ "clusters").read[List[ClusterSubmission]]
     )(ClusteringSubmission.apply _)
 

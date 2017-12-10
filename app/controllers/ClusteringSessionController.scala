@@ -217,12 +217,15 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
         Future.successful(BadRequest(Json.obj("status" -> "Error", "message" -> JsError.toFlatJson(errors))))
       },
       submission => {
+        val thresholds: List[ClusteringFormats.ClusteringThresholdSubmission] = submission.thresholds
         val clusters: List[ClusteringFormats.ClusterSubmission] = submission.clusters
         val labels: List[ClusteringFormats.ClusteredLabelSubmission] = submission.labels
 
         val groupedLabels: Map[Int, List[ClusteringFormats.ClusteredLabelSubmission]] = labels.groupBy(_.clusterNum)
         val now = new DateTime(DateTimeZone.UTC)
         val timestamp: Timestamp = new Timestamp(now.getMillis)
+
+        // Create a new clustering session entry
         val sessionId: Int = userType match {
           case "volunteer" => ClusteringSessionTable.save(
             ClusteringSession(0, routeId, threshold, timestamp, deleted = false, userId = Some(volunteerOrTurkerId), turkerId = None)
@@ -231,7 +234,19 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
             ClusteringSession(0, routeId, threshold, timestamp, deleted = false, userId = None, turkerId = Some(volunteerOrTurkerId))
           )
         }
-        // Add the cluster to clustering_session_cluster table
+        // Add the thresholds to the clustering_session_label_type_threshold table
+        for (threshold <- thresholds) yield {
+          val threshId: Int =
+            ClusteringSessionLabelTypeThresholdTable.save(
+              ClusteringSessionLabelTypeThreshold(
+                0,
+                sessionId,
+                LabelTypeTable.labelTypeToId(threshold.labelType),
+                threshold.threshold
+              )
+            )
+        }
+        // Add the clusters to clustering_session_cluster table
         for (cluster <- clusters) yield {
           val clustId: Int =
             ClusteringSessionClusterTable.save(
