@@ -20,7 +20,7 @@ case class ClusteringSessionLabelTypeThreshold(clusteringSessionLabelTypeThresho
   *
   */
 class ClusteringSessionLabelTypeThresholdTable(tag: Tag) extends Table[ClusteringSessionLabelTypeThreshold](tag, Some("sidewalk"), "clustering_session_label_type_threshold") {
-  def clusteringSessionLabelTypeThresholdId = column[Int]("clustering_session_label_type_threshold_id", O.NotNull, O.PrimaryKey)
+  def clusteringSessionLabelTypeThresholdId = column[Int]("clustering_session_label_type_threshold_id", O.NotNull, O.PrimaryKey, O.AutoInc)
   def clusteringSessionId = column[Int]("clustering_session_id", O.NotNull)
   def labelTypeId = column[Int]("label_type_id", O.NotNull)
   def clusteringThreshold = column[Float]("clustering_threshold", O.NotNull)
