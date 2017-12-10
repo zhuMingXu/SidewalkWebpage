@@ -45,6 +45,14 @@ object AMTVolunteerRouteTable {
   val labelTypes = TableQuery[LabelTypeTable]
 
 
+  def getThresholdsByClusteringSessionId(sessionId: Int): List[ClusteringSessionLabelTypeThreshold] = db.withTransaction { implicit session =>
+    clusteringSessionLabelTypeThresholds.filter(_.clusteringSessionId === sessionId).list
+  }
+
+  def getThresholdsByClusteringSessionIds(sessionIds: List[Int]): List[ClusteringSessionLabelTypeThreshold] = db.withTransaction { implicit session =>
+    clusteringSessionLabelTypeThresholds.filter(_.clusteringSessionId inSet sessionIds).list
+  }
+
   def save(newThresh: ClusteringSessionLabelTypeThreshold): Int = db.withTransaction { implicit session =>
     val newId: Int =
       (clusteringSessionLabelTypeThresholds returning clusteringSessionLabelTypeThresholds.map(_.clusteringSessionLabelTypeThresholdId)) += newThresh
