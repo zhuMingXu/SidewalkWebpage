@@ -19,6 +19,8 @@ object ClusteringFormats {
   case class ClusteringSubmission(thresholds: List[ClusteringThresholdSubmission],
                                   labels: List[ClusteredLabelSubmission],
                                   clusters: List[ClusterSubmission])
+  case class ClusteringSubmissionAlt(thresholds: List[ClusteringThresholdSubmission],
+                                     labels: List[ClusteredLabelSubmission])
 
   case class GTLabelSubmission(labelId: Option[Int], clusterId: Int, routeId: Int, gsvPanoId: String, labelType: Int,
                                svImageX: Int, svImageY: Int, svCanvasX: Int, svCanvasY: Int, heading: Float,
@@ -52,6 +54,11 @@ object ClusteringFormats {
       (JsPath \ "labels").read[List[ClusteredLabelSubmission]] and
       (JsPath \ "clusters").read[List[ClusterSubmission]]
     )(ClusteringSubmission.apply _)
+
+  implicit val clusteringSubmissionAltReads: Reads[ClusteringSubmissionAlt] = (
+    (JsPath \ "thresholds").read[List[ClusteringThresholdSubmission]] and
+      (JsPath \ "labels").read[List[ClusteredLabelSubmission]]
+    )(ClusteringSubmissionAlt.apply _)
 
   implicit val gtLabelSubmissionReads: Reads[GTLabelSubmission] = (
     (JsPath \ "label_id").readNullable[Int] and

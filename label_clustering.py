@@ -22,7 +22,7 @@ def custom_dist(u, v):
         return haversine([u[0], u[1]], [v[0], v[1]])
 
 # For each label type, cluster based on distance
-def cluster(labels, clust_thresh, single_user, single_user_thresholds):
+def cluster(labels, thresholds, single_user):
 
     if single_user:
         dist_matrix = pdist(np.array(labels[['lat', 'lng']].as_matrix()), lambda x, y: haversine(x, y))
@@ -33,10 +33,7 @@ def cluster(labels, clust_thresh, single_user, single_user_thresholds):
 
     # Cuts tree so that only labels less than clust_threth kilometers apart are clustered, adds a col
     # to dataframe with label for the cluster they are in
-    if single_user:
-        labels.loc[:,'cluster'] = fcluster(link, t=single_user_thresholds[curr_type], criterion='distance')
-    else:
-        labels.loc[:,'cluster'] = fcluster(link, t=clust_thresh, criterion='distance')
+    labels.loc[:,'cluster'] = fcluster(link, t=thresholds[curr_type], criterion='distance')
     labelsCopy = labels.copy()
     newClustId = np.max(labels.cluster) + 1
 
@@ -66,7 +63,7 @@ def cluster(labels, clust_thresh, single_user, single_user_thresholds):
         print 'We agreed on this many ' + curr_type + ' labels: ' + str(agreement_count)
         print 'We disagreed on this many ' + curr_type + ' labels: ' + str(disagreement_count)
 
-    return (included, curr_type, clust_thresh, agreement_count, disagreement_count)
+    return (included, curr_type, agreement_count, disagreement_count)
 
 
 if __name__ == '__main__':
@@ -162,9 +159,23 @@ if __name__ == '__main__':
         sys.exit()
 
 
-    # Define thresholds for individual person clustering
-    single_user_thresholds = {'CurbRamp': 0.002, 'NoCurbRamp': 0.002, 'SurfaceProblem': 0.0075, 'Obstacle': 0.0075,
-                              'NoSidewalk': 0.0075, 'Occlusion': 0.0075, 'Other': 0.0075}
+    # Define thresholds for individual person clustering (numbers are in kilometers)
+    if SINGLE_USER:
+        thresholds = {'CurbRamp': 0.002,
+                      'NoCurbRamp': 0.002,
+                      'SurfaceProblem': 0.0075,
+                      'Obstacle': 0.0075,
+                      'NoSidewalk': 0.0075,
+                      'Occlusion': 0.0075,
+                      'Other': 0.0075}
+    else:
+        thresholds = {'CurbRamp': CLUSTER_THRESHOLD,
+                      'NoCurbRamp': CLUSTER_THRESHOLD,
+                      'SurfaceProblem': CLUSTER_THRESHOLD,
+                      'Obstacle': CLUSTER_THRESHOLD,
+                      'NoSidewalk': CLUSTER_THRESHOLD,
+                      'Occlusion': CLUSTER_THRESHOLD,
+                      'Other': CLUSTER_THRESHOLD}
 
     # Check if there are 0 labels. If so, just send the post request and exit.
     if len(label_data) == 0:
@@ -206,7 +217,7 @@ if __name__ == '__main__':
         type_data = label_data[label_data.label_type == label_type]
 
         if type_data.shape[0] > 1:
-            cluster_output = cluster_output.append(cluster(type_data, CLUSTER_THRESHOLD, SINGLE_USER, single_user_thresholds)[0])
+            cluster_output = cluster_output.append(cluster(type_data, thresholds, SINGLE_USER)[0])
             cluster_output.loc[cluster_output['label_type'] == label_type, 'cluster'] += clustOffset
 
             label_output = label_output.append(type_data.filter(items=label_cols))
@@ -219,18 +230,18 @@ if __name__ == '__main__':
     # Convert to JSON
     cluster_json = cluster_output.to_json(orient='records', lines=False)
     label_json = label_output.to_json(orient='records', lines=False)
-    threshold_json = pd.DataFrame({'label_type': single_user_thresholds.keys(),
-                                   'threshold': single_user_thresholds.values()}).to_json(orient='records', lines=False)
-    output_json = json.dumps({'thresholds': json.loads(threshold_json),
-                              'labels': json.loads(label_json),
-                              'clusters': json.loads(cluster_json)})
-    # print output_json
+    threshold_json = pd.DataFrame({'label_type': thresholds.keys(),
+                                   'threshold': thresholds.values()}).to_json(orient='records', lines=False)
 
     # Clustering for a single user has a different POST function than for clustering multiple users.
-    # TODO combine these two functions
     if SINGLE_USER:
-        response = requests.post(postURL, data=output_json, headers=POST_HEADER)
+        output_json = json.dumps({'thresholds': json.loads(threshold_json),
+                                  'labels': json.loads(label_json),
+                                  'clusters': json.loads(cluster_json)})
     else:
-        response = requests.post(postURL, data=label_json, headers=POST_HEADER)
+        output_json = json.dumps({'thresholds': json.loads(threshold_json),
+                                  'labels': json.loads(label_json)})
+    # print output_json
+    response = requests.post(postURL, data=output_json, headers=POST_HEADER)
 
     sys.exit()

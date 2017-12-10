@@ -280,7 +280,7 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     */
   def postClusteringResults(routeId: String, threshold: String, fromClusters: Option[Boolean]) = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>
     // Validation https://www.playframework.com/documentation /2.3.x/ScalaJson
-    val submission = request.body.validate[List[ClusteringFormats.ClusteredLabelSubmission]]
+    val submission = request.body.validate[ClusteringFormats.ClusteringSubmissionAlt]
     submission.fold(
       errors => {
         println("bleepbloop how does parse")
@@ -289,10 +289,28 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
       submission => {
         val now = new DateTime(DateTimeZone.UTC)
         val timestamp: Timestamp = new Timestamp(now.getMillis)
-        val sessionId: Int = ClusteringSessionTable.save(ClusteringSession(0, Some(routeId.toInt), threshold.toDouble, timestamp, deleted = false, userId = None, turkerId = None))
-        submission.groupBy(_.clusterNum).map { case (clust, labels) =>
+        val labels: List[ClusteringFormats.ClusteredLabelSubmission] = submission.labels
+        val thresholds: List[ClusteringFormats.ClusteringThresholdSubmission] = submission.thresholds
+
+        // Create a new clustering session entry
+        val sessionId: Int = ClusteringSessionTable.save(
+          ClusteringSession(0, Some(routeId.toInt), threshold.toDouble, timestamp, deleted = false, userId = None, turkerId = None))
+        // Add the thresholds to the clustering_session_label_type_threshold table
+        for (threshold <- thresholds) yield {
+          val threshId: Int =
+            ClusteringSessionLabelTypeThresholdTable.save(
+              ClusteringSessionLabelTypeThreshold(
+                0,
+                sessionId,
+                LabelTypeTable.labelTypeToId(threshold.labelType),
+                threshold.threshold
+              )
+            )
+        }
+        // Add the clusters to clustering_session_cluster and clustering_session_label tables
+        labels.groupBy(_.clusterNum).map { case (clust, labs) =>
           val clustId: Int = ClusteringSessionClusterTable.save(sessionId)
-          for (label <- labels) yield {
+          for (label <- labs) yield {
             fromClusters match {
               case Some(true) => ClusteringSessionLabelTable.save(ClusteringSessionLabel(0, clustId, None, Some(label.labelId)))
               case _          => ClusteringSessionLabelTable.save(ClusteringSessionLabel(0, clustId, Some(label.labelId), None))
