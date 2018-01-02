@@ -91,14 +91,14 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     *
     * @return
     */
-  def getAccuracyDataWithSinglePersonClustering(workerType: String, clusterNum: String) = UserAwareAction.async { implicit request =>
+  def getAccuracyDataWithSinglePersonClustering(workerType: String, clusterNum: String, threshold: Option[Float]) = UserAwareAction.async { implicit request =>
     val clustNum: Int = clusterNum.toInt
 
     // Get street data
     val routeIds: List[Int] = AMTConditionTable.getRouteIdsForAllConditions
     val streets: List[JsObject] = routeIds.flatMap(ClusteringSessionTable.getStreetGeomForIRR(_).map(_.toJSON))
 
-    //     val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
+//         val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
     //     val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
     val conditionIds: List[Int] = (70 to 140).toList.filterNot(
       List(71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139, 80, 91, 121, 138).contains(_))
@@ -117,7 +117,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
             conditionIds.flatMap { conditionId =>
               val clustSessionIds: List[(Int, Int)] = runSingleTurkerClusteringForRoutesInCondition(conditionId, clustNum, None)
               val doubleClusteredSessions: List[Int] = clustSessionIds.groupBy(_._2).map {
-                case (rId, lst) => runClustering("turker", singleUser = false, None, None, Some(rId), None, Some(lst.map(_._1)))
+                case (rId, lst) => runClustering("turker", singleUser = false, None, threshold, Some(rId), None, Some(lst.map(_._1)))
               }.toList
               ClusteringSessionTable.getClusteredLabelsForAccuracy(doubleClusteredSessions).map(_.toJSON)
             }
@@ -246,6 +246,8 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
         "python label_clustering.py --turker_id " + turkerId + " --route_id " + route + " --clust_thresh " + thresh
       case ("turker", true, Some(turkerId), _, Some(route), _, _) =>
         "python label_clustering.py --turker_id " + turkerId + " --route_id " + route
+      case ("turker", false, _, Some(thresh), Some(route), _, Some(sessions)) =>
+        "python label_clustering.py --route_id " + route + " --session_ids " + sessions.mkString(" ") + " --clust_thresh " + thresh
       case ("turker", false, _, _, Some(route), _, Some(sessions)) =>
         "python label_clustering.py --route_id " + route + " --session_ids " + sessions.mkString(" ")
       case ("turker", false, _, _, None, _, Some(sessions)) =>

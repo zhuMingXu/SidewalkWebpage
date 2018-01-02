@@ -156,5 +156,5 @@ POST  /getIRRDataForHits                                                @control
 
 # Accuracy calculation related
 GET   /accuracyData/:workerType/:clusterNum                             @controllers.AccuracyCalculationController.getAccuracyData(workerType, clusterNum)
-GET   /accuracyDataWithSinglePersonClust/:workerType/:clusterNum        @controllers.AccuracyCalculationController.getAccuracyDataWithSinglePersonClustering(workerType, clusterNum)
+GET   /accuracyDataWithSinglePersonClust/:workerType/:clusterNum        @controllers.AccuracyCalculationController.getAccuracyDataWithSinglePersonClustering(workerType, clusterNum, threshold: Option[Float] ?= None)
 GET   /accuracyForEachTurker                                            @controllers.AccuracyCalculationController.getAccuracyForEachTurker(threshold: Option[Float] ?= None)

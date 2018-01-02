@@ -90,17 +90,15 @@ function getLabelCountsBySegment(chunks, gtLabs, workerLabs, workerThresh, optio
                     let labelCount = currLabels.length;
                     if (probNoProb) {
                         if (binary) {
-                            let curr = segOutput["Problem"][chunkIndex][labelSource];
-                            segOutput["Problem"][chunkIndex][labelSource] = Math.max(curr, Math.min(labelCount, 1));
+                            segOutput["Problem"][chunkIndex][labelSource] = 1;
                         } else {
-                            segOutput["Problem"][chunkIndex][labelSource] += labelCount;
+                            segOutput["Problem"][chunkIndex][labelSource] += 1;
                         }
                     } else {
                         if (binary) {
-                            let curr = segOutput[currType][chunkIndex][labelSource];
-                            segOutput[currType][chunkIndex][labelSource] = Math.max(curr, Math.min(labelCount, 1));
+                            segOutput[currType][chunkIndex][labelSource] = 1;
                         } else {
-                            segOutput[currType][chunkIndex][labelSource] += labelCount;
+                            segOutput[currType][chunkIndex][labelSource] += 1;
                         }
                     }
                 }
@@ -717,37 +715,82 @@ allIndividualTurkerButton.onclick = function() {
 let testDifferentThresholdsButton = document.getElementById('testDifferentThresholds');
 testDifferentThresholdsButton.onclick = function() {
 
-    let floatBuffer = 0.000001;
-    function runClusteringForThreshold(firstThreshold, thresholdIncrement, index, maxThreshold) {
-        let currentThreshold = firstThreshold + thresholdIncrement * index;
+	let floatBuffer = 0.000001;
+	function runClusteringForThreshold(firstThreshold, thresholdIncrement, index, maxThreshold) {
+		let currentThreshold = firstThreshold + thresholdIncrement * index;
 
-        $.getJSON("/accuracyForEachTurker?threshold=" + currentThreshold, function (oneTurkerData) {
-            // console.log(oneTurkerData);
-            let accuracyOutputArray = [];
-            let optsArrayOneTurker = {binary: true, prob_no_prob: false, remove_low_severity: false};
+		$.getJSON("/accuracyForEachTurker?threshold=" + currentThreshold, function (oneTurkerData) {
+			// console.log(oneTurkerData);
+			let accuracyOutputArray = [];
+			let optsArrayOneTurker = {binary: true, prob_no_prob: false, remove_low_severity: false};
 
-            // data from the GET should be an array of length 5, b/c 5 turkers completed each condition
-            let outputIndex = 0;
-            for (let i = 0; i < oneTurkerData[0].length; i++) {
+			// data from the GET should be an array of length 5, b/c 5 turkers completed each condition
+			let outputIndex = 0;
+			for (let i = 0; i < oneTurkerData[0].length; i++) {
 
-                let output = setupAccuracy(oneTurkerData[0][i], 1, optsArrayOneTurker);
+				let output = setupAccuracy(oneTurkerData[0][i], 1, optsArrayOneTurker);
+				accuracyOutputArray[outputIndex] = calculateAccuracy(output);
+				outputIndex += 1;
+			}
+
+			// export CSV
+			exportCSVFile(accuracyOutputArray, "accuracies-turker-" + currentThreshold.toFixed(3));
+
+			// recursive call to run clustering on a new threshold
+			if (currentThreshold + thresholdIncrement < maxThreshold + floatBuffer) {
+				console.log("" + (index + 1) + " down, " + ((maxThreshold / thresholdIncrement) - index) + " to go!");
+				runClusteringForThreshold(firstThreshold, thresholdIncrement, index + 1, maxThreshold);
+			} else {
+				console.log("Finished all " + (index + 1) + "!");
+				$("#all-accuracy-result").html("Success! Enjoy your CSVs!");
+			}
+		});
+	}
+
+	runClusteringForThreshold(0.0, 0.001, 0, 0.05);
+};
+
+let testDifferentThresholdsButton2 = document.getElementById('testDifferentThresholds2');
+testDifferentThresholdsButton2.onclick = function() {
+
+	let floatBuffer = 0.000001;
+	function runClusteringForThreshold(firstThreshold, thresholdIncrement, index, maxThreshold) {
+		let currentThreshold = firstThreshold + thresholdIncrement * index;
+
+		$.getJSON("/accuracyDataWithSinglePersonClust/turker/5?threshold=" + currentThreshold, function (clusteredTurkerData) {
+			// console.log(clusteredTurkerData);
+			let accuracyOutputArray = [];
+			let optsArrayClusteredTurkers =
+				[
+					{binary: true, prob_no_prob: false, worker_thresh: 1, remove_low_severity: false},
+					{binary: true, prob_no_prob: false, worker_thresh: 3, remove_low_severity: false},
+					{binary: true, prob_no_prob: false, worker_thresh: 5, remove_low_severity: false},
+					{binary: false, prob_no_prob: false, worker_thresh: 1, remove_low_severity: false},
+					{binary: false, prob_no_prob: false, worker_thresh: 3, remove_low_severity: false},
+					{binary: false, prob_no_prob: false, worker_thresh: 5, remove_low_severity: false}
+				];
+
+			let outputIndex = 0;
+            for (let i = 0; i < optsArrayClusteredTurkers.length; i++) {
+
+                let output = setupAccuracy(clusteredTurkerData, 5, optsArrayClusteredTurkers[i]);
                 accuracyOutputArray[outputIndex] = calculateAccuracy(output);
                 outputIndex += 1;
             }
 
-            // export CSV
-            exportCSVFile(accuracyOutputArray, "accuracies-turker-" + currentThreshold.toFixed(3));
+			// export CSV
+			exportCSVFile(accuracyOutputArray, "accuracies-turker-5-" + currentThreshold.toFixed(5));
 
-            // recursive call to run clustering on a new threshold
-            if (currentThreshold + thresholdIncrement < maxThreshold + floatBuffer) {
-                console.log("" + (index + 1) + " down, " + ((maxThreshold / thresholdIncrement) - index) + " to go!");
-                runClusteringForThreshold(firstThreshold, thresholdIncrement, index + 1, maxThreshold);
-            } else {
-                console.log("Finished all " + (index + 1) + "!");
-                $("#all-accuracy-result").html("Success! Enjoy your CSVs!");
-            }
-        });
-    }
+			// recursive call to run clustering on a new threshold
+			if (currentThreshold + thresholdIncrement < maxThreshold + floatBuffer) {
+				console.log("" + (index + 1) + " down, " + ((maxThreshold / thresholdIncrement) - index) + " to go!");
+				runClusteringForThreshold(firstThreshold, thresholdIncrement, index + 1, maxThreshold);
+			} else {
+				console.log("Finished all " + (index + 1) + "!");
+				$("#all-accuracy-result").html("Success! Enjoy your CSVs!");
+			}
+		});
+	}
 
-    runClusteringForThreshold(0.0, 0.001, 0, 0.05);
+	runClusteringForThreshold(0.0, 0.001, 0, 0.05);
 };
