@@ -11,7 +11,7 @@ import formats.json.TaskFormats._
 import forms._
 import models.audit.{AuditTaskInteraction, AuditTaskInteractionTable, AuditTaskTable, InteractionWithLabel}
 import models.clustering_session.{ClusteredLabel, ClusteringSessionTable}
-import models.label.LabelTable
+import models.label.{LabelLocation, LabelTable}
 import models.mission.MissionTable
 import models.user.User
 import models.user.UserRoleTable
@@ -135,7 +135,7 @@ class UserProfileController @Inject() (implicit val env: Environment[User, Sessi
   def getSubmittedLabels(regionId: Option[Int]) = UserAwareAction.async { implicit request =>
     request.identity match {
       case Some(user) =>
-        val labels = regionId match {
+        val labels: List[LabelLocation] = regionId match {
           case Some(rid) => LabelTable.selectLocationsOfLabelsByUserIdAndRegionId(user.userId, rid)
           case None => LabelTable.selectLocationsOfLabelsByUserId(user.userId)
         }

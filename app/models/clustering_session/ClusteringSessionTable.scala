@@ -9,9 +9,9 @@ import com.vividsolutions.jts.geom.{Coordinate, LineString}
 import models.amt._
 import models.audit.AuditTaskTable
 import models.daos.slick.DBTableDefinitions.UserTable
-import models.label.{LabelTable, ProblemDescriptionTable, ProblemTemporarinessTable}
+import models.label.{LabelLocation, LabelTable, ProblemDescriptionTable, ProblemTemporarinessTable}
 import models.route.{Route, RouteTable}
-import models.user.{UserRoleTable}
+import models.user.UserRoleTable
 import models.utils.MyPostgresDriver.simple._
 import play.api.Logger
 import play.api.Play.current
@@ -42,6 +42,7 @@ case class LabelsForResolution(labelId: Int, clusterId: Int, routeId: Int, turke
                                description: Option[String], severity: Option[Int], temporaryProblem: Boolean)
 case class ClusteredLabel(sessionId: Int, clusterId: Int, labelType: String, workerId: String, role: String,
                           lat: Float, lng: Float, threshold: Double)
+case class Issue(sessionId: Int, clusterId: Int, labelType: String, lat: Float, lng: Float, threshold: Double)
 
 case class LineStringCaseClass(streetEdgeId: Int, routeId: Int, geom: LineString) {
   /**
@@ -570,6 +571,56 @@ object ClusteringSessionTable{
     val streets: List[LineStringCaseClass] = linestringList.map(street => LineStringCaseClass(street.streetEdgeId,
                                                                               street.routeId, street.geom))
     streets
+  }
+
+
+  /**
+    * Given clustering sesion id, returns the clusters and the label that made up the clusters
+    * @param sessionId
+    * @return
+    */
+  def getLabelsForValidation(sessionId: Int): (List[Issue], List[ClusteredLabel]) = db.withSession { implicit session =>
+
+    val clustersQuery = for {
+      _sessions <- clusteringSessions if _sessions.clusteringSessionId === sessionId
+      _clust <- ClusteringSessionClusterTable.clusteringSessionClusters if _clust.clusteringSessionId === _sessions.clusteringSessionId
+      _labType <- LabelTable.labelTypes if _labType.labelTypeId === _clust.labelTypeId
+      if !_clust.lat.isEmpty && !_clust.lng.isEmpty
+    } yield (
+      _sessions.clusteringSessionId,
+      _clust.clusteringSessionClusterId,
+      _labType.labelType,
+      _clust.lat.get,
+      _clust.lng.get,
+      _sessions.clusteringThreshold
+    )
+    val clusters: List[Issue] = clustersQuery.list.map(x => Issue.tupled(x))
+
+
+    val labelsQuery = for {
+      _sessions <- clusteringSessions if _sessions.clusteringSessionId === sessionId
+      _clust <- ClusteringSessionClusterTable.clusteringSessionClusters if _clust.clusteringSessionId === _sessions.clusteringSessionId
+      _clustLab <- ClusteringSessionLabelTable.clusteringSessionLabels if _clustLab.clusteringSessionClusterId === _clust.clusteringSessionClusterId
+      _origClust <- ClusteringSessionClusterTable.clusteringSessionClusters if _origClust.clusteringSessionClusterId === _clustLab.clusteringSessionClusterId
+      _origSess <- ClusteringSessionTable.clusteringSessions if _origSess.clusteringSessionId === _origClust.clusteringSessionId
+      _labType <- LabelTable.labelTypes if _labType.labelTypeId === _origClust.labelTypeId
+      // Get role
+      _userRole <- UserRoleTable.userRoles if _userRole.userId === _origSess.userId
+      _role <- UserRoleTable.roles if _role.roleId === _userRole.roleId
+      if !_origClust.lat.isEmpty && !_origClust.lng.isEmpty
+    } yield (
+      _origClust.clusteringSessionId,
+      _origClust.clusteringSessionClusterId,
+      _labType.labelType,
+      _origSess.userId.get,
+      _role.role,
+      _origClust.lat.get,
+      _origClust.lng.get,
+      _origSess.clusteringThreshold
+    )
+    val labels: List[ClusteredLabel] = labelsQuery.list.map(x => ClusteredLabel.tupled(x))
+
+    (clusters, labels)
   }
 
   def save(clusteringSession: ClusteringSession): Int = db.withTransaction { implicit session =>

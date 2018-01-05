@@ -8,12 +8,13 @@ import controllers.headers.ProvidesHeader
 import models.amt.AMTAssignmentTable.getTurkersWithAcceptedHITForCondition
 import models.amt.AMTConditionTable.{getVolunteerIdByRouteId, getVolunteerLabelsByCondition}
 import models.amt.{AMTAssignmentTable, AMTConditionTable}
-import models.clustering_session.{ClusteringSessionTable, LabelToCluster}
+import models.clustering_session.{ClusteredLabel, ClusteringSessionTable, Issue, LabelToCluster}
 import models.gt.GTLabelTable
 import models.user.User
 import play.api.Logger
 import play.api.libs.json.{JsObject, Json}
 import play.api.mvc.{Action, AnyContent}
+import play.extras.geojson
 
 import scala.sys.process._
 import scala.concurrent.Future
@@ -296,6 +297,48 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     routesToCluster.flatMap(routeId =>
       turkerIds.map(turkerId =>
         (runClustering("turker", singleUser = true, Some(turkerId), threshold, Some(routeId), None, None), routeId)))
+  }
+
+
+
+  /**
+    * Run clustering, then get list of the test users' clustered labels, and the result of clustering all of their labels.
+    *
+    * @return
+    */
+  def getClusteredLabels() = UserAwareAction.async { implicit request =>
+
+    // TODO run the clustering first...
+    val individualSessionIds: List[Int] = List("ClusterValidator1", "ClusterValidator2", "ClusterValidator3", "ClusterValidator4", "ClusterValidator5").map {
+      userId => runClustering("volunteer", true, Some(userId), None, None, None, None)
+    }
+
+    val sessionId: Int = runClustering("volunteer", false, None, None, None, None, Some(individualSessionIds))
+
+    val labels: (List[Issue], List[ClusteredLabel]) = ClusteringSessionTable.getLabelsForValidation(sessionId)
+
+    val issueFeatures: List[JsObject] = labels._2.map { label =>
+      val point = geojson.Point(geojson.LatLng(label.lat.toDouble, label.lng.toDouble))
+      val properties = Json.obj(
+        "clustering_session_id" -> label.sessionId,
+        "cluster_id" -> label.clusterId,
+        "threshold" -> label.threshold,
+        "label_type" -> label.labelType
+      )
+      Json.obj("type" -> "Feature", "geometry" -> point, "properties" -> properties)
+    }
+    val clusterFeatures: List[JsObject] = labels._1.map { label =>
+      val point = geojson.Point(geojson.LatLng(label.lat.toDouble, label.lng.toDouble))
+      val properties = Json.obj(
+        "clustering_session_id" -> label.sessionId,
+        "cluster_id" -> label.clusterId,
+        "threshold" -> label.threshold,
+        "label_type" -> label.labelType
+      )
+      Json.obj("type" -> "Feature", "geometry" -> point, "properties" -> properties)
+    }
+    val featureCollection = Json.obj("type" -> "FeatureCollection", "features" -> (issueFeatures ++ clusterFeatures))
+    Future.successful(Ok(featureCollection))
   }
 
 
