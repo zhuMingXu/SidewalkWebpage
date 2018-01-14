@@ -29,6 +29,10 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     Future.successful(Ok(views.html.accuracy("Project Sidewalk", request.identity)))
   }
 
+  def clusteringValidation = UserAwareAction.async { implicit request =>
+    Future.successful(Ok(views.html.clusteringValidation("Project Sidewalk", request.identity)))
+  }
+
 
   /** Gets */
 
@@ -222,12 +226,35 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
   }
 
   /**
+    * Returns the set of clusters associated with the given clustering sessions, in format needed to cluster again.
+    *
+    * @param sessionIdsStr
+    * @return
+    */
+  def getClusteredVolunteerLabelsToCluster(sessionIdsStr: String): Action[AnyContent] = UserAwareAction.async { implicit request =>
+    // parse list of session ids and possible list of route ids, in the form "num,num,num"
+    val sessionIds: List[Int] = sessionIdsStr.split(",").map(_.toInt).toList
+
+    val labsToCluster: List[LabelToCluster] = ClusteringSessionTable.getClusteredVolunteerLabelsToCluster(sessionIds)
+    val json = Json.arr(labsToCluster.map(x => Json.obj(
+      "label_id" -> x.labelId,
+      "turker_id" -> x.turkerId,
+      "label_type" -> x.labelType,
+      "lat" -> x.lat,
+      "lng" -> x.lng,
+      "severity" -> x.severity,
+      "temporary" -> x.temp
+    )))
+    Future.successful(Ok(json))
+  }
+
+  /**
     * Runs the Python clustering script, passing along the correct arguments, given this function's parameters.
     *
     * @param volunteerOrTurker either "volunteer" or "turker"
     * @param singleUser determines whether we are clustering a single user's labels
     * @param id either turker id or user id
-    * @param routeId
+    * @param routeId route to be clustered
     * @param nTurkers only used for old version of clustering where individuals are not clustered first
     * @param sessionIds list of clustering session ids
     * @return
@@ -243,6 +270,10 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     val command: String = (volunteerOrTurker, singleUser, id, threshold, routeId, nTurkers, sessionIds) match {
       case ("volunteer", _, _, _, Some(route), _, _) =>
         "python label_clustering.py --user_id " + getVolunteerIdByRouteId(route) + " --route_id " + route
+      case ("volunteer", true, Some(userId), _, _, _, _) =>
+        "python label_clustering.py --user_id " + userId
+      case ("volunteer", false, _, _, _, _, Some(sessions)) =>
+        "python label_clustering.py --worker_type volunteer --session_ids " + sessions.mkString(" ")
       case ("turker", true, Some(turkerId), Some(thresh), Some(route), _, _) =>
         "python label_clustering.py --turker_id " + turkerId + " --route_id " + route + " --clust_thresh " + thresh
       case ("turker", true, Some(turkerId), _, Some(route), _, _) =>
@@ -306,34 +337,36 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     *
     * @return
     */
-  def getClusteredLabels() = UserAwareAction.async { implicit request =>
+  def getLabelsForClusteringValidation = UserAwareAction.async { implicit request =>
 
-    // TODO run the clustering first...
+    // run clustering
     val individualSessionIds: List[Int] = List("ClusterValidator1", "ClusterValidator2", "ClusterValidator3", "ClusterValidator4", "ClusterValidator5").map {
-      userId => runClustering("volunteer", true, Some(userId), None, None, None, None)
+      userId => runClustering("volunteer", singleUser = true, Some(userId), None, None, None, None)
     }
 
-    val sessionId: Int = runClustering("volunteer", false, None, None, None, None, Some(individualSessionIds))
+    val sessionId: Int = runClustering("volunteer", singleUser = false, None, None, None, None, Some(individualSessionIds))
 
     val labels: (List[Issue], List[ClusteredLabel]) = ClusteringSessionTable.getLabelsForValidation(sessionId)
 
-    val issueFeatures: List[JsObject] = labels._2.map { label =>
+    val issueFeatures: List[JsObject] = labels._1.map { label =>
       val point = geojson.Point(geojson.LatLng(label.lat.toDouble, label.lng.toDouble))
       val properties = Json.obj(
         "clustering_session_id" -> label.sessionId,
         "cluster_id" -> label.clusterId,
         "threshold" -> label.threshold,
-        "label_type" -> label.labelType
+        "label_type" -> label.labelType,
+        "worker_id" -> "null"
       )
       Json.obj("type" -> "Feature", "geometry" -> point, "properties" -> properties)
     }
-    val clusterFeatures: List[JsObject] = labels._1.map { label =>
+    val clusterFeatures: List[JsObject] = labels._2.map { label =>
       val point = geojson.Point(geojson.LatLng(label.lat.toDouble, label.lng.toDouble))
       val properties = Json.obj(
         "clustering_session_id" -> label.sessionId,
         "cluster_id" -> label.clusterId,
         "threshold" -> label.threshold,
-        "label_type" -> label.labelType
+        "label_type" -> label.labelType,
+        "worker_id" -> label.workerId
       )
       Json.obj("type" -> "Feature", "geometry" -> point, "properties" -> properties)
     }

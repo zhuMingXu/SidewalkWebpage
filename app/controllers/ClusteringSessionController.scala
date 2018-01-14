@@ -276,6 +276,73 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
   }
 
   /**
+    * Takes in results of multi-volunteer clustering, and adds the data to the relevant tables
+    * @return
+    */
+  def postMultiVolunteerClusteringResults(threshold: Double) = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>
+    // Validation https://www.playframework.com/documentation /2.3.x/ScalaJson
+
+    val submission = request.body.validate[ClusteringFormats.ClusteringSubmission]
+    submission.fold(
+      errors => {
+        println("bleepbloop how does parse")
+        Future.successful(BadRequest(Json.obj("status" -> "Error", "message" -> JsError.toFlatJson(errors))))
+      },
+      submission => {
+        val thresholds: List[ClusteringFormats.ClusteringThresholdSubmission] = submission.thresholds
+        val clusters: List[ClusteringFormats.ClusterSubmission] = submission.clusters
+        val labels: List[ClusteringFormats.ClusteredLabelSubmission] = submission.labels
+
+        val groupedLabels: Map[Int, List[ClusteringFormats.ClusteredLabelSubmission]] = labels.groupBy(_.clusterNum)
+        val now = new DateTime(DateTimeZone.UTC)
+        val timestamp: Timestamp = new Timestamp(now.getMillis)
+
+        // Create a new clustering session entry
+        val sessionId: Int = ClusteringSessionTable.save(
+          ClusteringSession(0, None, threshold, timestamp, deleted = false, userId = None, turkerId = None)
+        )
+        // Add the thresholds to the clustering_session_label_type_threshold table
+        for (threshold <- thresholds) yield {
+          val threshId: Int =
+            ClusteringSessionLabelTypeThresholdTable.save(
+              ClusteringSessionLabelTypeThreshold(
+                0,
+                sessionId,
+                LabelTypeTable.labelTypeToId(threshold.labelType),
+                threshold.threshold
+              )
+            )
+        }
+        // Add the clusters to clustering_session_cluster table
+        for (cluster <- clusters) yield {
+          val clustId: Int =
+            ClusteringSessionClusterTable.save(
+              ClusteringSessionCluster(0,
+                sessionId,
+                Some(LabelTypeTable.labelTypeToId(cluster.labelType)),
+                Some(cluster.lat),
+                Some(cluster.lng),
+                cluster.severity,
+                Some(cluster.temporary)
+              )
+            )
+          // Add all the associated labels to the clustering_session_label table
+          groupedLabels get cluster.clusterNum match {
+            case Some(group) =>
+              for (label <- group) yield {
+                ClusteringSessionLabelTable.save(ClusteringSessionLabel(0, clustId, Some(label.labelId), None))
+              }
+            case None =>
+              Logger.warn("Cluster sent with no accompanying labels. Seems wrong!")
+          }
+        }
+        val json = Json.obj("session" -> sessionId)
+        Future.successful(Ok(json))
+      }
+    )
+  }
+
+  /**
     * Takes in results of clustering, and adds the data to the relevant tables
     */
   def postClusteringResults(routeId: String, threshold: String, fromClusters: Option[Boolean]) = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>

@@ -19,6 +19,7 @@ GET   /mobile                                                           @control
 GET   /clustering                                                       @controllers.ClusteringSessionController.index
 GET   /irr                                                              @controllers.IRRController.index
 GET   /accuracy                                                         @controllers.AccuracyCalculationController.index
+GET   /clusteringValidation                                             @controllers.AccuracyCalculationController.clusteringValidation
 
 # Auditing tasks
 GET   /audit                                                            @controllers.AuditController.audit
@@ -146,9 +147,11 @@ GET   /volunteerLabelsToCluster/:routeId                                @control
 GET   /nonGTLabelsToCluster/:routeId/:n                                 @controllers.ClusteringSessionController.getTurkerLabelsToCluster(routeId, n)
 GET   /singleTurkerLabels/:turkerId/:routeId                            @controllers.ClusteringSessionController.getSingleTurkerLabelsToCluster(turkerId, routeId: Int)
 GET   /clusteredTurkerLabels/:sessionIds                                @controllers.AccuracyCalculationController.getClusteredTurkerLabelsToCluster(sessionIds, routeId: Option[Int] ?= None)
+GET   /clusteredVolunteerLabels/:sessionIds                             @controllers.AccuracyCalculationController.getClusteredVolunteerLabelsToCluster(sessionIds)
 # POSTS used by the label_clustering.py file
 POST  /clusteringResults/:routeId/:threshold                            @controllers.ClusteringSessionController.postClusteringResults(routeId, threshold, fromClusters: Option[Boolean] ?= None)
 POST  /singleUserClusteringResults                                      @controllers.ClusteringSessionController.postSingleUserClusteringResults(volunteerOrTurkerId: String, threshold: Double, routeId: Option[Int] ?= None)
+POST  /multiVolunteerClusteringResults                                  @controllers.ClusteringSessionController.postMultiVolunteerClusteringResults(threshold: Double)
 
 # IRR Related
 GET   /getIRRData/:hitId/:routeId                                       @controllers.IRRController.getDataForIRR(hitId: String, routeId: Int)
@@ -158,3 +161,4 @@ POST  /getIRRDataForHits                                                @control
 GET   /accuracyData/:workerType/:clusterNum                             @controllers.AccuracyCalculationController.getAccuracyData(workerType, clusterNum)
 GET   /accuracyDataWithSinglePersonClust/:workerType/:clusterNum        @controllers.AccuracyCalculationController.getAccuracyDataWithSinglePersonClustering(workerType, clusterNum, threshold: Option[Float] ?= None)
 GET   /accuracyForEachTurker                                            @controllers.AccuracyCalculationController.getAccuracyForEachTurker(threshold: Option[Float] ?= None)
+GET   /labelsForClusteringValidation                                    @controllers.AccuracyCalculationController.getLabelsForClusteringValidation

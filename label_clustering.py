@@ -88,6 +88,8 @@ if __name__ == '__main__':
                         help='Debug mode adds print statements')
     parser.add_argument('--session_ids', nargs='+', type=int,
                         help='List of clustering session ids from which to get labels for clustering')
+    parser.add_argument('--worker_type', type=str,
+                        help='One of either \'volunteer\' or \'turker\'.')
     args = parser.parse_args()
     DEBUG = args.debug
     CLUSTER_THRESHOLD = args.clust_thresh
@@ -98,13 +100,20 @@ if __name__ == '__main__':
     TURKER_ID = args.turker_id
     SINGLE_USER = False
     SESSION_IDS = args.session_ids
+    WORKER_TYPE = args.worker_type
 
 
     # Determine what type of clustering should be done from command line args, and set variable accordingly.
     MAJORITY_THRESHOLD = None
     getURL = None
     postURL = None
-    if SESSION_IDS:
+    if SESSION_IDS and WORKER_TYPE == 'volunteer':
+        getURL = 'http://localhost:9000/clusteredVolunteerLabels/' + re.sub('[\[\] ]', '', str(SESSION_IDS))
+        postURL = 'http://localhost:9000/multiVolunteerClusteringResults' \
+                  '/' + str(CLUSTER_THRESHOLD)
+        MAJORITY_THRESHOLD = math.ceil(N_LABELERS / 2.0)
+        SINGLE_USER = False
+    elif SESSION_IDS:
         getURL = 'http://localhost:9000/clusteredTurkerLabels/' + re.sub('[\[\] ]', '', str(SESSION_IDS))
         if ROUTE_ID: getURL += ('?routeId=' + str(ROUTE_ID))
         postURL = 'http://localhost:9000/clusteringResults' \

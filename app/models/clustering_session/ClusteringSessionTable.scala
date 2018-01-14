@@ -234,6 +234,31 @@ object ClusteringSessionTable{
   }
 
   /**
+    * Returns clusters from specified clustering session ids, in the format needed for another round of clustering.
+    *
+    * @param clusteringSessionIds
+    * @return
+    */
+  def getClusteredVolunteerLabelsToCluster(clusteringSessionIds: List[Int]): List[LabelToCluster] = db.withSession { implicit session =>
+
+    val labels = for {
+      _session <- clusteringSessions if !_session.userId.isEmpty
+      _clusters <- ClusteringSessionClusterTable.clusteringSessionClusters if _session.clusteringSessionId === _clusters.clusteringSessionId
+      _types <- LabelTable.labelTypes if _clusters.labelTypeId === _types.labelTypeId
+    } yield (
+      _clusters.clusteringSessionClusterId,
+      _types.labelType,
+      _clusters.lat,
+      _clusters.lng,
+      _clusters.severity,
+      _clusters.temporary.getOrElse(false),
+      _session.userId.get
+    )
+
+    labels.list.map(x => LabelToCluster.tupled(x))
+  }
+
+  /**
     * Returns labels that were placed by the specified user, in the form needed for clustering.
     *
     * @param userId
@@ -576,30 +601,31 @@ object ClusteringSessionTable{
 
   /**
     * Given clustering sesion id, returns the clusters and the label that made up the clusters
+    *
     * @param sessionId
     * @return
     */
   def getLabelsForValidation(sessionId: Int): (List[Issue], List[ClusteredLabel]) = db.withSession { implicit session =>
 
     val clustersQuery = for {
-      _sessions <- clusteringSessions if _sessions.clusteringSessionId === sessionId
-      _clust <- ClusteringSessionClusterTable.clusteringSessionClusters if _clust.clusteringSessionId === _sessions.clusteringSessionId
+      _sess <- clusteringSessions if _sess.clusteringSessionId === sessionId
+      _clust <- ClusteringSessionClusterTable.clusteringSessionClusters if _clust.clusteringSessionId === _sess.clusteringSessionId
       _labType <- LabelTable.labelTypes if _labType.labelTypeId === _clust.labelTypeId
       if !_clust.lat.isEmpty && !_clust.lng.isEmpty
     } yield (
-      _sessions.clusteringSessionId,
+      _sess.clusteringSessionId,
       _clust.clusteringSessionClusterId,
       _labType.labelType,
       _clust.lat.get,
       _clust.lng.get,
-      _sessions.clusteringThreshold
+      _sess.clusteringThreshold
     )
     val clusters: List[Issue] = clustersQuery.list.map(x => Issue.tupled(x))
 
 
     val labelsQuery = for {
-      _sessions <- clusteringSessions if _sessions.clusteringSessionId === sessionId
-      _clust <- ClusteringSessionClusterTable.clusteringSessionClusters if _clust.clusteringSessionId === _sessions.clusteringSessionId
+      _sess <- clusteringSessions if _sess.clusteringSessionId === sessionId
+      _clust <- ClusteringSessionClusterTable.clusteringSessionClusters if _clust.clusteringSessionId === _sess.clusteringSessionId
       _clustLab <- ClusteringSessionLabelTable.clusteringSessionLabels if _clustLab.clusteringSessionClusterId === _clust.clusteringSessionClusterId
       _origClust <- ClusteringSessionClusterTable.clusteringSessionClusters if _origClust.clusteringSessionClusterId === _clustLab.clusteringSessionClusterId
       _origSess <- ClusteringSessionTable.clusteringSessions if _origSess.clusteringSessionId === _origClust.clusteringSessionId
