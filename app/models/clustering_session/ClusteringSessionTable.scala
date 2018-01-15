@@ -166,7 +166,7 @@ object ClusteringSessionTable{
   }
 
   def getNewestClusteringSessionId: Int = db.withTransaction { implicit session =>
-    clusteringSessions.list.length
+    clusteringSessions.map(_.clusteringSessionId).list.max
   }
 
   /**
