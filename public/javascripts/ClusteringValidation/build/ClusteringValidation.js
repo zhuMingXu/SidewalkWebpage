@@ -45,7 +45,7 @@ function ClusteringValidation (_, $, c3, L, difficultRegionIds) {
             // see full maxBounds documentation:
             // http://leafletjs.com/reference.html#map-maxbounds
             maxBounds: bounds,
-            maxZoom: 19,
+            // maxZoom: 19,
             minZoom: 9
         })
         // .addLayer(mapboxTiles)
@@ -422,6 +422,7 @@ function ClusteringValidation (_, $, c3, L, difficultRegionIds) {
 
         $.getJSON("/labelsForClusteringValidation", function (data) {
             _data.labels = data;
+            console.log(data);
 
             // Render submitted labels and clusters
             L.geoJson(data, {
@@ -430,7 +431,7 @@ function ClusteringValidation (_, $, c3, L, difficultRegionIds) {
                     // if there is a worker id, it is from a user, if there is none then it is clustered
                     if (feature.properties.worker_id) {
                         style = $.extend(true, {}, {
-                            radius: 3,
+                            radius: 5,
                             fillColor: "#ff7800",
                             color: "#ffffff",
                             weight: 1,
@@ -439,14 +440,54 @@ function ClusteringValidation (_, $, c3, L, difficultRegionIds) {
                             "stroke-width": 1
                         });
                     } else {
-                        style = $.extend(true, {}, geojsonMarkerOptions);
+                        style = $.extend(true, {}, {
+                            radius: 7,
+                            fillColor: "#ff7800",
+                            color: "#ffffff",
+                            weight: 1,
+                            opacity: 0.5,
+                            fillOpacity: 0.5,
+                            "stroke-width": 1
+                        });
                     }
                     style.fillColor = colorMapping[feature.properties.label_type].fillStyle;
-                    return L.circleMarker(latlng, style);
+
+                    // If it is a cluster (not an individual label), then add a popup with number of labels in cluster.
+                    if (feature.properties.worker_id) {
+                        return L.circleMarker(latlng, style);
+                    } else {
+                        var n = data.features.filter(pt => pt.properties.cluster_id === feature.properties.cluster_id).length - 1;
+                        return L.circleMarker(latlng, style).bindPopup("" + n);
+                    }
                 },
                 onEachFeature: onEachLabelFeature
             })
                 .addTo(map);
+
+            // Render lines between labels and their cluster
+            var lineGeoJson = [];
+            for (var i = 0; i < data.features.length; i++) {
+                var lat = data.features[i].geometry.coordinates[0];
+                var lng = data.features[i].geometry.coordinates[1];
+                var clusterPoint = data.features.find(function(point) {
+                    return point.properties.cluster_id === data.features[i].properties.cluster_id && !point.properties.worker_id;
+                });
+                if (clusterPoint) {
+                    lineGeoJson = lineGeoJson.concat([{
+                        'type': 'LineString',
+                        'coordinates': [[lat, lng], clusterPoint.geometry.coordinates]
+                    }]);
+                }
+            }
+            var myStyle = {
+                "color": "black",
+                "weight": 1,
+                "opacity": 0.65
+            };
+
+            L.geoJson(lineGeoJson, {
+                style: myStyle
+            }).addTo(map);
 
             completedInitializingClusteringValidation = true;
             handleInitializationComplete(map);

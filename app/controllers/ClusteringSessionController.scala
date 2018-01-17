@@ -276,10 +276,10 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
   }
 
   /**
-    * Takes in results of multi-volunteer clustering, and adds the data to the relevant tables
+    * Takes in results of multi-turker clustering for validation, and adds the data to the relevant tables
     * @return
     */
-  def postMultiVolunteerClusteringResults(threshold: Double) = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>
+  def postMultiTurkerClusteringResults(threshold: Double) = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>
     // Validation https://www.playframework.com/documentation /2.3.x/ScalaJson
 
     val submission = request.body.validate[ClusteringFormats.ClusteringSubmission]
@@ -292,6 +292,8 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
         val thresholds: List[ClusteringFormats.ClusteringThresholdSubmission] = submission.thresholds
         val clusters: List[ClusteringFormats.ClusterSubmission] = submission.clusters
         val labels: List[ClusteringFormats.ClusteredLabelSubmission] = submission.labels
+        println(clusters)
+        println(labels)
 
         val groupedLabels: Map[Int, List[ClusteringFormats.ClusteredLabelSubmission]] = labels.groupBy(_.clusterNum)
         val now = new DateTime(DateTimeZone.UTC)
@@ -330,7 +332,7 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
           groupedLabels get cluster.clusterNum match {
             case Some(group) =>
               for (label <- group) yield {
-                ClusteringSessionLabelTable.save(ClusteringSessionLabel(0, clustId, Some(label.labelId), None))
+                ClusteringSessionLabelTable.save(ClusteringSessionLabel(0, clustId, None, Some(label.labelId)))
               }
             case None =>
               Logger.warn("Cluster sent with no accompanying labels. Seems wrong!")

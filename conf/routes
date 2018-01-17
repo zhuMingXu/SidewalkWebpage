@@ -151,7 +151,7 @@ GET   /clusteredVolunteerLabels/:sessionIds                             @control
 # POSTS used by the label_clustering.py file
 POST  /clusteringResults/:routeId/:threshold                            @controllers.ClusteringSessionController.postClusteringResults(routeId, threshold, fromClusters: Option[Boolean] ?= None)
 POST  /singleUserClusteringResults                                      @controllers.ClusteringSessionController.postSingleUserClusteringResults(volunteerOrTurkerId: String, threshold: Double, routeId: Option[Int] ?= None)
-POST  /multiVolunteerClusteringResults                                  @controllers.ClusteringSessionController.postMultiVolunteerClusteringResults(threshold: Double)
+POST  /multiTurkerClusteringResults                                     @controllers.ClusteringSessionController.postMultiTurkerClusteringResults(threshold: Double)
 
 # IRR Related
 GET   /getIRRData/:hitId/:routeId                                       @controllers.IRRController.getDataForIRR(hitId: String, routeId: Int)

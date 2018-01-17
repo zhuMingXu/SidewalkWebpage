@@ -86,12 +86,15 @@ if __name__ == '__main__':
                         help='Cluster distance threshold (in meters)')
     parser.add_argument('--debug', action='store_true',
                         help='Debug mode adds print statements')
+    parser.add_argument('--old', action='store_true',
+                        help='Indicates that we are doing the version of multi-turker clustering for accuracy.')
     parser.add_argument('--session_ids', nargs='+', type=int,
                         help='List of clustering session ids from which to get labels for clustering')
     parser.add_argument('--worker_type', type=str,
                         help='One of either \'volunteer\' or \'turker\'.')
     args = parser.parse_args()
     DEBUG = args.debug
+    OLD = args.debug
     CLUSTER_THRESHOLD = args.clust_thresh
     ROUTE_ID = args.route_id
     HIT_ID = args.hit_id
@@ -107,19 +110,20 @@ if __name__ == '__main__':
     MAJORITY_THRESHOLD = None
     getURL = None
     postURL = None
-    if SESSION_IDS and WORKER_TYPE == 'volunteer':
-        getURL = 'http://localhost:9000/clusteredVolunteerLabels/' + re.sub('[\[\] ]', '', str(SESSION_IDS))
-        postURL = 'http://localhost:9000/multiVolunteerClusteringResults' \
-                  '/' + str(CLUSTER_THRESHOLD)
-        MAJORITY_THRESHOLD = math.ceil(N_LABELERS / 2.0)
-        SINGLE_USER = False
-    elif SESSION_IDS:
+    if SESSION_IDS and OLD:
         getURL = 'http://localhost:9000/clusteredTurkerLabels/' + re.sub('[\[\] ]', '', str(SESSION_IDS))
         if ROUTE_ID: getURL += ('?routeId=' + str(ROUTE_ID))
         postURL = 'http://localhost:9000/clusteringResults' \
                   '/' +str(ROUTE_ID) +\
                   '/' + str(CLUSTER_THRESHOLD) +\
                   '?fromClusters=true'
+        MAJORITY_THRESHOLD = math.ceil(N_LABELERS / 2.0)
+        SINGLE_USER = False
+    elif SESSION_IDS:
+        getURL = 'http://localhost:9000/clusteredTurkerLabels/' + re.sub('[\[\] ]', '', str(SESSION_IDS))
+        if ROUTE_ID: getURL += ('?routeId=' + str(ROUTE_ID))
+        postURL = 'http://localhost:9000/multiTurkerClusteringResults' \
+                  '?threshold=' + str(CLUSTER_THRESHOLD)
         MAJORITY_THRESHOLD = math.ceil(N_LABELERS / 2.0)
         SINGLE_USER = False
     elif ROUTE_ID and TURKER_ID:
@@ -158,11 +162,12 @@ if __name__ == '__main__':
 
     # Send GET request to get labels to be clustered.
     try:
-        # print getURL
-        # print postURL
+        print getURL
+        print postURL
         response = requests.get(getURL)
         data = response.json()
         label_data = json_normalize(data[0])
+        # print label_data
     except:
         print "Failed to get labels needed to cluster."
         sys.exit()
@@ -243,7 +248,7 @@ if __name__ == '__main__':
                                    'threshold': thresholds.values()}).to_json(orient='records', lines=False)
 
     # Clustering for a single user has a different POST function than for clustering multiple users.
-    if SINGLE_USER:
+    if SINGLE_USER or (not OLD and SESSION_IDS):
         output_json = json.dumps({'thresholds': json.loads(threshold_json),
                                   'labels': json.loads(label_json),
                                   'clusters': json.loads(cluster_json)})
@@ -252,5 +257,6 @@ if __name__ == '__main__':
                                   'labels': json.loads(label_json)})
     # print output_json
     response = requests.post(postURL, data=output_json, headers=POST_HEADER)
+    print response
 
     sys.exit()

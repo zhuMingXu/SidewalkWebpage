@@ -122,7 +122,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
             conditionIds.flatMap { conditionId =>
               val clustSessionIds: List[(Int, Int)] = runSingleTurkerClusteringForRoutesInCondition(conditionId, clustNum, None)
               val doubleClusteredSessions: List[Int] = clustSessionIds.groupBy(_._2).map {
-                case (rId, lst) => runClustering("turker", singleUser = false, None, threshold, Some(rId), None, Some(lst.map(_._1)))
+                case (rId, lst) => runClustering("turker", singleUser = false, None, threshold, Some(rId), None, Some(lst.map(_._1)), old = true)
               }.toList
               ClusteringSessionTable.getClusteredLabelsForAccuracy(doubleClusteredSessions).map(_.toJSON)
             }
@@ -198,7 +198,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     AMTAssignmentTable.getTurkersWithAcceptedHITForCondition(conditionId) match {
       case Nil => List[Int]()
       case _ => AMTConditionTable.getRouteIdsForACondition(conditionId).map(routeId =>
-        runClustering("turker", singleUser = false, None, None, Some(routeId), Some(nTurkers), None))
+        runClustering("turker", singleUser = false, None, None, Some(routeId), Some(nTurkers), None, old = false))
     }
   }
 
@@ -265,26 +265,31 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
                     threshold: Option[Float],
                     routeId: Option[Int],
                     nTurkers: Option[Int],
-                    sessionIds: Option[List[Int]]): Int = {
+                    sessionIds: Option[List[Int]],
+                    old: Boolean): Int = {
 
-    val command: String = (volunteerOrTurker, singleUser, id, threshold, routeId, nTurkers, sessionIds) match {
-      case ("volunteer", _, _, _, Some(route), _, _) =>
+    val command: String = (volunteerOrTurker, singleUser, id, threshold, routeId, nTurkers, sessionIds, old) match {
+      case ("volunteer", _, _, _, Some(route), _, _, _) =>
         "python label_clustering.py --user_id " + getVolunteerIdByRouteId(route) + " --route_id " + route
-      case ("volunteer", true, Some(userId), _, _, _, _) =>
+      case ("volunteer", true, Some(userId), _, _, _, _, _) =>
         "python label_clustering.py --user_id " + userId
-      case ("volunteer", false, _, _, _, _, Some(sessions)) =>
+      case ("volunteer", false, _, _, _, _, Some(sessions), _) =>
         "python label_clustering.py --worker_type volunteer --session_ids " + sessions.mkString(" ")
-      case ("turker", true, Some(turkerId), Some(thresh), Some(route), _, _) =>
+      case ("turker", true, Some(turkerId), Some(thresh), Some(route), _, _, _) =>
         "python label_clustering.py --turker_id " + turkerId + " --route_id " + route + " --clust_thresh " + thresh
-      case ("turker", true, Some(turkerId), _, Some(route), _, _) =>
+      case ("turker", true, Some(turkerId), _, Some(route), _, _, _) =>
         "python label_clustering.py --turker_id " + turkerId + " --route_id " + route
-      case ("turker", false, _, Some(thresh), Some(route), _, Some(sessions)) =>
+      case ("turker", false, _, Some(thresh), Some(route), _, Some(sessions), true) =>
+        "python label_clustering.py --old --route_id " + route + " --session_ids " + sessions.mkString(" ") + " --clust_thresh " + thresh
+      case ("turker", false, _, Some(thresh), Some(route), _, Some(sessions), _) =>
         "python label_clustering.py --route_id " + route + " --session_ids " + sessions.mkString(" ") + " --clust_thresh " + thresh
-      case ("turker", false, _, _, Some(route), _, Some(sessions)) =>
+      case ("turker", false, _, _, Some(route), _, Some(sessions), true) =>
+        "python label_clustering.py --old --route_id " + route + " --session_ids " + sessions.mkString(" ")
+      case ("turker", false, _, _, Some(route), _, Some(sessions), _) =>
         "python label_clustering.py --route_id " + route + " --session_ids " + sessions.mkString(" ")
-      case ("turker", false, _, _, None, _, Some(sessions)) =>
+      case ("turker", false, _, _, None, _, Some(sessions), _) =>
         "python label_clustering.py --session_ids " + sessions.mkString(" ")
-      case ("turker", false, _, _, Some(route), Some(n), _) => // old version of clustering
+      case ("turker", false, _, _, Some(route), Some(n), _, _) => // old version of clustering
         "python label_clustering.py --route_id " + route + " --n_labelers " + n
       case _ =>
         Logger.error("Incorrect parameters to Python script.")
@@ -294,6 +299,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     // Run Python script, and get the clustering id that is created by the Python script.
     // TODO handle errors thrown by Python script
     val clusteringOutput: String = command.!!
+//    println(clusteringOutput)
     ClusteringSessionTable.getNewestClusteringSessionId
   }
 
@@ -306,7 +312,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
   def runSingleVolunteerClusteringForRoutesInCondition(conditionId: Int): List[(Int, Int)] = {
 
     val routes: List[Int] = AMTConditionTable.getRouteIdsForACondition(conditionId)
-    routes.map(routeId => (runClustering("volunteer", singleUser = true, None, None, Some(routeId), None, None), routeId))
+    routes.map(routeId => (runClustering("volunteer", singleUser = true, None, None, Some(routeId), None, None, old = false), routeId))
   }
 
   /**
@@ -327,7 +333,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
 
     routesToCluster.flatMap(routeId =>
       turkerIds.map(turkerId =>
-        (runClustering("turker", singleUser = true, Some(turkerId), threshold, Some(routeId), None, None), routeId)))
+        (runClustering("turker", singleUser = true, Some(turkerId), threshold, Some(routeId), None, None, old = false), routeId)))
   }
 
 
@@ -341,10 +347,10 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
 
     // run clustering
     val individualSessionIds: List[Int] = List("ClusterValidator1", "ClusterValidator2", "ClusterValidator3", "ClusterValidator4", "ClusterValidator5").map {
-      userId => runClustering("volunteer", singleUser = true, Some(userId), None, None, None, None)
+      turkerId => runClustering("turker", singleUser = true, Some(turkerId), None, Some(205), None, None, old = false)
     }
 
-    val sessionId: Int = runClustering("volunteer", singleUser = false, None, None, None, None, Some(individualSessionIds))
+    val sessionId: Int = runClustering("turker", singleUser = false, None, None, Some(205), None, Some(individualSessionIds), old = false)
 
     val labels: (List[Issue], List[ClusteredLabel]) = ClusteringSessionTable.getLabelsForValidation(sessionId)
 
@@ -354,8 +360,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
         "clustering_session_id" -> label.sessionId,
         "cluster_id" -> label.clusterId,
         "threshold" -> label.threshold,
-        "label_type" -> label.labelType,
-        "worker_id" -> "null"
+        "label_type" -> label.labelType
       )
       Json.obj("type" -> "Feature", "geometry" -> point, "properties" -> properties)
     }

@@ -622,24 +622,21 @@ object ClusteringSessionTable{
     )
     val clusters: List[Issue] = clustersQuery.list.map(x => Issue.tupled(x))
 
-
     val labelsQuery = for {
       _sess <- clusteringSessions if _sess.clusteringSessionId === sessionId
       _clust <- ClusteringSessionClusterTable.clusteringSessionClusters if _clust.clusteringSessionId === _sess.clusteringSessionId
       _clustLab <- ClusteringSessionLabelTable.clusteringSessionLabels if _clustLab.clusteringSessionClusterId === _clust.clusteringSessionClusterId
-      _origClust <- ClusteringSessionClusterTable.clusteringSessionClusters if _origClust.clusteringSessionClusterId === _clustLab.clusteringSessionClusterId
+      _origClust <- ClusteringSessionClusterTable.clusteringSessionClusters if _origClust.clusteringSessionClusterId === _clustLab.originatingClusterId
       _origSess <- ClusteringSessionTable.clusteringSessions if _origSess.clusteringSessionId === _origClust.clusteringSessionId
       _labType <- LabelTable.labelTypes if _labType.labelTypeId === _origClust.labelTypeId
-      // Get role
-      _userRole <- UserRoleTable.userRoles if _userRole.userId === _origSess.userId
-      _role <- UserRoleTable.roles if _role.roleId === _userRole.roleId
       if !_origClust.lat.isEmpty && !_origClust.lng.isEmpty
     } yield (
       _origClust.clusteringSessionId,
-      _origClust.clusteringSessionClusterId,
+      _clust.clusteringSessionClusterId,
       _labType.labelType,
-      _origSess.userId.get,
-      _role.role,
+      _origSess.turkerId.get,
+//      "turker",
+      _origSess.turkerId.get,
       _origClust.lat.get,
       _origClust.lng.get,
       _origSess.clusteringThreshold
