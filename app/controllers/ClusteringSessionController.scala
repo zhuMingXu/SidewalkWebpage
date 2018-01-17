@@ -292,8 +292,6 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
         val thresholds: List[ClusteringFormats.ClusteringThresholdSubmission] = submission.thresholds
         val clusters: List[ClusteringFormats.ClusterSubmission] = submission.clusters
         val labels: List[ClusteringFormats.ClusteredLabelSubmission] = submission.labels
-        println(clusters)
-        println(labels)
 
         val groupedLabels: Map[Int, List[ClusteringFormats.ClusteredLabelSubmission]] = labels.groupBy(_.clusterNum)
         val now = new DateTime(DateTimeZone.UTC)
