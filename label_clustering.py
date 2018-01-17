@@ -183,13 +183,13 @@ if __name__ == '__main__':
                       'Occlusion': 0.0075,
                       'Other': 0.0075}
     else:
-        thresholds = {'CurbRamp': CLUSTER_THRESHOLD,
-                      'NoCurbRamp': CLUSTER_THRESHOLD,
-                      'SurfaceProblem': CLUSTER_THRESHOLD,
-                      'Obstacle': CLUSTER_THRESHOLD,
-                      'NoSidewalk': CLUSTER_THRESHOLD,
-                      'Occlusion': CLUSTER_THRESHOLD,
-                      'Other': CLUSTER_THRESHOLD}
+        thresholds = {'CurbRamp': 0.0075,
+                      'NoCurbRamp': 0.0075,
+                      'SurfaceProblem': 0.01,
+                      'Obstacle': 0.01,
+                      'NoSidewalk': 0.01,
+                      'Occlusion': 0.01,
+                      'Other': 0.01}
 
     # Check if there are 0 labels. If so, just send the post request and exit.
     if len(label_data) == 0:
