@@ -248,7 +248,7 @@ object AMTAssignmentTable {
 
     // left joins to get temporariness for any labels that have them (those that don't are marked as temporary=false)
     val labelsWithTemporariness = for {
-      (_labs, _temporariness) <- labelsWithSeverity.leftJoin(ProblemTemporarinessTable.problemTemporarinesses).on(_._2 === _.labelId)
+      (_labs, _temporariness) <- labelsWithSeverity.leftJoin(ProblemTemporarinessTable.problemTemporarinesses).on(_._4 === _.labelId)
     } yield (_labs._1, _labs._2, _labs._3, _labs._4, _labs._5, _labs._6, _labs._7, _labs._8, _temporariness.temporaryProblem.?)
 
     labelsWithTemporariness.list.map(x => TurkerLabel.tupled((x._1, x._2.get, x._3, x._4, x._5, x._6, x._7, x._8, x._9.getOrElse(false))))

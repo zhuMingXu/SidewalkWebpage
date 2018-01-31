@@ -195,13 +195,15 @@ function setupAccuracy(data, clusterNum, options) {
     let streetsData = data.streets;
     let gtLabelData = data.gt_labels;
     let workerLabelData = data.worker_labels;
+    let workerData = data.workers;
     // gets unique set of conditions that workers have completed
     // let conditions = [...new Set(workerLabelData.features.map(label => label.properties.condition_id))];
     // let conditions = [72, 74, 85, 98, 100, 120, 122, 128, 131, 134, 136, 138];
     // let conditions = [72, 74, 98, 100, 122, 128];
     let notReady = [71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139, 80, 91, 121, 138];
     let conditions = Array.from(new Array(71), (x,i) => i + 70).filter(c => notReady.indexOf(c) < 0);
-    // let conditions = [72]; // for testing
+	// let conditions = [72]; // for testing
+	// let conditions = [73]; // for testing
 
     // remove "Other" label type for now since there are none of them in GT
     // TODO decide if we want to do some analysis of the "Other" label type
@@ -242,7 +244,8 @@ function setupAccuracy(data, clusterNum, options) {
         let routes = [...new Set(gtLabelData.features.filter(label => label.properties.condition_id === currCondition).map(label => label.properties.route_id))];
         let gtLabs = gtLabelData.features.filter(label => label.properties.condition_id === currCondition);
         let workerLabs = workerLabelData.features.filter(label => label.properties.condition_id === currCondition);
-        let workerIds = [...new Set(workerLabs.map(label => label.properties.worker_id))];
+        // let workerIds = [...new Set(workerLabs.map(label => label.properties.worker_id))];
+        let workerIds = workerData.filter(w => w.condition_id === currCondition)[0].worker_ids;
 
         output[conditionIndex].condition_id = currCondition;
         output[conditionIndex].workers = workerIds;
@@ -509,7 +512,7 @@ allVolunteerButton.onclick = function() {
                 { binary: false, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 3 },
                 { binary: false, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 4 }
             ];
-        // console.log(volunteerData);
+        console.log(volunteerData);
 
         for (let i = 0; i < optsArray.length; i++) {
 
@@ -550,7 +553,7 @@ allTurkerButton.onclick = function() {
                 { binary: false, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 3 },
                 { binary: false, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 4 }
             ];
-        // console.log(volunteerData);
+        console.log(oneTurkerData);
 
         for (let i = 0; i < optsArrayOneTurker.length; i++) {
 
@@ -601,7 +604,7 @@ allTurkerButton.onclick = function() {
                     {binary: false, prob_no_prob: false, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 3},
                     {binary: false, prob_no_prob: false, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 4}
                 ];
-            // console.log(threeTurkerData);
+            console.log(threeTurkerData);
 
             let offset = optsArrayOneTurker.length;
             for (let j = 0; j < optsArrayThreeTurkers.length; j++) {
@@ -654,7 +657,7 @@ allTurkerButton.onclick = function() {
                         {binary: false, prob_no_prob: false, worker_thresh: 5, remove_low_severity: true, low_severity_threshold: 3},
                         {binary: false, prob_no_prob: false, worker_thresh: 5, remove_low_severity: true, low_severity_threshold: 4}
                     ];
-                // console.log(fiveTurkerData);
+                console.log(fiveTurkerData);
 
                 let offset = optsArrayOneTurker.length + optsArrayFiveTurkers.length;
                 for (let k = 0; k < optsArrayFiveTurkers.length; k++) {
