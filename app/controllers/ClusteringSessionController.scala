@@ -214,6 +214,7 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     submission.fold(
       errors => {
         println("bleepbloop how does parse")
+        println(Json.prettyPrint(request.body))
         Future.successful(BadRequest(Json.obj("status" -> "Error", "message" -> JsError.toFlatJson(errors))))
       },
       submission => {
@@ -279,13 +280,14 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     * Takes in results of multi-turker clustering for validation, and adds the data to the relevant tables
     * @return
     */
-  def postMultiTurkerClusteringResults(threshold: Double) = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>
+  def postMultiTurkerClusteringResults(threshold: Double, routeId: Option[Int]) = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>
     // Validation https://www.playframework.com/documentation /2.3.x/ScalaJson
 
     val submission = request.body.validate[ClusteringFormats.ClusteringSubmission]
     submission.fold(
       errors => {
         println("bleepbloop how does parse")
+        println(Json.prettyPrint(request.body))
         Future.successful(BadRequest(Json.obj("status" -> "Error", "message" -> JsError.toFlatJson(errors))))
       },
       submission => {
@@ -299,7 +301,7 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
 
         // Create a new clustering session entry
         val sessionId: Int = ClusteringSessionTable.save(
-          ClusteringSession(0, None, threshold, timestamp, deleted = false, userId = None, turkerId = None)
+          ClusteringSession(0, routeId, threshold, timestamp, deleted = false, userId = None, turkerId = None)
         )
         // Add the thresholds to the clustering_session_label_type_threshold table
         for (threshold <- thresholds) yield {
@@ -351,6 +353,7 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     submission.fold(
       errors => {
         println("bleepbloop how does parse")
+        println(Json.prettyPrint(request.body))
         Future.successful(BadRequest(Json.obj("status" -> "Error", "message" -> JsError.toFlatJson(errors))))
       },
       submission => {

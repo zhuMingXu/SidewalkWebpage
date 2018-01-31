@@ -121,9 +121,11 @@ if __name__ == '__main__':
         SINGLE_USER = False
     elif SESSION_IDS:
         getURL = 'http://localhost:9000/clusteredTurkerLabels/' + re.sub('[\[\] ]', '', str(SESSION_IDS))
-        if ROUTE_ID: getURL += ('?routeId=' + str(ROUTE_ID))
         postURL = 'http://localhost:9000/multiTurkerClusteringResults' \
                   '?threshold=' + str(CLUSTER_THRESHOLD)
+        if ROUTE_ID:
+            getURL += ('?routeId=' + str(ROUTE_ID))
+            postURL += ('&routeId=' + str(ROUTE_ID))
         MAJORITY_THRESHOLD = math.ceil(N_LABELERS / 2.0)
         SINGLE_USER = False
     elif ROUTE_ID and TURKER_ID:
@@ -193,7 +195,10 @@ if __name__ == '__main__':
 
     # Check if there are 0 labels. If so, just send the post request and exit.
     if len(label_data) == 0:
-        response = requests.post(postURL, data=json.dumps({'clusters': [], 'labels': []}), headers=POST_HEADER)
+        if SINGLE_USER or (not OLD and SESSION_IDS):
+            response = requests.post(postURL, data=json.dumps({'thresholds': [], 'labels': [], 'clusters': []}), headers=POST_HEADER)
+        else:
+            response = requests.post(postURL, data=json.dumps({'thresholds': [], 'labels': []}), headers=POST_HEADER)
         sys.exit()
 
     # Pick which label types should be included in clustering
@@ -229,6 +234,7 @@ if __name__ == '__main__':
             clustOffset = np.max(label_output.cluster)
 
         type_data = label_data[label_data.label_type == label_type]
+        type_data.is_copy = False # gets rid of SettingWithCopyWarning (I know what I'm doing)
 
         if type_data.shape[0] > 1:
             cluster_output = cluster_output.append(cluster(type_data, thresholds, SINGLE_USER)[0])
@@ -257,6 +263,6 @@ if __name__ == '__main__':
                                   'labels': json.loads(label_json)})
     # print output_json
     response = requests.post(postURL, data=output_json, headers=POST_HEADER)
-    print response
+    # print response
 
     sys.exit()
