@@ -61,6 +61,21 @@ object RouteStreetTable{
     }
   }
 
+  def getLastRouteStreetId(routeId: Int): Option[Int] = db.withSession { implicit session =>
+    val routeStreet = routesStreets.filter(_.routeId === routeId).filter(_.isEndEdge === true).list.headOption
+    routeStreet match {
+      case Some(route) => Some(route.current_street_edge_id)
+      case _ => None
+    }
+  }
+
+  def sharesEdgeWithPreviousRoute(routeId: Int): Option[Boolean] = db.withSession { implicit session =>
+    for {
+      currentStartEdge: Int <- getFirstRouteStreetId(routeId)
+      previousEndEdge: Int <- getLastRouteStreetId(routeId - 1)
+    } yield currentStartEdge == previousEndEdge
+  }
+
   def save(routeStreetId: RouteStreet): Int = db.withTransaction { implicit session =>
     val rId: Int =
       (routesStreets returning routesStreets.map(_.routeId)) += routeStreetId

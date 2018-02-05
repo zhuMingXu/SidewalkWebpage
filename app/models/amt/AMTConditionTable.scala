@@ -157,26 +157,35 @@ object AMTConditionTable {
 
     val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
 
+    val streets = for {
+      _routes <- AMTVolunteerRouteTable.amtVolunteerRoutes if _routes.routeId === routeId
+      _condition <- AMTConditionTable.amtConditions if _condition.volunteerId === _routes.volunteerId
+      _streets <- RouteStreetTable.routesStreets if _streets.routeId === _routes.routeId
+    } yield (_condition.amtConditionId, _streets.routeId, _routes.volunteerId, _routes.ipAddress, _streets.current_street_edge_id)
+
+    // If the route_start_edge of routeId is the same as the route_end_edge of routeId - 1, exclude route_start_edge
+    val filteredStreets = if(RouteStreetTable.sharesEdgeWithPreviousRoute(routeId).getOrElse(false)) {
+      streets.filterNot(_._5 === RouteStreetTable.getFirstRouteStreetId(routeId))
+    } else {
+      streets
+    }
+
     val labels = routeId match {
       case rId if registeredUserConditions.contains(getConditionIdForRoute(rId)) =>
         for {
-          _routes <- AMTVolunteerRouteTable.amtVolunteerRoutes if _routes.routeId === rId
-          _condition <- AMTConditionTable.amtConditions if _condition.volunteerId === _routes.volunteerId
-          _streets <- RouteStreetTable.routesStreets if _streets.routeId === _routes.routeId
-          _tasks <- AuditTaskTable.auditTasks if _tasks.streetEdgeId === _streets.current_street_edge_id && _tasks.completed
+          _streets <- filteredStreets
+          _tasks <- AuditTaskTable.auditTasks if _tasks.streetEdgeId === _streets._5// && _tasks.completed
           _labs <- nonOnboardingLabs if _tasks.auditTaskId === _labs.auditTaskId
           _latlngs <- LabelTable.labelPoints if _labs.labelId === _latlngs.labelId
           _types <- LabelTable.labelTypes if _labs.labelTypeId === _types.labelTypeId
-        } yield (_condition.amtConditionId, _streets.routeId, _routes.volunteerId, _labs.labelId, _types.labelType, _latlngs.lat, _latlngs.lng)
+        } yield (_streets._1, _streets._2, _streets._3, _labs.labelId, _types.labelType, _latlngs.lat, _latlngs.lng)
 
       case rId if anonUserConditions.contains(getConditionIdForRoute(rId)) =>
         val tasks = for {
-          _routes <- AMTVolunteerRouteTable.amtVolunteerRoutes if _routes.routeId === rId
-          _condition <- AMTConditionTable.amtConditions if _condition.volunteerId === _routes.volunteerId
-          _streets <- RouteStreetTable.routesStreets if _streets.routeId === _routes.routeId
-          _tasks <- AuditTaskTable.auditTasks if _tasks.streetEdgeId === _streets.current_street_edge_id && _tasks.completed
+          _streets <- filteredStreets
+          _tasks <- AuditTaskTable.auditTasks if _tasks.streetEdgeId === _streets._5 && _tasks.completed
           _env <- AuditTaskEnvironmentTable.auditTaskEnvironments if _env.auditTaskId === _tasks.auditTaskId
-        } yield (_condition.amtConditionId, _streets.routeId, _routes.volunteerId, _tasks.auditTaskId, _routes.ipAddress, _env.ipAddress)
+        } yield (_streets._1, _streets._2, _streets._3, _tasks.auditTaskId, _streets._4, _env.ipAddress)
 
         val correctTasks = tasks.filter(t => t._5 === t._6).groupBy(x => x).map(_._1)
         for {
