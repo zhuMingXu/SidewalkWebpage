@@ -58,8 +58,9 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     // query only got 4 turkers for following conditions: 80, 91, 121
     // query only got 0 turkers for following conditions: 138
     // following conditions have no volunteer labels: 123, 124, 127, 128, 135, 139
-//     val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
-    // val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
+//    val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
+//    val conditionIds: List[Int] = (73 to 73).toList // one condition for testing
+//    val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
     val conditionIds: List[Int] = (70 to 140).toList.filterNot(
       List(71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139, 80, 91, 121, 138).contains(_))
 
@@ -81,11 +82,25 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
       }
     }
 
+    val workers: List[JsObject] = workerType match {
+      case "turker" =>
+        conditionIds.map { conditionId => Json.obj(
+          "condition_id" -> conditionId,
+          "worker_ids" -> AMTAssignmentTable.getTurkersWithAcceptedHITForCondition(conditionId).take(clustNum)
+        )}
+      case "volunteer" =>
+        conditionIds.map { conditionId => Json.obj(
+          "condition_id" -> conditionId,
+          "worker_ids" -> List(AMTConditionTable.getVolunteerIdByCondition(conditionId))
+        )}
+    }
+
     // output as geoJSON feature collections
     var finalJson = Json.obj(
       "gt_labels" -> Json.obj("type" -> "FeatureCollection", "features" -> gtLabels),
       "worker_labels" -> Json.obj("type" -> "FeatureCollection", "features" -> labels),
-      "streets" -> Json.obj("type" -> "FeatureCollection", "features" -> streets)
+      "streets" -> Json.obj("type" -> "FeatureCollection", "features" -> streets),
+      "workers" -> workers
     )
 
     Future.successful(Ok(finalJson))
