@@ -155,7 +155,8 @@ object AMTConditionTable {
     */
   def getVolunteerLabelsByRoute(routeId: Int): List[VolunteerLabel] = db.withSession { implicit session =>
 
-    val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
+    val onboardingPanoIds = List("stxXyCKAbd73DmkM2vsIHA", "bdmGHJkiSgmO7_80SnbzXw", "OgLbmLAuC4urfE5o7GP_JQ")
+    val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId inSet onboardingPanoIds)
 
     val streets = for {
       _routes <- AMTVolunteerRouteTable.amtVolunteerRoutes if _routes.routeId === routeId
@@ -174,7 +175,7 @@ object AMTConditionTable {
       case rId if registeredUserConditions.contains(getConditionIdForRoute(rId)) =>
         for {
           _streets <- filteredStreets
-          _tasks <- AuditTaskTable.auditTasks if _tasks.streetEdgeId === _streets._5// && _tasks.completed
+          _tasks <- AuditTaskTable.auditTasks if _tasks.streetEdgeId === _streets._5
           _labs <- nonOnboardingLabs if _tasks.auditTaskId === _labs.auditTaskId
           _latlngs <- LabelTable.labelPoints if _labs.labelId === _latlngs.labelId
           _types <- LabelTable.labelTypes if _labs.labelTypeId === _types.labelTypeId
@@ -183,7 +184,7 @@ object AMTConditionTable {
       case rId if anonUserConditions.contains(getConditionIdForRoute(rId)) =>
         val tasks = for {
           _streets <- filteredStreets
-          _tasks <- AuditTaskTable.auditTasks if _tasks.streetEdgeId === _streets._5 && _tasks.completed
+          _tasks <- AuditTaskTable.auditTasks if _tasks.streetEdgeId === _streets._5
           _env <- AuditTaskEnvironmentTable.auditTaskEnvironments if _env.auditTaskId === _tasks.auditTaskId
         } yield (_streets._1, _streets._2, _streets._3, _tasks.auditTaskId, _streets._4, _env.ipAddress)
 

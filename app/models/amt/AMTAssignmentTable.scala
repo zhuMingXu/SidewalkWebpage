@@ -141,7 +141,7 @@ object AMTAssignmentTable {
     // find all (non-researcher) turkers who have completed all of the routes
     val completedAsmts = AMTAssignmentTable.amtAssignments.filter(asmt => asmt.completed && asmt.conditionId === conditionId)
     val routeCounts = completedAsmts.groupBy(_.turkerId).map { case (id, group) => (id, group.length) }
-    routeCounts.filter(_._2 === nRoutes).filterNot(_._1 inSet TurkerTable.researcherTurkerIds).map(_._1).list
+    routeCounts.filterNot(_._2 < nRoutes).filterNot(_._1 inSet TurkerTable.researcherTurkerIds).map(_._1).list
   }
 
   /**
@@ -162,7 +162,7 @@ object AMTAssignmentTable {
     // condition, who did not have their HIT rejected.
     val acceptedAsmts = AMTAssignmentTable.amtAssignments.filter(asmt => asmt.accepted.isEmpty && asmt.completed && asmt.conditionId === conditionId)
     val routeCounts = acceptedAsmts.groupBy(_.turkerId).map { case (id, group) => (id, group.length) }
-    routeCounts.filter(_._2 === nRoutes).filterNot(_._1 inSet TurkerTable.researcherTurkerIds).map(_._1).list
+    routeCounts.filterNot(_._2 < nRoutes).filterNot(_._1 inSet TurkerTable.researcherTurkerIds).map(_._1).list
   }
 
   /**
@@ -181,7 +181,7 @@ object AMTAssignmentTable {
     // find all turkers who were GT labelers who have completed all of the routes
     val completedAsmts = AMTAssignmentTable.amtAssignments.filter(asmt => asmt.completed && asmt.conditionId === conditionId)
     val routeCounts = completedAsmts.groupBy(_.turkerId).map { case (id, group) => (id, group.length) }
-    routeCounts.filter(_._2 === nRoutes).filter(_._1 inSet TurkerTable.gtTurkerIds).map(_._1).list
+    routeCounts.filterNot(_._2 < nRoutes).filter(_._1 inSet TurkerTable.gtTurkerIds).map(_._1).list
   }
 
 

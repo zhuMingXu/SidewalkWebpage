@@ -200,7 +200,7 @@ function setupAccuracy(data, clusterNum, options) {
     // let conditions = [...new Set(workerLabelData.features.map(label => label.properties.condition_id))];
     // let conditions = [72, 74, 85, 98, 100, 120, 122, 128, 131, 134, 136, 138];
     // let conditions = [72, 74, 98, 100, 122]; // a few conditions for testing
-    let notReady = [71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139, 80, 91, 121, 138];
+    let notReady = [71, 104, 105, 123, 124, 130, 138];
     let conditions = Array.from(new Array(71), (x,i) => i + 70).filter(c => notReady.indexOf(c) < 0);
 	// let conditions = [72]; // for testing
 	// let conditions = [73]; // for testing
@@ -496,6 +496,7 @@ allVolunteerButton.onclick = function() {
 
     // Get data
     $.getJSON("/accuracyDataWithSinglePersonClust/volunteer/1", function (volunteerData) {
+	// $.getJSON("/accuracyData/volunteer/1", function (volunteerData) {
         let accuracyOutputArray = [];
         let optsArray =
             [

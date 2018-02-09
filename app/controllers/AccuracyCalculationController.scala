@@ -7,7 +7,7 @@ import com.mohiva.play.silhouette.impl.authenticators.SessionAuthenticator
 import controllers.headers.ProvidesHeader
 import models.amt.AMTAssignmentTable.getTurkersWithAcceptedHITForCondition
 import models.amt.AMTConditionTable.{getVolunteerIdByRouteId, getVolunteerLabelsByCondition}
-import models.amt.{AMTAssignmentTable, AMTConditionTable}
+import models.amt.{AMTAssignmentTable, AMTConditionTable, VolunteerLabel}
 import models.clustering_session.{ClusteredLabel, ClusteringSessionTable, Issue, LabelToCluster}
 import models.gt.GTLabelTable
 import models.user.User
@@ -54,15 +54,17 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     val routeIds: List[Int] = AMTConditionTable.getRouteIdsForAllConditions
     streets = routeIds.flatMap(ClusteringSessionTable.getStreetGeomForIRR(_).map(_.toJSON))
 
-    // val conditionIds: List[Int] = AMTConditionTable.getAllConditionIds
-    // query only got 4 turkers for following conditions: 80, 91, 121
-    // query only got 0 turkers for following conditions: 138
-    // following conditions have no volunteer labels: 123, 124, 127, 128, 135, 139
+    // NOTE there are no volunteer labels for conditions 123 and 124
+    // TODO figure out what is wrong with the following conditions...
+    // -> 0 turkers and 0 gt labels: 71, 104
+    // -> 0 gt labels, but there are turkers: 105, 130
+    // -> 0 turkers, but there are gt labels: 138
+    val notReady: List[Int] = List(71, 104, 105, 123, 124, 130, 138)
+
 //    val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
 //    val conditionIds: List[Int] = (73 to 73).toList // one condition for testing
 //    val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
-    val conditionIds: List[Int] = (70 to 140).toList.filterNot(
-      List(71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139, 80, 91, 121, 138).contains(_))
+    val conditionIds: List[Int] = (70 to 140).toList.filterNot(notReady.contains(_))
 
     // get labels from both GT and turkers/volunteers
     for (conditionId <- conditionIds) {
@@ -77,7 +79,10 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
               val clustSessionIds: List[Int] = runNonGTClusteringForRoutesInCondition(conditionId, clustNum)
               List.concat(labels, ClusteringSessionTable.getLabelsForAccuracy(clustSessionIds).map(_.toJSON))
           }
-        case "volunteer" => List.concat(labels, getVolunteerLabelsByCondition(conditionId).map(_.toJSON))
+        case "volunteer" =>
+          val currentLabs: List[VolunteerLabel] = getVolunteerLabelsByCondition(conditionId)
+          if (currentLabs.isEmpty) Logger.warn(s"There are 0 volunteer labels for condition $conditionId.")
+          List.concat(labels, currentLabs.map(_.toJSON))
         case _ => labels
       }
     }
@@ -118,11 +123,17 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     val routeIds: List[Int] = AMTConditionTable.getRouteIdsForAllConditions
     val streets: List[JsObject] = routeIds.flatMap(ClusteringSessionTable.getStreetGeomForIRR(_).map(_.toJSON))
 
-//    val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
-//    val conditionIds: List[Int] = (73 to 73).toList // one condition for testing
-//    val conditionIds: List[Int] = List(72, 74, 98, 100, 122) // a few conditions for testing
-    val conditionIds: List[Int] = (70 to 140).toList.filterNot(
-      List(71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139, 80, 91, 121, 138).contains(_))
+    // NOTE there are no volunteer labels for conditions 123 and 124
+    // TODO figure out what is wrong with the following conditions...
+    // -> 0 turkers and 0 gt labels: 71, 104
+    // -> 0 gt labels, but there are turkers: 105, 130
+    // -> 0 turkers, but there are gt labels: 138
+    val notReady: List[Int] = List(71, 104, 105, 123, 124, 130, 138)
+
+    //    val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
+    //    val conditionIds: List[Int] = (73 to 73).toList // one condition for testing
+    //    val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
+    val conditionIds: List[Int] = (70 to 140).toList.filterNot(notReady.contains(_))
 
     val gtLabels: List[JsObject] = conditionIds.flatMap(GTLabelTable.selectGTLabelsByCondition(_).map(_.toGeoJSON))
 
@@ -186,10 +197,17 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     val routeIds: List[Int] = AMTConditionTable.getRouteIdsForAllConditions
     val streets: List[JsObject] = routeIds.flatMap(ClusteringSessionTable.getStreetGeomForIRR(_).map(_.toJSON))
 
-//    val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
-//    val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
-    val conditionIds: List[Int] = (70 to 140).toList.filterNot(
-      List(71, 104, 105, 130, 94, 96, 139, 123, 124, 127, 128, 135, 139, 80, 91, 121, 138).contains(_))
+    // NOTE there are no volunteer labels for conditions 123 and 124
+    // TODO figure out what is wrong with the following conditions...
+    // -> 0 turkers and 0 gt labels: 71, 104
+    // -> 0 gt labels, but there are turkers: 105, 130
+    // -> 0 turkers, but there are gt labels: 138
+    val notReady: List[Int] = List(71, 104, 105, 123, 124, 130, 138)
+
+    //    val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
+    //    val conditionIds: List[Int] = (73 to 73).toList // one condition for testing
+    //    val conditionIds: List[Int] = List(72, 74, 98, 100, 122, 128) // a few conditions for testing
+    val conditionIds: List[Int] = (70 to 140).toList.filterNot(notReady.contains(_))
 
     val gtLabels: List[JsObject] = conditionIds.flatMap(GTLabelTable.selectGTLabelsByCondition(_).map(_.toGeoJSON))
 
@@ -326,6 +344,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
         ""
     }
 
+//    println(command)
     // Run Python script, and get the clustering id that is created by the Python script.
     // TODO handle errors thrown by Python script
     val clusteringOutput: String = command.!!

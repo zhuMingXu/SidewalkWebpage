@@ -213,6 +213,10 @@ if __name__ == '__main__':
         print 'There are %d invalid longitude vals, removing those entries.' % sum(label_data.lng > 360)
         label_data = label_data.drop(label_data[label_data.lng > 360].index)
 
+    if sum(pd.isnull(label_data.lng)) > 0:
+        print 'There are %d NaN longitude vals, removing those entries.' % sum(pd.isnull(label_data.lng))
+        label_data = label_data.drop(label_data[pd.isnull(label_data.lng)].index)
+
     # print out some useful info
     if DEBUG:
         print 'labels in dataset: ' + str(len(label_data))
