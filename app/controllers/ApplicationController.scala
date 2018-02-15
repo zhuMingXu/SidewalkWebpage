@@ -259,6 +259,21 @@ class ApplicationController @Inject() (implicit val env: Environment[User, Sessi
     }
   }
 
+  def dataviz = UserAwareAction.async { implicit request =>
+    val now = new DateTime(DateTimeZone.UTC)
+    val timestamp: Timestamp = new Timestamp(now.getMillis)
+    val ipAddress: String = request.remoteAddress
+
+    request.identity match {
+      case Some(user) =>
+        WebpageActivityTable.save(WebpageActivity(0, user.userId.toString, ipAddress, "Visit_Map", timestamp))
+        Future.successful(Ok(views.html.dataviz("Project Sidewalk - Explore Accessibility Data", Some(user))))
+      case None =>
+        WebpageActivityTable.save(WebpageActivity(0, anonymousUser.userId.toString, ipAddress, "Visit_Map", timestamp))
+        Future.successful(Ok(views.html.dataviz("Project Sidewalk - Explore Accessibility Data")))
+    }
+  }
+
   def noAvailableMissionIndex = UserAwareAction.async { implicit request =>
     Future.successful(Ok(views.html.noAvailableMissionIndex("Project Sidewalk")))
   }
