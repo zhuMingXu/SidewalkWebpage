@@ -81,24 +81,27 @@ class AdminController @Inject() (implicit val env: Environment[User, SessionAuth
     * @return
     */
   def getAllLabels = UserAwareAction.async { implicit request =>
-    if (isAdmin(request.identity)) {
-      val labels = LabelTable.selectLocationsAndSeveritiesOfLabels
-      val features: List[JsObject] = labels.map { label =>
-        val point = geojson.Point(geojson.LatLng(label.lat.toDouble, label.lng.toDouble))
-        val properties = Json.obj(
-          "audit_task_id" -> label.auditTaskId,
-          "label_id" -> label.labelId,
-          "gsv_panorama_id" -> label.gsvPanoramaId,
-          "label_type" -> label.labelType,
-          "severity" -> label.severity
-        )
-        Json.obj("type" -> "Feature", "geometry" -> point, "properties" -> properties)
-      }
-      val featureCollection = Json.obj("type" -> "FeatureCollection", "features" -> features)
-      Future.successful(Ok(featureCollection))
-    } else {
-      Future.successful(Redirect("/"))
+    // Currently allowing any user to access the labels
+    val labels = LabelTable.selectLocationsAndSeveritiesOfLabels
+    val features: List[JsObject] = labels.map { label =>
+      val point = geojson.Point(geojson.LatLng(label.lat.toDouble, label.lng.toDouble))
+      val properties = Json.obj(
+        "audit_task_id" -> label.auditTaskId,
+        "label_id" -> label.labelId,
+        "gsv_panorama_id" -> label.gsvPanoramaId,
+        "label_type" -> label.labelType,
+        "severity" -> label.severity
+      )
+      Json.obj("type" -> "Feature", "geometry" -> point, "properties" -> properties)
     }
+    val featureCollection = Json.obj("type" -> "FeatureCollection", "features" -> features)
+    Future.successful(Ok(featureCollection))
+
+//    if (isAdmin(request.identity)) {
+//
+//    } else {
+//      Future.successful(Redirect("/"))
+//    }
   }
 
   /**

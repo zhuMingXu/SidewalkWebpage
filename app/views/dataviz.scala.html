@@ -1,7 +1,7 @@
 @import models.user.User
 @import models.user.UserCurrentRegionTable
-@import java.util.UUID
 @import play.api.libs.json.Json
+
 @(title: String, user: Option[User] = None)
 
 @main(title) {
@@ -21,7 +21,7 @@
     </style>
     <div class="loader"></div>
     <div id="map-holder">
-        <div id="admin-map"></div>
+        <div id="viz-map"></div>
         <div id="map-label-legend">
             <table class="table filter">
                 <tr>
@@ -32,7 +32,7 @@
                 <tr>
                     <td id="map-legend-curb-ramp" width="12px"></td>
                     <td width="190px">Curb Ramp</td>
-                    <td width="12px"  align="center"><input type="checkbox" value="displaylabel" id="curbramp" checked="true" onclick = "admin.toggleLayers('CurbRamp', 'curbramp', '#curb-ramp-slider')"></td>
+                    <td width="12px"  align="center"><input type="checkbox" value="displaylabel" id="curbramp" checked="true" onclick = "dataviz.toggleLayers('CurbRamp', 'curbramp', '#curb-ramp-slider')"></td>
                     <td width="126px"align="center"><div id = "curb-ramp-slider" style="margin-top:3px"></div></td>
                     <td width="60px" align= "center" ><span id="curb-ramp-severity-label">All</span></td>
 
@@ -40,7 +40,7 @@
                 <tr>
                     <td id="map-legend-no-curb-ramp"></td>
                     <td>Missing Curb Ramp</td>
-                    <td><input type="checkbox" value="displaylabel" id="missingcurbramp" checked="true" onclick = "admin.toggleLayers('NoCurbRamp', 'missingcurbramp', '#missing-curb-ramp-slider')"></td>
+                    <td><input type="checkbox" value="displaylabel" id="missingcurbramp" checked="true" onclick = "dataviz.toggleLayers('NoCurbRamp', 'missingcurbramp', '#missing-curb-ramp-slider')"></td>
                     <td align="left"><div id = "missing-curb-ramp-slider" style="margin-top:3px"></div></td>
                     <td align= "center"><span id="missing-curb-ramp-severity-label">All</span></td>
                 </tr>
@@ -48,37 +48,37 @@
                 <tr>
                     <td id="map-legend-obstacle"></td>
                     <td>Obstacle in Path</td>
-                    <td><input type="checkbox" value="displaylabel" id="obstacle" checked="true" onclick="admin.toggleLayers('Obstacle', 'obstacle', '#obstacle-slider')"></td>
+                    <td><input type="checkbox" value="displaylabel" id="obstacle" checked="true" onclick="dataviz.toggleLayers('Obstacle', 'obstacle', '#obstacle-slider')"></td>
                     <td align="left"><div id = "obstacle-slider" style="margin-top:3px"></div></td>
                     <td align= "center"><span id="obstacle-severity-label">All</span></td>
                 </tr>
                 <tr><td id="map-legend-surface-problem"></td>
                     <td>Surface Problem</td>
-                    <td><input type="checkbox" value="displaylabel" id="surfaceprob" checked="true" onclick="admin.toggleLayers('SurfaceProblem', 'surfaceprob', '#surface-problem-slider')"></td>
+                    <td><input type="checkbox" value="displaylabel" id="surfaceprob" checked="true" onclick="dataviz.toggleLayers('SurfaceProblem', 'surfaceprob', '#surface-problem-slider')"></td>
                     <td align="left"><div id = "surface-problem-slider" style="margin-top:3px"></div></td>
                     <td align="center"><span id="surface-problem-severity-label">All</span></td>
                 </tr>
                 <tr>
                     <td id="map-legend-other"></td>
                     <td>Other</td>
-                    <td><input type="checkbox" value="displaylabel" id="other" checked="true" onclick="admin.toggleLayers('Other', 'other', '#other-slider')"></td>
+                    <td><input type="checkbox" value="displaylabel" id="other" checked="true" onclick="dataviz.toggleLayers('Other', 'other', '#other-slider')"></td>
                     <td align="left"><div id = "other-slider" style="margin-top:3px"></div></td>
                     <td align= "center"><span id="other-severity-label">All</span></td>
                 </tr>
                 <tr>
                     <td id="map-legend-occlusion"></td>
                     <td>Can't see sidewalk</td>
-                    <td><input type="checkbox" value="displaylabel" id="occlusion" checked="true" onclick="admin.toggleLayers('Occlusion', 'occlusion', '#occlusion-slider')"></td>
+                    <td><input type="checkbox" value="displaylabel" id="occlusion" checked="true" onclick="dataviz.toggleLayers('Occlusion', 'occlusion', '#occlusion-slider')"></td>
                 </tr>
                 <tr>
                     <td id="map-legend-nosidewalk"></td>
                     <td>No Sidewalk</td>
-                    <td><input type="checkbox" value="displaylabel" id="nosidewalk" checked="true" onclick="admin.toggleLayers('NoSidewalk', 'nosidewalk', '#no-sidewalk-slider')"></td>
+                    <td><input type="checkbox" value="displaylabel" id="nosidewalk" checked="true" onclick="dataviz.toggleLayers('NoSidewalk', 'nosidewalk', '#no-sidewalk-slider')"></td>
                 </tr>
                 <tr>
                     <td id="map-legend-audited-street"></td>
                     <td>Audited Street</td>
-                    <td><input type="checkbox" value="displaylabel" id="auditedstreet" checked="true" onclick="admin.toggleAuditedStreetLayer();"></td>
+                    <td><input type="checkbox" value="displaylabel" id="auditedstreet" checked="true" onclick="dataviz.toggleAuditedStreetLayer();"></td>
                 </tr>
             </table>
         </div>
@@ -98,7 +98,7 @@
             $(document).ready(function () {
 
                 var difficultRegionIds = @Json.toJson(UserCurrentRegionTable.difficultRegionIds);
-                window.admin = DataViz(_, $, c3, turf, difficultRegionIds);
+                window.dataviz = DataViz(_, $, c3, turf, difficultRegionIds);
 
             });
             $(window).load(function() {
