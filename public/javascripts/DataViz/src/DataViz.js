@@ -127,63 +127,6 @@ function DataViz(_, $, c3, turf, difficultRegionIds) {
     }
 
     /**
-     * Takes a completion percentage, bins it, and returns the appropriate color for a choropleth.
-     *
-     * @param p {float} represents a completion percentage, between 0 and 100
-     * @returns {string} color in hex
-     */
-    function getColor(p) {
-        return p > 80 ? '#08519c' :
-            p > 60 ? '#3182bd' :
-                p > 40 ? '#6baed6' :
-                    p > 20 ? '#bdd7e7' :
-                        '#eff3ff';
-    }
-    function getColor2(p) {
-        return p > 90 ? '#08306b' :
-            p > 80 ? '#08519c' :
-                p > 70 ? '#08719c' :
-                    p > 60 ? '#2171b5' :
-                        p > 50 ? '#4292c6' :
-                            p > 40 ? '#6baed6' :
-                                p > 30 ? '#9ecae1' :
-                                    p > 20 ? '#c6dbef' :
-                                        p > 10 ? '#deebf7' :
-                                            '#f7fbff';
-    }
-    function getColor3(p) {
-        return p > 90 ? '#023858' :
-            p > 80 ? '#045a8d' :
-                p > 70 ? '#0570b0' :
-                    p > 60 ? '#3690c0' :
-                        p > 50 ? '#74a9cf' :
-                            p > 40 ? '#a6bddb' :
-                                p > 30 ? '#d0d1e6' :
-                                    p > 20 ? '#ece7f2' :
-                                        p > 10 ? '#fff7fb' :
-                                            '#ffffff';
-    }
-    function getColor4(p) {
-        return p > 80 ? '#045a8d' :
-            p > 60 ? '#2b8cbe' :
-                p > 40 ? '#74a9cf' :
-                    p > 20 ? '#bdc9e1' :
-                        '#f1eef6';
-    }
-    function getOpacity(p) {
-        return p > 90 ? 1.0 :
-            p > 80 ? 0.9 :
-                p > 70 ? 0.8 :
-                    p > 60 ? 0.7 :
-                        p > 50 ? 0.6 :
-                            p > 40 ? 0.5 :
-                                p > 30 ? 0.4 :
-                                    p > 20 ? 0.3 :
-                                        p > 10 ? 0.2 :
-                                            0.1;
-    }
-
-    /**
      * This function queries the streets that the user audited and visualize them as segments on the map.
      */
     function initializeAuditedStreets(map) {
