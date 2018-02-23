@@ -223,7 +223,7 @@ function DataViz2(_, $, c3, turf, difficultRegionIds) {
 
     function initializeSubmittedLabels() {
 
-        $.getJSON("/adminapi/labels/all", function (data) {
+        $.getJSON("/dataviz/labels/all", function (data) {
             // Count a number of each label type
             var labelCounter = {
                 "CurbRamp": 0,

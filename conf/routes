@@ -20,6 +20,10 @@ GET     /mobile                                              @controllers.Applic
 GET     /noAvailableMissionIndex                             @controllers.ApplicationController.noAvailableMissionIndex
 GET     /turkerIdExists                                      @controllers.ApplicationController.turkerIdExists
 
+# Data Visualization
+GET     /dataviz/labels/all                                 @controllers.DataVizController.getAllLabels
+GET     /dataviz/labels/zoom/:zoomLevel                     @controllers.DataVizController.getLabelsAtZoomLevel(zoomLevel: String)
+
 # User authentication
 GET     /signIn                                              @controllers.UserController.signIn(url: String ?= "/")
 GET     /signUp                                              @controllers.UserController.signUp(url: String ?= "/")
