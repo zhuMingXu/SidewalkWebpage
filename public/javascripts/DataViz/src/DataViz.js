@@ -189,7 +189,6 @@ function DataViz(_, $, c3, turf, difficultRegionIds) {
             for (var i = data.features.length - 1; i >= 0; i--) {
                 labelCounter[data.features[i].properties.label_type] += 1;
             }
-            console.log(labelCounter.toString());
             //document.getElementById("td-number-of-curb-ramps").innerHTML = labelCounter["CurbRamp"];
             //document.getElementById("td-number-of-missing-curb-ramps").innerHTML = labelCounter["NoCurbRamp"];
             //document.getElementById("td-number-of-obstacles").innerHTML = labelCounter["Obstacle"];
@@ -203,7 +202,7 @@ function DataViz(_, $, c3, turf, difficultRegionIds) {
             document.getElementById("map-legend-occlusion").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Other'].fillStyle + "' stroke='" + colorMapping['Occlusion'].strokeStyle + "'></svg>";
             document.getElementById("map-legend-nosidewalk").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Other'].fillStyle + "' stroke='" + colorMapping['NoSidewalk'].strokeStyle + "'></svg>";
 
-            document.getElementById("map-legend-audited-street").innerHTML = "<svg width='20' height='20'><path stroke='black' stroke-width='3' d='M 2 10 L 18 10 z'></svg>";
+            //document.getElementById("map-legend-audited-street").innerHTML = "<svg width='20' height='20'><path stroke='black' stroke-width='3' d='M 2 10 L 18 10 z'></svg>";
 
             // Create layers for each of the 35 different label-severity combinations
             initializeAllLayers(data);
@@ -251,18 +250,18 @@ function DataViz(_, $, c3, turf, difficultRegionIds) {
     function initializeAllLayers(data) {
         for (i = 0; i < data.features.length; i++) {
             var labelType = data.features[i].properties.label_type;
-            if(labelType == "Occlusion" || labelType == "NoSidewalk"){
+            if(labelType === "Occlusion" || labelType === "NoSidewalk"){
                 //console.log(data.features[i]);
             }
-            if (data.features[i].properties.severity == 1) {
+            if (data.features[i].properties.severity === 1) {
                 self.allLayers[labelType][0].push(data.features[i]);
-            } else if (data.features[i].properties.severity == 2) {
+            } else if (data.features[i].properties.severity === 2) {
                 self.allLayers[labelType][1].push(data.features[i]);
-            } else if (data.features[i].properties.severity == 3) {
+            } else if (data.features[i].properties.severity === 3) {
                 self.allLayers[labelType][2].push(data.features[i]);
-            } else if (data.features[i].properties.severity == 4) {
+            } else if (data.features[i].properties.severity === 4) {
                 self.allLayers[labelType][3].push(data.features[i]);
-            } else if (data.features[i].properties.severity == 5) {
+            } else if (data.features[i].properties.severity === 5) {
                 self.allLayers[labelType][4].push(data.features[i]);
             }
         }
@@ -293,7 +292,7 @@ function DataViz(_, $, c3, turf, difficultRegionIds) {
 
     function toggleLayers(label, checkboxId, sliderId) {
         if (document.getElementById(checkboxId).checked) {
-            if(checkboxId == "occlusion" || checkboxId == "nosidewalk"){
+            if(checkboxId === "occlusion" || checkboxId === "nosidewalk"){
                 for (i = 0; i < self.allLayers[label].length; i++) {
                     if (!map.hasLayer(self.allLayers[label][i])) {
                         map.addLayer(self.allLayers[label][i]);
@@ -303,11 +302,11 @@ function DataViz(_, $, c3, turf, difficultRegionIds) {
             else {
                 for (i = 0; i < self.allLayers[label].length; i++) {
                     if (!map.hasLayer(self.allLayers[label][i])
-                        && ($(sliderId).slider("option", "value") == i ||
-                        $(sliderId).slider("option", "value") == 5 )) {
+                        && ($(sliderId).slider("option", "value") === i ||
+                        $(sliderId).slider("option", "value") === 5 )) {
                         map.addLayer(self.allLayers[label][i]);
-                    } else if ($(sliderId).slider("option", "value") != 5
-                        && $(sliderId).slider("option", "value") != i) {
+                    } else if ($(sliderId).slider("option", "value") !== 5
+                        && $(sliderId).slider("option", "value") !== i) {
                         map.removeLayer(self.allLayers[label][i]);
                     }
                 }
@@ -342,7 +341,7 @@ function DataViz(_, $, c3, turf, difficultRegionIds) {
 
     initializeOverlayPolygon(map);
     initializeNeighborhoodPolygons(map);
-    initializeAuditedStreets(map);
+    //initializeAuditedStreets(map);
     initializeSubmittedLabels();
     setTimeout(function () {
         map.invalidateSize(false);
