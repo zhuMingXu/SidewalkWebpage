@@ -1,4 +1,4 @@
-function DataViz2(_, $, c3, turf, difficultRegionIds) {
+function DataViz2(_, $, c3, turf, version) {
     var self = {};
     var severityList = [1, 2, 3, 4, 5];
     self.markerLayer = null;
@@ -35,7 +35,7 @@ function DataViz2(_, $, c3, turf, difficultRegionIds) {
 
     L.mapbox.accessToken = 'pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA';
 
-    // var tileUrl = "https://a.tiles.mapbox.com/v4/kotarohara.mmoldjeh/page.html?access_token=pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA#13/38.8998/-77.0638";
+    // var tileUrl = "https://a.tiles.mapbox.com/v4/kotarohara.mmoldjeh/page.html?access_token=" + L.mapbox.accessToken + "#13/38.8998/-77.0638";
     var tileUrl = "https:\/\/a.tiles.mapbox.com\/v4\/kotarohara.8e0c6890\/{z}\/{x}\/{y}.png?access_token=" + L.mapbox.accessToken;
     L.tileLayer(tileUrl, {
         attribution: '<a href="http://www.mapbox.com/about/maps/" target="_blank">Terms &amp; Feedback</a>'
@@ -67,38 +67,34 @@ function DataViz2(_, $, c3, turf, difficultRegionIds) {
     map.touchZoom.enable();
 
     var currentZoomLevel = defaultZoomLevel;
-    // Testing zoom detection
-    map.on("zoomstart", function (e) {
-        currentZoomLevel = map.getZoom();
-        //console.log("Current Zoom Level: " + currentZoomLevel);
-    });
 
-    map.on("zoom", function (e) {
+    if (version === 2) {
+        console.log("Version 2 requested");
 
-        var zoom = currentZoomLevel;
-        if (map.getZoom() > currentZoomLevel) {
-            // Zooming in
-            zoom += 1;
-        } else {
-            // Zooming out
-            zoom -= 1;
-        }
-        // Call server to get the certain zoom level's data
-        var zoomLevelToRequest = zoom - defaultZoomLevel;
-        console.log("Requesting server for zoom level " + zoomLevelToRequest);
-
-        /*
-        $.getJSON("/neighborhoods", function (data) {
-            neighborhoodPolygonLayer = L.geoJson(data, {
-                style: function (feature) {
-                    return $.extend(true, {}, neighborhoodPolygonStyle);
-                },
-                onEachFeature: onEachNeighborhoodFeature
-            })
-                .addTo(map);
+        // Zoom detection
+        map.on("zoomstart", function (e) {
+            currentZoomLevel = map.getZoom();
         });
-        */
-    });
+
+        map.on("zoom", function (e) {
+
+            var zoom = currentZoomLevel;
+            if (map.getZoom() > currentZoomLevel) {
+                // Zooming in
+                zoom += 1;
+            } else {
+                // Zooming out
+                zoom -= 1;
+            }
+            // Call server to get the certain zoom level's data
+            var zoomLevelToRequest = zoom - defaultZoomLevel;
+            console.log("Requesting server for zoom level " + zoomLevelToRequest);
+
+            $.getJSON("/dataviz/labels/zoom/" + zoomLevelToRequest, function (data) {
+                initializeAllLayers(data);
+            });
+        });
+    }
 
     var popup = L.popup().setContent('<p>Hello world!<br />This is a nice popup.</p>');
 
@@ -223,33 +219,23 @@ function DataViz2(_, $, c3, turf, difficultRegionIds) {
 
     function initializeSubmittedLabels() {
 
-        $.getJSON("/dataviz/labels/all", function (data) {
-            // Count a number of each label type
-            var labelCounter = {
-                "CurbRamp": 0,
-                "NoCurbRamp": 0,
-                "Obstacle": 0,
-                "SurfaceProblem": 0
-            };
+        // Create legend
+        document.getElementById("map-legend-curb-ramp").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['CurbRamp'].fillStyle + "'></svg>";
+        document.getElementById("map-legend-no-curb-ramp").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['NoCurbRamp'].fillStyle + "'></svg>";
+        document.getElementById("map-legend-obstacle").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Obstacle'].fillStyle + "'></svg>";
+        document.getElementById("map-legend-surface-problem").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['SurfaceProblem'].fillStyle + "'></svg>";
+        document.getElementById("map-legend-other").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Other'].fillStyle + "' stroke='" + colorMapping['Other'].strokeStyle + "'></svg>";
+        document.getElementById("map-legend-occlusion").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Other'].fillStyle + "' stroke='" + colorMapping['Occlusion'].strokeStyle + "'></svg>";
+        document.getElementById("map-legend-nosidewalk").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Other'].fillStyle + "' stroke='" + colorMapping['NoSidewalk'].strokeStyle + "'></svg>";
+        //document.getElementById("map-legend-audited-street").innerHTML = "<svg width='20' height='20'><path stroke='black' stroke-width='3' d='M 2 10 L 18 10 z'></svg>";
 
-            for (var i = data.features.length - 1; i >= 0; i--) {
-                labelCounter[data.features[i].properties.label_type] += 1;
-            }
-            //document.getElementById("td-number-of-curb-ramps").innerHTML = labelCounter["CurbRamp"];
-            //document.getElementById("td-number-of-missing-curb-ramps").innerHTML = labelCounter["NoCurbRamp"];
-            //document.getElementById("td-number-of-obstacles").innerHTML = labelCounter["Obstacle"];
-            //document.getElementById("td-number-of-surface-problems").innerHTML = labelCounter["SurfaceProblem"];
-
-            document.getElementById("map-legend-curb-ramp").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['CurbRamp'].fillStyle + "'></svg>";
-            document.getElementById("map-legend-no-curb-ramp").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['NoCurbRamp'].fillStyle + "'></svg>";
-            document.getElementById("map-legend-obstacle").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Obstacle'].fillStyle + "'></svg>";
-            document.getElementById("map-legend-surface-problem").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['SurfaceProblem'].fillStyle + "'></svg>";
-            document.getElementById("map-legend-other").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Other'].fillStyle + "' stroke='" + colorMapping['Other'].strokeStyle + "'></svg>";
-            document.getElementById("map-legend-occlusion").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Other'].fillStyle + "' stroke='" + colorMapping['Occlusion'].strokeStyle + "'></svg>";
-            document.getElementById("map-legend-nosidewalk").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Other'].fillStyle + "' stroke='" + colorMapping['NoSidewalk'].strokeStyle + "'></svg>";
-
-            //document.getElementById("map-legend-audited-street").innerHTML = "<svg width='20' height='20'><path stroke='black' stroke-width='3' d='M 2 10 L 18 10 z'></svg>";
-
+        var url;
+        if (version === 1) {
+            url = "/dataviz/labels/all"
+        } else {
+            url = "/dataviz/labels/zoom/0"
+        }
+        $.getJSON(url, function (data) {
             // Create layers for each of the 35 different label-severity combinations
             initializeAllLayers(data);
         });
@@ -267,7 +253,7 @@ function DataViz2(_, $, c3, turf, difficultRegionIds) {
             'mouseout': function () {
                 layer.setRadius(5);
             }
-        })
+        });
     }
 
     var colorMapping = util.misc.getLabelColors(),
@@ -288,17 +274,14 @@ function DataViz2(_, $, c3, turf, difficultRegionIds) {
                 style.fillColor = colorMapping[feature.properties.label_type].fillStyle;
                 style.color = colorMapping[feature.properties.label_type].strokeStyle;
                 return L.circleMarker(latlng, style);
-            },
-            onEachFeature: onEachLabelFeature
+            }//, onEachFeature: onEachLabelFeature
         })
     }
 
     function initializeAllLayers(data) {
         for (i = 0; i < data.features.length; i++) {
             var labelType = data.features[i].properties.label_type;
-            if(labelType === "Occlusion" || labelType === "NoSidewalk"){
-                //console.log(data.features[i]);
-            }
+
             if (data.features[i].properties.severity === 1) {
                 self.allLayers[labelType][0].push(data.features[i]);
             } else if (data.features[i].properties.severity === 2) {

@@ -49,6 +49,12 @@ class DataVizController @Inject()(implicit val env: Environment[User, SessionAut
 
   def getLabelsAtZoomLevel(zoomLevel: String) = UserAwareAction.async { implicit request =>
 
+    println("Zoom Level " + zoomLevel)
+
+    if (zoomLevel == "0") {
+      println("Zoom Level 0 " + zoomLevel)
+    }
+
     // TODO: Update it by getting labels from presampled labels from certain zoom levels
     val labels = LabelTable.selectLocationsAndSeveritiesOfLabels
     val features: List[JsObject] = labels.map { label =>
