@@ -2,7 +2,7 @@
 @import models.user.UserCurrentRegionTable
 @import play.api.libs.json.Json
 
-@(title: String, user: Option[User] = None)
+@(title: String, version: String, user: Option[User] = None)
 
 @main(title) {
     @navbar(user)
@@ -86,7 +86,9 @@
     <script type="text/javascript" src='@routes.Assets.at("javascripts/lib/moment.js")'></script>
     <script type="text/javascript" src='@routes.Assets.at("javascripts/lib/d3.v3.js")'></script>
     <script type="text/javascript" src='@routes.Assets.at("javascripts/lib/c3.min.js")'></script>
-    <script type="text/javascript" src='@routes.Assets.at("javascripts/DataViz/src/DataViz.js")'></script>
+    <script type="text/javascript" src='@routes.Assets.at("javascripts/DataViz/src/DataViz1.js")'></script>
+    <script type="text/javascript" src='@routes.Assets.at("javascripts/DataViz/src/DataViz2.js")'></script>
+
     <script type="text/javascript" src='@routes.Assets.at("javascripts/SVLabel/src/SVLabel/util/UtilitiesSidewalk.js")'></script>
     <script type="text/javascript" src='@routes.Assets.at("javascripts/SVLabel/src/SVLabel/util/UtilitiesColor.js")'></script>
     <script type="text/javascript" src='@routes.Assets.at("javascripts/lib/turf.min.js")'></script>
@@ -98,7 +100,12 @@
             $(document).ready(function () {
 
                 var difficultRegionIds = @Json.toJson(UserCurrentRegionTable.difficultRegionIds);
-                window.dataviz = DataViz(_, $, c3, turf, difficultRegionIds);
+                if(@version == '1') {
+                    window.dataviz = DataViz1(_, $, c3, turf, difficultRegionIds);
+                } else if (@version == '2') {
+                    window.dataviz = DataViz2(_, $, c3, turf, difficultRegionIds);
+                }
+
 
             });
             $(window).load(function() {

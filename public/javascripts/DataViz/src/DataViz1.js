@@ -1,4 +1,4 @@
-function DataViz(_, $, c3, turf, difficultRegionIds) {
+function DataViz1(_, $, c3, turf, difficultRegionIds) {
     var self = {};
     var severityList = [1, 2, 3, 4, 5];
     self.markerLayer = null;
@@ -46,6 +46,7 @@ function DataViz(_, $, c3, turf, difficultRegionIds) {
     var southWest = L.latLng(38.761, -77.262);
     var northEast = L.latLng(39.060, -76.830);
     var bounds = L.latLngBounds(southWest, northEast);
+    var defaultZoomLevel = 12;
 
     // Create the map
     var map = L.mapbox.map('viz-map', "kotarohara.8e0c6890", {
@@ -55,7 +56,7 @@ function DataViz(_, $, c3, turf, difficultRegionIds) {
         maxBounds: bounds,
         maxZoom: 19,
         minZoom: 12
-    }).fitBounds(bounds).setView([38.892, -77.038], 12);
+    }).fitBounds(bounds).setView([38.892, -77.038], defaultZoomLevel);
 
     // Disable scroll zoom
     if (map.scrollWheelZoom) {
@@ -64,7 +65,6 @@ function DataViz(_, $, c3, turf, difficultRegionIds) {
 
     // Enable zooming with two fingers
     map.touchZoom.enable();
-
 
     var popup = L.popup().setContent('<p>Hello world!<br />This is a nice popup.</p>');
 
