@@ -14,6 +14,7 @@ function DataViz(_, $, c3, turf, difficultRegionIds) {
 
     var neighborhoodPolygonLayer;
 
+    // Different severities
     for (i = 0; i < 5; i++) {
         self.curbRampLayers[i] = [];
         self.missingCurbRampLayers[i] = [];
@@ -41,10 +42,12 @@ function DataViz(_, $, c3, turf, difficultRegionIds) {
     var bounds = L.latLngBounds(southWest, northEast);
 
     // var tileUrl = "https://a.tiles.mapbox.com/v4/kotarohara.mmoldjeh/page.html?access_token=pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA#13/38.8998/-77.0638";
-    var tileUrl = "https:\/\/a.tiles.mapbox.com\/v4\/kotarohara.8e0c6890\/{z}\/{x}\/{y}.png?access_token=pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA";
-    var mapboxTiles = L.tileLayer(tileUrl, {
+    var tileUrl = "https:\/\/a.tiles.mapbox.com\/v4\/kotarohara.8e0c6890\/{z}\/{x}\/{y}.png?access_token=" + L.mapbox.accessToken;
+    L.tileLayer(tileUrl, {
         attribution: '<a href="http://www.mapbox.com/about/maps/" target="_blank">Terms &amp; Feedback</a>'
     });
+
+    // Create the map
     var map = L.mapbox.map('viz-map', "kotarohara.8e0c6890", {
         // set that bounding box as maxBounds to restrict moving the map
         // see full maxBounds documentation:
@@ -53,6 +56,11 @@ function DataViz(_, $, c3, turf, difficultRegionIds) {
         maxZoom: 19,
         minZoom: 9
     }).fitBounds(bounds).setView([38.892, -77.038], 12);
+
+    // Disable scroll zoom
+    if (map.scrollWheelZoom) {
+        map.scrollWheelZoom.disable();
+    }
 
     var popup = L.popup().setContent('<p>Hello world!<br />This is a nice popup.</p>');
 
