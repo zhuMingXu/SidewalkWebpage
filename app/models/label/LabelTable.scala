@@ -6,6 +6,7 @@ import java.util.UUID
 import com.vividsolutions.jts.geom.LineString
 import models.audit.{AuditTask, AuditTaskEnvironmentTable, AuditTaskInteraction, AuditTaskTable}
 import models.daos.slick.DBTableDefinitions.UserTable
+import models.dataviz.PresampledLabelTable
 import models.region.RegionTable
 import models.user.{RoleTable, UserRoleTable}
 import models.utils.MyPostgresDriver.simple._
@@ -85,6 +86,7 @@ object LabelTable {
   val severities = TableQuery[ProblemSeverityTable]
   val userRoles = TableQuery[UserRoleTable]
   val roleTable = TableQuery[RoleTable]
+  val presampledLabels = TableQuery[PresampledLabelTable]
 
   val labelsWithoutDeleted = labels.filter(_.deleted === false)
   val neighborhoods = regions.filter(_.deleted === false).filter(_.regionTypeId === 2)
@@ -451,12 +453,24 @@ object LabelTable {
   /**
     * This method returns all the submitted labels with their severities included.
     *
+    * @param zoomLevel
     * @return
     */
-  def selectLocationsAndSeveritiesOfLabels: List[LabelLocationWithSeverity] = db.withSession { implicit session =>
-    val _labels = for {
-      (_labels, _labelTypes) <- labelsWithoutDeleted.innerJoin(labelTypes).on(_.labelTypeId === _.labelTypeId)
-    } yield (_labels.labelId, _labels.auditTaskId, _labels.gsvPanoramaId, _labelTypes.labelType, _labels.panoramaLat, _labels.panoramaLng)
+  def selectLocationsAndSeveritiesOfLabels(zoomLevel: Option[String]): List[LabelLocationWithSeverity] = db.withSession { implicit session =>
+
+    val _labels = zoomLevel.map(_.toInt) match {
+      case Some(zoom) =>
+        for {
+          _prelab <- presampledLabels if _prelab.zoomLevel === zoom
+          _labs <- labelsWithoutDeleted if _prelab.labelId === _labs.labelId
+          _types <- labelTypes if _labs.labelTypeId === _types.labelTypeId
+        } yield (_labs.labelId, _labs.auditTaskId, _labs.gsvPanoramaId, _types.labelType, _labs.panoramaLat, _labs.panoramaLng)
+
+      case _ =>
+        for {
+          (_labels, _labelTypes) <- labelsWithoutDeleted.innerJoin(labelTypes).on(_.labelTypeId === _.labelTypeId)
+        } yield (_labels.labelId, _labels.auditTaskId, _labels.gsvPanoramaId, _labelTypes.labelType, _labels.panoramaLat, _labels.panoramaLng)
+    }
 
     val _slabels = for {
       (l, s) <- _labels.innerJoin(severities).on(_._1 === _.labelId)
