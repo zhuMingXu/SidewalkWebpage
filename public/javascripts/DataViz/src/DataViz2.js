@@ -15,6 +15,7 @@ function DataViz2(_, $, c3, turf, version) {
     var neighborhoodPolygonLayer;
 
     // Different severities
+    /*
     for (i = 0; i < 5; i++) {
         self.curbRampLayers[i] = [];
         self.missingCurbRampLayers[i] = [];
@@ -23,7 +24,9 @@ function DataViz2(_, $, c3, turf, version) {
         self.cantSeeSidewalkLayers[i] = [];
         self.noSidewalkLayers[i] = [];
         self.otherLayers[i] = [];
-    }
+    }*/
+
+    self.labelLayer = null
 
     self.allLayers = {
         "CurbRamp": self.curbRampLayers, "NoCurbRamp": self.missingCurbRampLayers, "Obstacle": self.obstacleLayers,
@@ -91,7 +94,7 @@ function DataViz2(_, $, c3, turf, version) {
             console.log("Requesting server for zoom level " + zoomLevelToRequest);
 
             $.getJSON("/dataviz/labels/zoom/" + zoomLevelToRequest, function (data) {
-                initializeAllLayers(data);
+                applyLayers(data, true);
             });
         });
     }
@@ -237,7 +240,7 @@ function DataViz2(_, $, c3, turf, version) {
         }
         $.getJSON(url, function (data) {
             // Create layers for each of the 35 different label-severity combinations
-            initializeAllLayers(data);
+            applyLayers(data, false);
         });
     }
 
@@ -278,7 +281,16 @@ function DataViz2(_, $, c3, turf, version) {
         })
     }
 
+    function applyLayers(data, reapply) {
+
+        // Put all labels in the same layer
+        if (reapply) map.removeLayer(self.labelLayer);
+        self.labelLayer = createLayer({"type": "FeatureCollection", "features": data.features});
+        self.labelLayer.addTo(map);
+    }
+
     function initializeAllLayers(data) {
+        // TODO: This might be taking time because it is going through each label iteratively
         for (i = 0; i < data.features.length; i++) {
             var labelType = data.features[i].properties.label_type;
 
@@ -298,9 +310,11 @@ function DataViz2(_, $, c3, turf, version) {
         Object.keys(self.allLayers).forEach(function (key) {
             for (i = 0; i < self.allLayers[key].length; i++) {
                 self.allLayers[key][i] = createLayer({"type": "FeatureCollection", "features": self.allLayers[key][i]});
+
+                if (reapply) map.removeLayer(self.allLayers[key][i]);
                 self.allLayers[key][i].addTo(map);
             }
-        })
+        });
     }
 
     function clearMap() {
