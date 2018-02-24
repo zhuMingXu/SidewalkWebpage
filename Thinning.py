@@ -100,6 +100,7 @@ def main():
     zoomLevel = calculateZoomLevel(LABEL_TYPE,ZOOM_LEVEL,allPoints,VisNum)
     addZoomLevel(cur,zoomLevel)
     seperateTables(cur,ZOOM_LEVEL)
+    conn.commit()
 
 
 if __name__ == "__main__":

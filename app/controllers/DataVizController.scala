@@ -30,7 +30,7 @@ class DataVizController @Inject()(implicit val env: Environment[User, SessionAut
     * @return
     */
   def getAllLabels = UserAwareAction.async { implicit request =>
-    val labels = LabelTable.selectLocationsAndSeveritiesOfLabels
+    val labels = LabelTable.selectLocationsAndSeveritiesOfLabels(None)
     val features: List[JsObject] = labels.map { label =>
       val point = geojson.Point(geojson.LatLng(label.lat.toDouble, label.lng.toDouble))
       val properties = Json.obj(
@@ -51,12 +51,7 @@ class DataVizController @Inject()(implicit val env: Environment[User, SessionAut
 
     println("Zoom Level " + zoomLevel)
 
-    if (zoomLevel == "0") {
-      println("Zoom Level 0 " + zoomLevel)
-    }
-
-    // TODO: Update it by getting labels from presampled labels from certain zoom levels
-    val labels = LabelTable.selectLocationsAndSeveritiesOfLabels
+    val labels = LabelTable.selectLocationsAndSeveritiesOfLabels(Some(zoomLevel))
     val features: List[JsObject] = labels.map { label =>
       val point = geojson.Point(geojson.LatLng(label.lat.toDouble, label.lng.toDouble))
       val properties = Json.obj(

@@ -82,7 +82,7 @@ class AdminController @Inject() (implicit val env: Environment[User, SessionAuth
     */
   def getAllLabels = UserAwareAction.async { implicit request =>
     if (isAdmin(request.identity)) {
-      val labels = LabelTable.selectLocationsAndSeveritiesOfLabels
+      val labels = LabelTable.selectLocationsAndSeveritiesOfLabels(None)
       val features: List[JsObject] = labels.map { label =>
         val point = geojson.Point(geojson.LatLng(label.lat.toDouble, label.lng.toDouble))
         val properties = Json.obj(
