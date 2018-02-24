@@ -78,7 +78,20 @@ def seperateTables(cur,ZOOM_LEVEL):
         """%(z,z)
         )
 
-
+def clean_tables(cur):
+    cur.execute(
+    """
+    truncate table label_presampled;
+    truncate table label_presampled_z0;
+    truncate table label_presampled_z1;
+    truncate table label_presampled_z2;
+    truncate table label_presampled_z3;
+    truncate table label_presampled_z4;
+    truncate table label_presampled_z5;
+    truncate table label_presampled_z6;
+    truncate table label_presampled_z7;
+    """
+    )
 def main():
 	#make connection
     ZOOM_LEVEL = 7
@@ -88,6 +101,7 @@ def main():
     except psycopg2.Error:
         print("I am unable to connect to the database")
     cur = conn.cursor()
+    clean_tables(cur)
     getNumber(cur)
 
     VisNum = np.zeros((ZOOM_LEVEL,LABEL_TYPE))
