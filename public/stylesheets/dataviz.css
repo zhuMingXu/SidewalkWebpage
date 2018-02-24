@@ -30,12 +30,11 @@
     color:#808080;
 }
 
-
 #map-label-legend {
     position: absolute;
     background: rgba(255, 255, 255, 0.75);
     left: 30px;
-    width: 400px;
+    width: 200px;
     top: 500px;
     border: solid 1px #ccc;
 }
