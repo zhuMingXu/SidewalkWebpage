@@ -3,15 +3,15 @@ import psycopg2
 import numpy as np
 
 
-def CreateTables():
+def CreateTables(cur):
     for command in create_tables:
         cur.execute(command)
 
-def DropTables():
+def DropTables(cur):
     for command in drop_tables:
         cur.execute(command)
 
-def getNumber():
+def getNumber(cur):
     get_number = [
     """
     select l.label_type_id, count(*)
@@ -30,7 +30,7 @@ def getNumber():
     return num
 
 
-def getAllPoints():
+def getAllPoints(cur):
     get_all_points = []
     for i in range(7):
         get_all_points.append(
@@ -52,7 +52,7 @@ order by ps.severity DESC
             index = index+1
     return allPoint
 
-def calculateZoomLevel():
+def calculateZoomLevel(LABEL_TYPE,ZOOM_LEVEL,allPoints,VisNum):
     zoomLevel = []
     for i in range(LABEL_TYPE):
         for j in range(allPoints[i].shape[0]):
@@ -61,11 +61,11 @@ def calculateZoomLevel():
                     zoomLevel.append([int(allPoints[i][j][0]),z])
     return zoomLevel
 
-def addZoomLevel():
-    for point in zoomLevel[:100]:
+def addZoomLevel(cur,zoomLevel):
+    for point in zoomLevel[:1000]:
         cur.execute("INSERT INTO sidewalk.label_presampled VALUES (%d, %d);"%(point[0],point[1]))
 
-def seperateTables():
+def seperateTables(cur,ZOOM_LEVEL):
     for z in range(ZOOM_LEVEL):
         cur.execute(
         """
@@ -87,16 +87,16 @@ def main():
     except psycopg2.Error:
         print("I am unable to connect to the database")
     cur = conn.cursor()
-    getNumber()
+    getNumber(cur)
     VisNum = np.zeros((ZOOM_LEVEL,LABEL_TYPE))
-    VisNum[ZOOM_LEVEL-1] = getNumber()
+    VisNum[ZOOM_LEVEL-1] = getNumber(cur)
     for i in range(ZOOM_LEVEL-1):
         VisNum[ZOOM_LEVEL-2-i] = VisNum[ZOOM_LEVEL-1-i]*0.8
     VisNum.astype(int)
-    allPoints = getAllPoints()
-    zoomLevel = calculateZoomLevel()
-    addZoomLevel()
-    seperateTables()
+    allPoints = getAllPoints(cur)
+    zoomLevel = calculateZoomLevel(LABEL_TYPE,ZOOM_LEVEL,allPoints,VisNum)
+    addZoomLevel(cur,zoomLevel)
+    seperateTables(cur,ZOOM_LEVEL)
 
 
 if __name__ == "__main__":
