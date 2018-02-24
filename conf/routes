@@ -12,13 +12,17 @@ GET     /api                                                 @controllers.Applic
 GET     /developer                                           @controllers.ApplicationController.developer
 GET     /terms                                               @controllers.ApplicationController.terms
 GET     /demo                                                @controllers.ApplicationController.demo
-GET     /dataviz                                             @controllers.ApplicationController.dataviz
+GET     /dataviz/:version                                     @controllers.ApplicationController.dataviz(version:String)
 GET     /results                                             @controllers.ApplicationController.results
 GET     /faq                                                 @controllers.ApplicationController.faq
 GET     /student                                             @controllers.ApplicationController.student
 GET     /mobile                                              @controllers.ApplicationController.mobile
 GET     /noAvailableMissionIndex                             @controllers.ApplicationController.noAvailableMissionIndex
 GET     /turkerIdExists                                      @controllers.ApplicationController.turkerIdExists
+
+# Data Visualization
+GET     /dataviz/labels/all                                 @controllers.DataVizController.getAllLabels
+GET     /dataviz/labels/zoom/:zoomLevel                     @controllers.DataVizController.getLabelsAtZoomLevel(zoomLevel: String)
 
 # User authentication
 GET     /signIn                                              @controllers.UserController.signIn(url: String ?= "/")
