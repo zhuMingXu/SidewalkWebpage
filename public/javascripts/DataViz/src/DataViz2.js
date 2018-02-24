@@ -26,7 +26,8 @@ function DataViz2(_, $, c3, turf, version) {
         self.otherLayers[i] = [];
     }*/
 
-    self.labelLayer = null
+    self.labelLayer = null;
+    self.labelDataLayer = [];
 
     self.allLayers = {
         "CurbRamp": self.curbRampLayers, "NoCurbRamp": self.missingCurbRampLayers, "Obstacle": self.obstacleLayers,
@@ -93,9 +94,14 @@ function DataViz2(_, $, c3, turf, version) {
             var zoomLevelToRequest = zoom - defaultZoomLevel;
             console.log("Requesting server for zoom level " + zoomLevelToRequest);
 
-            $.getJSON("/dataviz/labels/zoom/" + zoomLevelToRequest, function (data) {
-                applyLayers(data, true);
-            });
+            if(self.labelDataLayer[zoomLevelToRequest] === undefined) {
+                $.getJSON("/dataviz/labels/zoom/" + zoomLevelToRequest, function (data) {
+                    self.labelDataLayer.push(data);
+                    applyLayers(data, true);
+                });
+            } else {
+                applyLayers(self.labelDataLayer[zoomLevelToRequest], true);
+            }
         });
     }
 
