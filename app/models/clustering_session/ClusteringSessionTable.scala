@@ -220,6 +220,7 @@ object ClusteringSessionTable{
       if !_session.turkerId.isEmpty
       _clusters <- ClusteringSessionClusterTable.clusteringSessionClusters if _session.clusteringSessionId === _clusters.clusteringSessionId
       _types <- LabelTable.labelTypes if _clusters.labelTypeId === _types.labelTypeId
+      if !(_types.labelType === "Problem")
     } yield (
       _clusters.clusteringSessionClusterId,
       _types.labelType,
@@ -245,6 +246,7 @@ object ClusteringSessionTable{
       _session <- clusteringSessions if !_session.userId.isEmpty
       _clusters <- ClusteringSessionClusterTable.clusteringSessionClusters if _session.clusteringSessionId === _clusters.clusteringSessionId
       _types <- LabelTable.labelTypes if _clusters.labelTypeId === _types.labelTypeId
+      if !(_types.labelType === "Problem")
     } yield (
       _clusters.clusteringSessionClusterId,
       _types.labelType,
@@ -382,7 +384,7 @@ object ClusteringSessionTable{
       _clusters <- ClusteringSessionClusterTable.clusteringSessionClusters if _session.clusteringSessionId === _clusters.clusteringSessionId
       _clustLabs <- ClusteringSessionLabelTable.clusteringSessionLabels if _clusters.clusteringSessionClusterId === _clustLabs.clusteringSessionClusterId
       _labs <- ClusteringSessionClusterTable.clusteringSessionClusters if _clustLabs.originatingClusterId === _labs.clusteringSessionClusterId
-      _types <- LabelTable.labelTypes if _labs.labelTypeId === _types.labelTypeId
+      _types <- LabelTable.labelTypes if _clusters.labelTypeId === _types.labelTypeId
       _origSess <- clusteringSessions if _origSess.clusteringSessionId === _labs.clusteringSessionId
     } yield (
       _session.routeId.get,

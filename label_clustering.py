@@ -22,14 +22,13 @@ def custom_dist(u, v):
         return haversine([u[0], u[1]], [v[0], v[1]])
 
 # For each label type, cluster based on distance
-def cluster(labels, thresholds, single_user):
+def cluster(labels, curr_type, thresholds, single_user):
 
     if single_user:
         dist_matrix = pdist(np.array(labels[['lat', 'lng']].as_matrix()), lambda x, y: haversine(x, y))
     else:
         dist_matrix = pdist(np.array(labels[['lat', 'lng', 'turker_id']].as_matrix()), custom_dist)
     link = linkage(dist_matrix, method='complete')
-    curr_type = labels.label_type.iloc[1]
 
     # Cuts tree so that only labels less than clust_threth kilometers apart are clustered, adds a col
     # to dataframe with label for the cluster they are in
@@ -94,7 +93,7 @@ if __name__ == '__main__':
                         help='One of either \'volunteer\' or \'turker\'.')
     args = parser.parse_args()
     DEBUG = args.debug
-    OLD = args.debug
+    OLD = args.old
     CLUSTER_THRESHOLD = args.clust_thresh
     ROUTE_ID = args.route_id
     HIT_ID = args.hit_id
@@ -183,7 +182,8 @@ if __name__ == '__main__':
                       'Obstacle': 0.0075,
                       'NoSidewalk': 0.0075,
                       'Occlusion': 0.0075,
-                      'Other': 0.0075}
+                      'Other': 0.0075,
+                      'Problem': 0.0075}
     else:
         thresholds = {'CurbRamp': 0.0075,
                       'NoCurbRamp': 0.0075,
@@ -191,7 +191,8 @@ if __name__ == '__main__':
                       'Obstacle': 0.01,
                       'NoSidewalk': 0.01,
                       'Occlusion': 0.01,
-                      'Other': 0.01}
+                      'Other': 0.01,
+                      'Problem': 0.01}
 
     # Check if there are 0 labels. If so, just send the post request and exit.
     if len(label_data) == 0:
@@ -202,7 +203,8 @@ if __name__ == '__main__':
         sys.exit()
 
     # Pick which label types should be included in clustering
-    included_types = ['CurbRamp', 'SurfaceProblem', 'Obstacle', 'NoCurbRamp', 'NoSidewalk', 'Occlusion', 'Other']
+    included_types = ['CurbRamp', 'SurfaceProblem', 'Obstacle', 'NoCurbRamp', 'NoSidewalk', 'Occlusion', 'Other', 'Problem']
+    problem_types = ['SurfaceProblem', 'Obstacle', 'NoCurbRamp']
     label_data = label_data[label_data.label_type.isin(included_types)]
 
     # Remove NAs
@@ -227,7 +229,7 @@ if __name__ == '__main__':
     label_data['coords'] = label_data.apply(lambda x: (x.lat, x.lng), axis = 1)
     label_data['id'] =  label_data.index.values
 
-    # Cluster labels for each datatype, and add the results to output_data
+    # Cluster labels for each label_type, and add the results to output_data
     label_cols = ['label_id', 'label_type', 'cluster']
     cluster_cols = ['label_type', 'cluster', 'lat', 'lng', 'severity', 'temporary']
     label_output = pd.DataFrame(columns=label_cols)
@@ -237,19 +239,26 @@ if __name__ == '__main__':
         if not label_output.empty:
             clustOffset = np.max(label_output.cluster)
 
-        type_data = label_data[label_data.label_type == label_type]
+        if label_type == 'Problem':
+            type_data = label_data[label_data.label_type.isin(problem_types)]
+        else:
+            type_data = label_data[label_data.label_type == label_type]
         type_data.is_copy = False # gets rid of SettingWithCopyWarning (I know what I'm doing)
 
         if type_data.shape[0] > 1:
-            cluster_output = cluster_output.append(cluster(type_data, thresholds, SINGLE_USER)[0])
+            cluster_output = cluster_output.append(cluster(type_data, label_type, thresholds, SINGLE_USER)[0])
             cluster_output.loc[cluster_output['label_type'] == label_type, 'cluster'] += clustOffset
 
+            type_data.cluster += clustOffset
             label_output = label_output.append(type_data.filter(items=label_cols))
-            label_output.loc[label_output['label_type'] == label_type, 'cluster'] += clustOffset
         elif type_data.shape[0] == 1:
             type_data.loc[:,'cluster'] = 1 + clustOffset
             label_output = label_output.append(type_data.filter(items=label_cols))
             cluster_output = cluster_output.append(type_data.filter(items=cluster_cols))
+
+    for label_type in included_types:
+        print str(label_type) + ": " + str(cluster_output[cluster_output.label_type == label_type].cluster.nunique())
+
 
     # Convert to JSON
     cluster_json = cluster_output.to_json(orient='records', lines=False)

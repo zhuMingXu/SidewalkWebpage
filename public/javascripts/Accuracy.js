@@ -32,15 +32,10 @@ function getLabelCountsBySegment(chunks, gtLabs, workerLabs, workerThresh, optio
     options = options || {};
     let binary = options.binary || false;
     let removeLowSeverity = options.remove_low_severity || false;
-    let probNoProb = options.prob_no_prob || false;
     let lowSeverityThreshold = options.low_severity_threshold || 4;
 
-    let segOutput = {};
-    if (probNoProb) {
-        segOutput = {"Problem": {}};
-    } else {
-        segOutput = {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}};
-    }
+    let segOutput = {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}, "Problem": {}};
+    let problemLabelTypes = ["NoCurbRamp", "NoSidewalk", "Obstacle", "SurfaceProblem"];
 
     for (let labelType in segOutput) {
         if (segOutput.hasOwnProperty(labelType)) {
@@ -62,7 +57,7 @@ function getLabelCountsBySegment(chunks, gtLabs, workerLabs, workerThresh, optio
             for (let clustIndex = 0; clustIndex < clusterIds.length; clustIndex++) {
                 let currLabels = labs.filter(label => label.properties.cluster_id === clusterIds[clustIndex]);
 
-                let probsWithSev = ["Obstacle", "SurfaceProblem", "NoCurbRamp"];
+                let probsWithSev = ["Obstacle", "SurfaceProblem", "NoCurbRamp", "Problem"];
                 if (removeLowSeverity && labelSource === "gt" && probsWithSev.indexOf(currLabels[0].properties.label_type) >= 0) {
                     // currLabels = currLabels.filter(label => label.properties.temporary !== false);
                     currLabels = currLabels.filter(label => label.properties.severity >= lowSeverityThreshold);
@@ -86,19 +81,17 @@ function getLabelCountsBySegment(chunks, gtLabs, workerLabs, workerThresh, optio
                     }
 
                     // TODO don't include volunteer labels that are way past the end of the final segment
-                    // increment this segment's count of labels (of this label type), distributing labels based on turker_id
-                    let labelCount = currLabels.length;
-                    if (probNoProb) {
-                        if (binary) {
+                    // Increment this segment's count of labels (for this label type). Since we don't run clustering on
+                    // GT labels, we have to manually mark the Problem label type for GT ourselves.
+                    if (binary) {
+                        segOutput[currType][chunkIndex][labelSource] = 1;
+                        if (labelSource === "gt" && problemLabelTypes.indexOf(currType) >= 0) {
                             segOutput["Problem"][chunkIndex][labelSource] = 1;
-                        } else {
-                            segOutput["Problem"][chunkIndex][labelSource] += 1;
                         }
                     } else {
-                        if (binary) {
-                            segOutput[currType][chunkIndex][labelSource] = 1;
-                        } else {
-                            segOutput[currType][chunkIndex][labelSource] += 1;
+                        segOutput[currType][chunkIndex][labelSource] += 1;
+                        if (labelSource === "gt" && problemLabelTypes.indexOf(currType) >= 0) {
+                            segOutput["Problem"][chunkIndex][labelSource] += 1;
                         }
                     }
                 }
@@ -178,7 +171,6 @@ function setupAccuracy(data, clusterNum, options) {
     options = options || {};
     let binary = options.binary || false;
     let removeLowSeverity = options.remove_low_severity || false;
-    let probNoProb = options.prob_no_prob || false;
     let workerThresh = options.worker_thresh || Math.ceil(parseInt(clusterNum) / 2.0);
     let lowSeverityThreshold = options.low_severity_threshold || 4;
     if (!removeLowSeverity) lowSeverityThreshold = null;
@@ -186,7 +178,6 @@ function setupAccuracy(data, clusterNum, options) {
     let futureOpts = {
         binary: binary,
         remove_low_severity: removeLowSeverity,
-        prob_no_prob: probNoProb,
         worker_thresh: workerThresh,
         low_severity_threshold: lowSeverityThreshold
     };
@@ -207,7 +198,8 @@ function setupAccuracy(data, clusterNum, options) {
 
     // remove "Other" label type for now since there are none of them in GT
     // TODO decide if we want to do some analysis of the "Other" label type
-    let labelsToAnalyze = ["CurbRamp", "NoCurbRamp", "NoSidewalk", "Obstacle", "Occlusion", "SurfaceProblem"];
+    let labelsToAnalyze = ["CurbRamp", "NoCurbRamp", "NoSidewalk", "Obstacle", "Occlusion", "SurfaceProblem", "Problem"];
+    let problemLabelTypes = ["NoCurbRamp", "Obstacle", "SurfaceProblem"];
     workerLabelData.features = workerLabelData.features.filter(label => labelsToAnalyze.indexOf(label.properties.label_type) >= 0);
 
     // if we are only looking at 1 worker, they haven't gone through clustering, so just assign incrementing cluster ids
@@ -227,12 +219,15 @@ function setupAccuracy(data, clusterNum, options) {
 
 
     // print out label counts by type
-    let gtLabelCounts = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
+    let gtLabelCounts = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0, "Problem": 0};
     for (let i = 0; i < gtLabelData.features.length; i++) {
         gtLabelCounts[gtLabelData.features[i].properties.label_type] += 1;
+        if (problemLabelTypes.indexOf(gtLabelData.features[i].properties.label_type) >= 0) {
+            gtLabelCounts["Problem"] += 1;
+        }
     }
     // console.log(gtLabelCounts);
-    let workerLabelCounts = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
+    let workerLabelCounts = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0, "Problem": 0};
     for (let i = 0; i < workerLabelData.features.length; i++) {
         workerLabelCounts[workerLabelData.features[i].properties.label_type] += 1;
     }
@@ -254,15 +249,17 @@ function setupAccuracy(data, clusterNum, options) {
         output[conditionIndex].binary = binary;
         output[conditionIndex].remove_low_severity = removeLowSeverity;
         output[conditionIndex].low_severity_threshold = lowSeverityThreshold;
-        output[conditionIndex].prob_no_prob = probNoProb;
 
         // print out label counts by type
-        let gtLabelCounts2 = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
+        let gtLabelCounts2 = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0, "Problem": 0};
         for (let i = 0; i < gtLabs.length; i++) {
             gtLabelCounts2[gtLabs[i].properties.label_type] += 1;
+            if (problemLabelTypes.indexOf(gtLabs[i].properties.label_type) >= 0) {
+                gtLabelCounts2["Problem"] += 1;
+            }
         }
         // console.log(gtLabelCounts2);
-        let workerLabelCounts2 = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0};
+        let workerLabelCounts2 = {"CurbRamp": 0, "NoCurbRamp": 0, "NoSidewalk": 0, "Obstacle": 0, "Occlusion": 0, "SurfaceProblem": 0, "Problem": 0};
         for (let i = 0; i < workerLabs.length; i++) {
             workerLabelCounts2[workerLabs[i].properties.label_type] += 1;
         }
@@ -323,7 +320,6 @@ function calculateAccuracy(counts) {
         accuracies[conditionIndex].binary = counts[conditionIndex].binary;
         accuracies[conditionIndex].remove_low_severity = counts[conditionIndex].remove_low_severity;
         accuracies[conditionIndex].low_severity_threshold = counts[conditionIndex].low_severity_threshold;
-        accuracies[conditionIndex].prob_no_prob = counts[conditionIndex].prob_no_prob;
         for (let granularityIndex = 0; granularityIndex < granularities.length; granularityIndex++) {
             let granularity = granularities[granularityIndex];
             accuracies[conditionIndex][granularity] = {};
@@ -500,18 +496,12 @@ allVolunteerButton.onclick = function() {
         let accuracyOutputArray = [];
         let optsArray =
             [
-                { binary: true, prob_no_prob: true, remove_low_severity: false },
-                { binary: true, prob_no_prob: true, remove_low_severity: true, low_severity_threshold: 3 },
-                { binary: true, prob_no_prob: true, remove_low_severity: true, low_severity_threshold: 4 },
-                { binary: true, prob_no_prob: false, remove_low_severity: false },
-                { binary: true, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 3 },
-                { binary: true, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 4 },
-                { binary: false, prob_no_prob: true, remove_low_severity: false },
-                { binary: false, prob_no_prob: true, remove_low_severity: true, low_severity_threshold: 3 },
-                { binary: false, prob_no_prob: true, remove_low_severity: true, low_severity_threshold: 4 },
-                { binary: false, prob_no_prob: false, remove_low_severity: false },
-                { binary: false, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 3 },
-                { binary: false, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 4 }
+                { binary: true, remove_low_severity: false },
+                { binary: true, remove_low_severity: true, low_severity_threshold: 3 },
+                { binary: true, remove_low_severity: true, low_severity_threshold: 4 },
+                { binary: false, remove_low_severity: false },
+                { binary: false, remove_low_severity: true, low_severity_threshold: 3 },
+                { binary: false, remove_low_severity: true, low_severity_threshold: 4 }
             ];
         console.log(volunteerData);
 
@@ -541,18 +531,12 @@ allTurkerButton.onclick = function() {
         let accuracyOutputArray = [];
         let optsArrayOneTurker =
             [
-                { binary: true, prob_no_prob: true, remove_low_severity: false },
-                { binary: true, prob_no_prob: true, remove_low_severity: true, low_severity_threshold: 3 },
-                { binary: true, prob_no_prob: true, remove_low_severity: true, low_severity_threshold: 4 },
-                { binary: true, prob_no_prob: false, remove_low_severity: false },
-                { binary: true, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 3 },
-                { binary: true, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 4 },
-                { binary: false, prob_no_prob: true, remove_low_severity: false },
-                { binary: false, prob_no_prob: true, remove_low_severity: true, low_severity_threshold: 3 },
-                { binary: false, prob_no_prob: true, remove_low_severity: true, low_severity_threshold: 4 },
-                { binary: false, prob_no_prob: false, remove_low_severity: false },
-                { binary: false, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 3 },
-                { binary: false, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 4 }
+                { binary: true, remove_low_severity: false },
+                { binary: true, remove_low_severity: true, low_severity_threshold: 3 },
+                { binary: true, remove_low_severity: true, low_severity_threshold: 4 },
+                { binary: false, remove_low_severity: false },
+                { binary: false, remove_low_severity: true, low_severity_threshold: 3 },
+                { binary: false, remove_low_severity: true, low_severity_threshold: 4 }
             ];
         console.log(oneTurkerData);
 
@@ -568,42 +552,24 @@ allTurkerButton.onclick = function() {
         // $.getJSON("/accuracyData/turker/3", function (threeTurkerData) {
             let optsArrayThreeTurkers =
                 [
-                    {binary: true, prob_no_prob: true, worker_thresh: 1, remove_low_severity: false},
-                    {binary: true, prob_no_prob: true, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 3},
-                    {binary: true, prob_no_prob: true, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 4},
-                    {binary: true, prob_no_prob: true, worker_thresh: 2, remove_low_severity: false},
-                    {binary: true, prob_no_prob: true, worker_thresh: 2, remove_low_severity: true, low_severity_threshold: 3},
-                    {binary: true, prob_no_prob: true, worker_thresh: 2, remove_low_severity: true, low_severity_threshold: 4},
-                    {binary: true, prob_no_prob: true, worker_thresh: 3, remove_low_severity: false},
-                    {binary: true, prob_no_prob: true, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 3},
-                    {binary: true, prob_no_prob: true, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 4},
-                    {binary: true, prob_no_prob: false, worker_thresh: 1, remove_low_severity: false},
-                    {binary: true, prob_no_prob: false, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 3},
-                    {binary: true, prob_no_prob: false, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 4},
-                    {binary: true, prob_no_prob: false, worker_thresh: 2, remove_low_severity: false},
-                    {binary: true, prob_no_prob: false, worker_thresh: 2, remove_low_severity: true, low_severity_threshold: 3},
-                    {binary: true, prob_no_prob: false, worker_thresh: 2, remove_low_severity: true, low_severity_threshold: 4},
-                    {binary: true, prob_no_prob: false, worker_thresh: 3, remove_low_severity: false},
-                    {binary: true, prob_no_prob: false, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 3},
-                    {binary: true, prob_no_prob: false, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 4},
-                    {binary: false, prob_no_prob: true, worker_thresh: 1, remove_low_severity: false},
-                    {binary: false, prob_no_prob: true, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 3},
-                    {binary: false, prob_no_prob: true, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 4},
-                    {binary: false, prob_no_prob: true, worker_thresh: 2, remove_low_severity: false},
-                    {binary: false, prob_no_prob: true, worker_thresh: 2, remove_low_severity: true, low_severity_threshold: 3},
-                    {binary: false, prob_no_prob: true, worker_thresh: 2, remove_low_severity: true, low_severity_threshold: 4},
-                    {binary: false, prob_no_prob: true, worker_thresh: 3, remove_low_severity: false},
-                    {binary: false, prob_no_prob: true, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 3},
-                    {binary: false, prob_no_prob: true, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 4},
-                    {binary: false, prob_no_prob: false, worker_thresh: 1, remove_low_severity: false},
-                    {binary: false, prob_no_prob: false, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 3},
-                    {binary: false, prob_no_prob: false, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 4},
-                    {binary: false, prob_no_prob: false, worker_thresh: 2, remove_low_severity: false},
-                    {binary: false, prob_no_prob: false, worker_thresh: 2, remove_low_severity: true, low_severity_threshold: 3},
-                    {binary: false, prob_no_prob: false, worker_thresh: 2, remove_low_severity: true, low_severity_threshold: 4},
-                    {binary: false, prob_no_prob: false, worker_thresh: 3, remove_low_severity: false},
-                    {binary: false, prob_no_prob: false, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 3},
-                    {binary: false, prob_no_prob: false, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 4}
+                    {binary: true, worker_thresh: 1, remove_low_severity: false},
+                    {binary: true, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 3},
+                    {binary: true, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 4},
+                    {binary: true, worker_thresh: 2, remove_low_severity: false},
+                    {binary: true, worker_thresh: 2, remove_low_severity: true, low_severity_threshold: 3},
+                    {binary: true, worker_thresh: 2, remove_low_severity: true, low_severity_threshold: 4},
+                    {binary: true, worker_thresh: 3, remove_low_severity: false},
+                    {binary: true, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 3},
+                    {binary: true, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 4},
+                    {binary: false, worker_thresh: 1, remove_low_severity: false},
+                    {binary: false, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 3},
+                    {binary: false, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 4},
+                    {binary: false, worker_thresh: 2, remove_low_severity: false},
+                    {binary: false, worker_thresh: 2, remove_low_severity: true, low_severity_threshold: 3},
+                    {binary: false, worker_thresh: 2, remove_low_severity: true, low_severity_threshold: 4},
+                    {binary: false, worker_thresh: 3, remove_low_severity: false},
+                    {binary: false, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 3},
+                    {binary: false, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 4}
                 ];
             console.log(threeTurkerData);
 
@@ -621,42 +587,24 @@ allTurkerButton.onclick = function() {
             // $.getJSON("/accuracyData/turker/5", function (fiveTurkerData) {
                 let optsArrayFiveTurkers =
                     [
-                        {binary: true, prob_no_prob: true, worker_thresh: 1, remove_low_severity: false},
-                        {binary: true, prob_no_prob: true, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 3},
-                        {binary: true, prob_no_prob: true, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 4},
-                        {binary: true, prob_no_prob: true, worker_thresh: 3, remove_low_severity: false},
-                        {binary: true, prob_no_prob: true, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 3},
-                        {binary: true, prob_no_prob: true, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 4},
-                        {binary: true, prob_no_prob: true, worker_thresh: 5, remove_low_severity: false},
-                        {binary: true, prob_no_prob: true, worker_thresh: 5, remove_low_severity: true, low_severity_threshold: 3},
-                        {binary: true, prob_no_prob: true, worker_thresh: 5, remove_low_severity: true, low_severity_threshold: 4},
-                        {binary: true, prob_no_prob: false, worker_thresh: 1, remove_low_severity: false},
-                        {binary: true, prob_no_prob: false, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 3},
-                        {binary: true, prob_no_prob: false, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 4},
-                        {binary: true, prob_no_prob: false, worker_thresh: 3, remove_low_severity: false},
-                        {binary: true, prob_no_prob: false, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 3},
-                        {binary: true, prob_no_prob: false, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 4},
-                        {binary: true, prob_no_prob: false, worker_thresh: 5, remove_low_severity: false},
-                        {binary: true, prob_no_prob: false, worker_thresh: 5, remove_low_severity: true, low_severity_threshold: 3},
-                        {binary: true, prob_no_prob: false, worker_thresh: 5, remove_low_severity: true, low_severity_threshold: 4},
-                        {binary: false, prob_no_prob: true, worker_thresh: 1, remove_low_severity: false},
-                        {binary: false, prob_no_prob: true, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 3},
-                        {binary: false, prob_no_prob: true, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 4},
-                        {binary: false, prob_no_prob: true, worker_thresh: 3, remove_low_severity: false},
-                        {binary: false, prob_no_prob: true, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 3},
-                        {binary: false, prob_no_prob: true, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 4},
-                        {binary: false, prob_no_prob: true, worker_thresh: 5, remove_low_severity: false},
-                        {binary: false, prob_no_prob: true, worker_thresh: 5, remove_low_severity: true, low_severity_threshold: 3},
-                        {binary: false, prob_no_prob: true, worker_thresh: 5, remove_low_severity: true, low_severity_threshold: 4},
-                        {binary: false, prob_no_prob: false, worker_thresh: 1, remove_low_severity: false},
-                        {binary: false, prob_no_prob: false, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 3},
-                        {binary: false, prob_no_prob: false, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 4},
-                        {binary: false, prob_no_prob: false, worker_thresh: 3, remove_low_severity: false},
-                        {binary: false, prob_no_prob: false, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 3},
-                        {binary: false, prob_no_prob: false, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 4},
-                        {binary: false, prob_no_prob: false, worker_thresh: 5, remove_low_severity: false},
-                        {binary: false, prob_no_prob: false, worker_thresh: 5, remove_low_severity: true, low_severity_threshold: 3},
-                        {binary: false, prob_no_prob: false, worker_thresh: 5, remove_low_severity: true, low_severity_threshold: 4}
+                        {binary: true, worker_thresh: 1, remove_low_severity: false},
+                        {binary: true, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 3},
+                        {binary: true, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 4},
+                        {binary: true, worker_thresh: 3, remove_low_severity: false},
+                        {binary: true, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 3},
+                        {binary: true, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 4},
+                        {binary: true, worker_thresh: 5, remove_low_severity: false},
+                        {binary: true, worker_thresh: 5, remove_low_severity: true, low_severity_threshold: 3},
+                        {binary: true, worker_thresh: 5, remove_low_severity: true, low_severity_threshold: 4},
+                        {binary: false, worker_thresh: 1, remove_low_severity: false},
+                        {binary: false, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 3},
+                        {binary: false, worker_thresh: 1, remove_low_severity: true, low_severity_threshold: 4},
+                        {binary: false, worker_thresh: 3, remove_low_severity: false},
+                        {binary: false, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 3},
+                        {binary: false, worker_thresh: 3, remove_low_severity: true, low_severity_threshold: 4},
+                        {binary: false, worker_thresh: 5, remove_low_severity: false},
+                        {binary: false, worker_thresh: 5, remove_low_severity: true, low_severity_threshold: 3},
+                        {binary: false, worker_thresh: 5, remove_low_severity: true, low_severity_threshold: 4}
                     ];
                 console.log(fiveTurkerData);
 
@@ -684,18 +632,12 @@ allIndividualTurkerButton.onclick = function() {
         let accuracyOutputArray = [];
         let optsArrayOneTurker =
             [
-                {binary: true, prob_no_prob: true, remove_low_severity: false},
-                {binary: true, prob_no_prob: true, remove_low_severity: true, low_severity_threshold: 3},
-                {binary: true, prob_no_prob: true, remove_low_severity: true, low_severity_threshold: 4},
-                {binary: true, prob_no_prob: false, remove_low_severity: false},
-                {binary: true, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 3},
-                {binary: true, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 4},
-                {binary: false, prob_no_prob: true, remove_low_severity: false},
-                {binary: false, prob_no_prob: true, remove_low_severity: true, low_severity_threshold: 3},
-                {binary: false, prob_no_prob: true, remove_low_severity: true, low_severity_threshold: 4},
-                {binary: false, prob_no_prob: false, remove_low_severity: false},
-                {binary: false, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 3},
-                {binary: false, prob_no_prob: false, remove_low_severity: true, low_severity_threshold: 4}
+                {binary: true, remove_low_severity: false},
+                {binary: true, remove_low_severity: true, low_severity_threshold: 3},
+                {binary: true, remove_low_severity: true, low_severity_threshold: 4},
+                {binary: false, remove_low_severity: false},
+                {binary: false, remove_low_severity: true, low_severity_threshold: 3},
+                {binary: false, remove_low_severity: true, low_severity_threshold: 4}
             ];
         // console.log(oneTurkerData);
 
@@ -726,7 +668,7 @@ testDifferentThresholdsButton.onclick = function() {
 		$.getJSON("/accuracyForEachTurker?threshold=" + currentThreshold, function (oneTurkerData) {
 			// console.log(oneTurkerData);
 			let accuracyOutputArray = [];
-			let optsArrayOneTurker = {binary: true, prob_no_prob: false, remove_low_severity: false};
+			let optsArrayOneTurker = {binary: true, remove_low_severity: false};
 
 			// data from the GET should be an array of length 5, b/c 5 turkers completed each condition
 			let outputIndex = 0;
@@ -766,12 +708,12 @@ testDifferentThresholdsButton2.onclick = function() {
 			let accuracyOutputArray = [];
 			let optsArrayClusteredTurkers =
 				[
-					{binary: true, prob_no_prob: false, worker_thresh: 1, remove_low_severity: false},
-					{binary: true, prob_no_prob: false, worker_thresh: 3, remove_low_severity: false},
-					{binary: true, prob_no_prob: false, worker_thresh: 5, remove_low_severity: false},
-					{binary: false, prob_no_prob: false, worker_thresh: 1, remove_low_severity: false},
-					{binary: false, prob_no_prob: false, worker_thresh: 3, remove_low_severity: false},
-					{binary: false, prob_no_prob: false, worker_thresh: 5, remove_low_severity: false}
+					{binary: true, worker_thresh: 1, remove_low_severity: false},
+					{binary: true, worker_thresh: 3, remove_low_severity: false},
+					{binary: true, worker_thresh: 5, remove_low_severity: false},
+					{binary: false, worker_thresh: 1, remove_low_severity: false},
+					{binary: false, worker_thresh: 3, remove_low_severity: false},
+					{binary: false, worker_thresh: 5, remove_low_severity: false}
 				];
 
 			let outputIndex = 0;

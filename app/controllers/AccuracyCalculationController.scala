@@ -149,7 +149,7 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
             conditionIds.flatMap { conditionId =>
               val clustSessionIds: List[(Int, Int)] = runSingleTurkerClusteringForRoutesInCondition(conditionId, clustNum, None)
               val doubleClusteredSessions: List[Int] = clustSessionIds.groupBy(_._2).map {
-                case (rId, lst) => runClustering("turker", singleUser = false, None, threshold, Some(rId), None, Some(lst.map(_._1)), old = true)
+                case (rId, lst) => runClustering("turker", singleUser = false, None, threshold, Some(rId), None, Some(lst.map(_._1)), old = false)
               }.toList
               ClusteringSessionTable.getClusteredLabelsForAccuracy(doubleClusteredSessions).map(_.toJSON)
             }
