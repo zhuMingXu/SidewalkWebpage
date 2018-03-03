@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import psycopg2
 import numpy as np
+import time
 
 
 def CreateTables(cur):
@@ -92,10 +93,54 @@ def clean_tables(cur):
     truncate table label_presampled_z7;
     """
     )
+
+def query(cur):
+    queries = [
+    """
+    SELECT l.label_id
+    FROM sidewalk.label l, sidewalk.label_presampled lp
+    WHERE l.label_id = lp.label_id and lp.zoom_level = 6
+    and l.panorama_lat>38.87 and l.panorama_lat<38.95
+    and l.panorama_lng>-77.5 and l.panorama_lng<-77;
+    """
+    ]
+
+def buildRtree(cur):
+    cur.execute(
+    """
+    DROP INDEX IF EXISTS rt;
+    CREATE INDEX rt ON sidewalk.label(panorama_lat,panorama_lng);
+    """
+    )
+
+def dropRtree(cur):
+    cur.execute(
+    """
+    DROP INDEX rt ON sidewalk.label;
+    """
+    )
+
+
+def test(cur):
+    begin_time = time.time()
+    for i in range(100):
+        query(cur)
+    end_time = time.time()
+    print("Query time without index= ", end_time - begin_time)
+
+    buildRtree(cur)
+    begin_time = time.time()
+    for i in range(100):
+        query(cur)
+    end_time = time.time()
+    print("Query time with index = ", end_time - begin_time)
+
+
 def main():
 	#make connection
     ZOOM_LEVEL = 7
     LABEL_TYPE = 7
+    SampDeg = 0.6
     try:
         conn = psycopg2.connect("dbname='sidewalk' user='sidewalk' host='localhost' port='5433' password='sidewalk'")
     except psycopg2.Error:
@@ -107,13 +152,14 @@ def main():
     VisNum = np.zeros((ZOOM_LEVEL,LABEL_TYPE))
     VisNum[ZOOM_LEVEL-1] = getNumber(cur)
     for i in range(ZOOM_LEVEL-1):
-        VisNum[ZOOM_LEVEL-2-i] = VisNum[ZOOM_LEVEL-1-i]*0.8
+        VisNum[ZOOM_LEVEL-2-i] = VisNum[ZOOM_LEVEL-1-i]*SampDeg
 
     VisNum.astype(int)
     allPoints = getAllPoints(cur)
     zoomLevel = calculateZoomLevel(LABEL_TYPE,ZOOM_LEVEL,allPoints,VisNum)
     addZoomLevel(cur,zoomLevel)
     seperateTables(cur,ZOOM_LEVEL)
+    test(cur)
     conn.commit()
 
 
