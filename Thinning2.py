@@ -144,7 +144,7 @@ def create_reg_lab(cur):
     DROP TABLE IF EXISTS reg_lab;
     CREATE TABLE reg_lab(region_id int, label_id int);
     insert into reg_lab
-    SELECT region.region_id, label.label_id
+    SELECT label.label_id,max(region.region_id)
     FROM sidewalk.street_edge
     INNER JOIN sidewalk.region
     ON ST_Intersects(street_edge.geom, region.geom)
@@ -152,7 +152,8 @@ def create_reg_lab(cur):
     ON audit_task.street_edge_id = street_edge.street_edge_id
     INNER JOIN sidewalk.label
     ON label.audit_task_id=audit_task.audit_task_id
-    WHERE region.deleted = FALSE AND street_edge.deleted=FALSE;
+    WHERE region.deleted = FALSE AND street_edge.deleted=FALSE
+    GROUP BY label.label_id;
     """
     ]
     for query in queries:
@@ -160,7 +161,7 @@ def create_reg_lab(cur):
 
 
 def getRegion(cur):
-    print("Get distinct region ids")
+    print("Geting distinct region ids")
     cur.execute(
     """
     SELECT rl.region_id
