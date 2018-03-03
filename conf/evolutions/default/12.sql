@@ -1,75 +1,15 @@
 # --- !Ups
-CREATE TABLE label_presampled
+CREATE TABLE street_edge_priority
 (
-  label_id INTEGER NOT NULL,
-  zoom_level INTEGER NOT NULL,
-  PRIMARY KEY (label_id, zoom_level),
-  FOREIGN KEY (label_id) REFERENCES label(label_id)
+ street_edge_priority_id SERIAL NOT NULL,
+ street_edge_id INT NOT NULL,
+ priority DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+ PRIMARY KEY (street_edge_priority_id),
+ FOREIGN KEY (street_edge_id) REFERENCES street_edge(street_edge_id)
 );
 
-CREATE TABLE label_presampled_z0
-(
-  label_id INTEGER NOT NULL,
-  PRIMARY KEY (label_id),
-  FOREIGN KEY (label_id) REFERENCES label(label_id)
-);
-
-CREATE TABLE label_presampled_z1
-(
-  label_id INTEGER NOT NULL,
-  PRIMARY KEY (label_id),
-  FOREIGN KEY (label_id) REFERENCES label(label_id)
-);
-
-CREATE TABLE label_presampled_z2
-(
-  label_id INTEGER NOT NULL,
-  PRIMARY KEY (label_id),
-  FOREIGN KEY (label_id) REFERENCES label(label_id)
-);
-
-CREATE TABLE label_presampled_z3
-(
-  label_id INTEGER NOT NULL,
-  PRIMARY KEY (label_id),
-  FOREIGN KEY (label_id) REFERENCES label(label_id)
-);
-
-CREATE TABLE label_presampled_z4
-(
-  label_id INTEGER NOT NULL,
-  PRIMARY KEY (label_id),
-  FOREIGN KEY (label_id) REFERENCES label(label_id)
-);
-
-CREATE TABLE label_presampled_z5
-(
-  label_id INTEGER NOT NULL,
-  PRIMARY KEY (label_id),
-  FOREIGN KEY (label_id) REFERENCES label(label_id)
-);
-
-CREATE TABLE label_presampled_z6
-(
-  label_id INTEGER NOT NULL,
-  PRIMARY KEY (label_id),
-  FOREIGN KEY (label_id) REFERENCES label(label_id)
-);
-
-CREATE TABLE label_presampled_z7
-(
-  label_id INTEGER NOT NULL,
-  PRIMARY KEY (label_id),
-  FOREIGN KEY (label_id) REFERENCES label(label_id)
-);
+INSERT INTO street_edge_priority (street_edge_id)
+SELECT street_edge_id FROM street_edge WHERE deleted = FALSE;
 
 # --- !Downs
-DROP TABLE label_presampled;
-DROP TABLE label_presampled_z0;
-DROP TABLE label_presampled_z1;
-DROP TABLE label_presampled_z2;
-DROP TABLE label_presampled_z3;
-DROP TABLE label_presampled_z4;
-DROP TABLE label_presampled_z5;
-DROP TABLE label_presampled_z6;
-DROP TABLE label_presampled_z7;
+DROP TABLE street_edge_priority;
