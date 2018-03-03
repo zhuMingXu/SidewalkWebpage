@@ -134,7 +134,7 @@ def create_reg_lab(cur):
     queries = [
     """
     DROP TABLE IF EXISTS reg_lab;
-    CREATE TABLE reg_lab(region_id int, label_id int);
+    CREATE TABLE reg_lab(label_id int,region_id int);
     insert into reg_lab
     SELECT label.label_id,max(region.region_id)
     FROM sidewalk.street_edge
@@ -182,8 +182,9 @@ def main():
     create_reg_lab(cur)
     regions = getRegion(cur)
 
+    #print(regions)
     for region in regions:
-        print("processing region:", region)
+        #print("processing region:", region)
         totalNum = getNumber(cur,region)
         VisNum = np.zeros((ZOOM_LEVEL,LABEL_TYPE))
         VisNum[ZOOM_LEVEL-1] = totalNum

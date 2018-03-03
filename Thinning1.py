@@ -83,14 +83,6 @@ def clean_tables(cur):
     cur.execute(
     """
     truncate table label_presampled;
-    truncate table label_presampled_z0;
-    truncate table label_presampled_z1;
-    truncate table label_presampled_z2;
-    truncate table label_presampled_z3;
-    truncate table label_presampled_z4;
-    truncate table label_presampled_z5;
-    truncate table label_presampled_z6;
-    truncate table label_presampled_z7;
     """
     )
 
@@ -158,7 +150,7 @@ def main():
     allPoints = getAllPoints(cur)
     zoomLevel = calculateZoomLevel(LABEL_TYPE,ZOOM_LEVEL,allPoints,VisNum)
     addZoomLevel(cur,zoomLevel)
-    seperateTables(cur,ZOOM_LEVEL)
+    #seperateTables(cur,ZOOM_LEVEL)
     test(cur)
     conn.commit()
 
