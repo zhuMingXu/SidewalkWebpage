@@ -122,7 +122,7 @@ def dropRtree(cur):
     )
 
 
-def test(cur):
+def test_Index(cur):
     begin_time = time.time()
     for i in range(100):
         query(cur)
@@ -191,6 +191,7 @@ def main():
     regions = getRegion(cur)
 
     for region in regions:
+        print("processing region:", region)
         totalNum = getNumber(cur,region)
         VisNum = np.zeros((ZOOM_LEVEL,LABEL_TYPE))
         VisNum[ZOOM_LEVEL-1] = totalNum
@@ -203,7 +204,7 @@ def main():
 
     #seperateTables(cur,ZOOM_LEVEL)
 
-    test_Index(cur)
+    #test_Index(cur)
     conn.commit()
 
 
