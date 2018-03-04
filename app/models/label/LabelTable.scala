@@ -461,7 +461,7 @@ object LabelTable {
     * @param zoomLevel
     * @return
     */
-  def selectLocationsAndSeveritiesOfLabels(zoomLevel: Option[String]): List[LabelLocationWithSeverity] = db.withSession { implicit session =>
+  def selectLocationsAndSeveritiesOfLabels(zoomLevel: Option[String]=None): List[LabelLocationWithSeverity] = db.withSession { implicit session =>
 
     val _labels = zoomLevel.map(_.toInt) match {
       case Some(zoom) =>
@@ -498,19 +498,52 @@ object LabelTable {
     * @param maxLng
     * @return
     */
-  def selectLocationsOfLabelsIn(minLat: Double, minLng: Double, maxLat: Double, maxLng: Double): List[LabelLocation] = db.withSession { implicit session =>
-    val selectLabelLocationQuery = Q.query[(Double, Double, Double, Double), LabelLocation](
-      """SELECT label.label_id, label.audit_task_id, label.gsv_panorama_id, label_type.label_type, label_point.lat, label_point.lng
-        |  FROM sidewalk.label
-        |INNER JOIN sidewalk.label_type
-        |  ON label.label_type_id = label_type.label_type_id
-        |INNER JOIN sidewalk.label_point
-        |  ON label.label_id = label_point.label_id
-        |WHERE label.deleted = false
-        |  AND label_point.lat IS NOT NULL
-        |  AND ST_Intersects(label_point.geom, ST_MakeEnvelope(?, ?, ?, ?, 4326))""".stripMargin
-    )
-    selectLabelLocationQuery((minLng, minLat, maxLng, maxLat)).list
+  def selectLocationsOfLabelsIn(minLat: Double, minLng: Double,
+                                maxLat: Double, maxLng: Double,
+                                zoomLevel: Option[String]=None): List[LabelLocation] = db.withSession { implicit session =>
+
+    zoomLevel.map(_.toInt) match {
+      case Some(zoom) =>
+        for {
+          _prelab <- presampledLabels if _prelab.zoomLevel === zoom
+          _labs <- labelsWithoutDeleted if _prelab.labelId === _labs.labelId
+          _types <- labelTypes if _labs.labelTypeId === _types.labelTypeId
+        } yield (_labs.labelId, _labs.auditTaskId, _labs.gsvPanoramaId, _types.labelType, _labs.panoramaLat, _labs.panoramaLng)
+
+        val selectLabelLocationQuery = Q.query[(Int, Double, Double, Double, Double), LabelLocation](
+          """SELECT label.label_id, label.audit_task_id, label.gsv_panorama_id, label_type.label_type, label_point.lat, label_point.lng
+            |  FROM sidewalk.label
+            |INNER JOIN sidewalk.label_type
+            |  ON label.label_type_id = label_type.label_type_id
+            |INNER JOIN sidewalk.label_point
+            |  ON label.label_id = label_point.label_id
+            |INNER JOIN sidewalk.label_presampled
+            |  ON label.label_id = label_presampled.label_id
+            |WHERE label.deleted = false
+            |  AND label_presampled.zoom_level = ?
+            |  AND label_point.lat IS NOT NULL
+            |  AND ST_Intersects(label_point.geom, ST_MakeEnvelope(?, ?, ?, ?, 4326))""".stripMargin
+        )
+        selectLabelLocationQuery((zoom, minLng, minLat, maxLng, maxLat)).list
+
+      case _ =>
+        for {
+          (_labels, _labelTypes) <- labelsWithoutDeleted.innerJoin(labelTypes).on(_.labelTypeId === _.labelTypeId)
+        } yield (_labels.labelId, _labels.auditTaskId, _labels.gsvPanoramaId, _labelTypes.labelType, _labels.panoramaLat, _labels.panoramaLng)
+
+        val selectLabelLocationQuery = Q.query[(Double, Double, Double, Double), LabelLocation](
+          """SELECT label.label_id, label.audit_task_id, label.gsv_panorama_id, label_type.label_type, label_point.lat, label_point.lng
+            |  FROM sidewalk.label
+            |INNER JOIN sidewalk.label_type
+            |  ON label.label_type_id = label_type.label_type_id
+            |INNER JOIN sidewalk.label_point
+            |  ON label.label_id = label_point.label_id
+            |WHERE label.deleted = false
+            |  AND label_point.lat IS NOT NULL
+            |  AND ST_Intersects(label_point.geom, ST_MakeEnvelope(?, ?, ?, ?, 4326))""".stripMargin
+        )
+        selectLabelLocationQuery((minLng, minLat, maxLng, maxLat)).list
+    }
   }
 
   /**

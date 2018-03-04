@@ -23,6 +23,7 @@ GET     /turkerIdExists                                      @controllers.Applic
 # Data Visualization
 GET     /dataviz/labels/all                                 @controllers.DataVizController.getAllLabels
 GET     /dataviz/labels/zoom/:zoomLevel                     @controllers.DataVizController.getLabelsAtZoomLevel(zoomLevel: String)
+GET     /dataviz/labels/box                                 @controllers.DataVizController.getLabelsWithinBoxAtZoomLevel(lat1: Double, lng1: Double, lat2: Double, lng2: Double, zoomLevel: String)
 
 # User authentication
 GET     /signIn                                              @controllers.UserController.signIn(url: String ?= "/")

@@ -74,39 +74,12 @@ function DataViz2(_, $, c3, turf, version) {
 
     if (version === 2 || version === 3) {
 
-        if (version === 3) {
-            map.on('zoomend', function onDragEnd() {
-
-                alert(
-                    'positionNW:' + map.getBounds().getNorthWest() + '\n' +
-                    'positionSE:' + map.getBounds().getSouthEast()
-                );
-
-                L.marker(map.getBounds().getCenter()).addTo(map);
-
-                var overlayPolygon = {
-                    "type": "FeatureCollection",
-                    "features": [{
-                        "type": "Feature", "geometry": {
-                            "type": "Polygon", "coordinates": [
-                                map.getBounds().getNorthWest(), map.getBounds().getNorthEast()
-                            ]
-                        }
-                    }]
-                };
-                var layer = L.geoJson(overlayPolygon);
-                layer.setStyle({color: "#faebd7", fillColor: "#faebd7"});
-                layer.addTo(map);
-
-
-            });
-        }
-
         // Zoom detection
         map.on("zoomstart", function (e) {
             currentZoomLevel = map.getZoom();
         });
 
+        var zoomLevelToRequest;
         map.on("zoom", function (e) {
 
             var zoom = currentZoomLevel;
@@ -118,18 +91,64 @@ function DataViz2(_, $, c3, turf, version) {
                 zoom -= 1;
             }
             // Call server to get the certain zoom level's data
-            var zoomLevelToRequest = zoom - defaultZoomLevel;
-            console.log("Requesting server for zoom level " + zoomLevelToRequest);
+            zoomLevelToRequest = zoom - defaultZoomLevel;
 
-            if(self.labelDataLayer[zoomLevelToRequest] === undefined) {
-                $.getJSON("/dataviz/labels/zoom/" + zoomLevelToRequest, function (data) {
-                    self.labelDataLayer.push(data);
-                    applyLayers(data, true);
-                });
-            } else {
-                applyLayers(self.labelDataLayer[zoomLevelToRequest], true);
+            if (version === 2 || (version === 3 && zoomLevelToRequest === 0)) {
+                console.log("Requesting server for zoom level " + zoomLevelToRequest);
+
+                if (self.labelDataLayer[zoomLevelToRequest] === undefined) {
+                    $.getJSON("/dataviz/labels/zoom/" + zoomLevelToRequest, function (data) {
+                        self.labelDataLayer.push(data);
+                        applyLayers(data, true);
+                    });
+                } else {
+                    applyLayers(self.labelDataLayer[zoomLevelToRequest], true);
+                }
             }
         });
+
+        if (version === 3) {
+            map.on('zoomend', function onZoomEnd() {
+
+                // alert(
+                //     'positionNW:' + map.getBounds().getNorthWest() + '\n' +
+                //     'positionSE:' + map.getBounds().getSouthEast()
+                // );
+
+                if (zoomLevelToRequest > 0) {
+                    L.marker(map.getBounds().getCenter()).addTo(map);
+
+                    var overlayPolygon = {
+                        "type": "FeatureCollection",
+                        "features": [{
+                            "type": "Feature", "geometry": {
+                                "type": "Polygon", "coordinates": [
+                                    map.getBounds().getNorthWest(),
+                                    map.getBounds().getNorthEast(),
+                                    map.getBounds().getSouthEast(),
+                                    map.getBounds().getSouthWest()
+
+                                ]
+                            }
+                        }]
+                    };
+                    var layer = L.geoJson(overlayPolygon);
+                    layer.setStyle({color: "#0000ff", fillColor: "#000"});
+                    layer.addTo(map);
+
+                    console.log("Requesting version 3 for zoom level " + zoomLevelToRequest);
+
+                    if (self.labelDataLayer[zoomLevelToRequest] === undefined) {
+                        $.getJSON("/dataviz/labels/zoom/" + zoomLevelToRequest, function (data) {
+                            self.labelDataLayer.push(data);
+                            applyLayers(data, true);
+                        });
+                    } else {
+                        applyLayers(self.labelDataLayer[zoomLevelToRequest], true);
+                    }
+                }
+            });
+        }
     }
 
     var popup = L.popup().setContent('<p>Hello world!<br />This is a nice popup.</p>');
