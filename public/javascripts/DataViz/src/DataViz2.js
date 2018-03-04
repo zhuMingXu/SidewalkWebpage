@@ -72,6 +72,17 @@ function DataViz2(_, $, c3, turf, version) {
 
     var currentZoomLevel = defaultZoomLevel;
 
+    function requestAndApplyDataForZoomLevel(zoomLevelToRequest) {
+        if (self.labelDataLayer[zoomLevelToRequest] === undefined) {
+            $.getJSON("/dataviz/labels/zoom/" + zoomLevelToRequest, function (data) {
+                self.labelDataLayer.push(data);
+                applyLayers(data, true);
+            });
+        } else {
+            applyLayers(self.labelDataLayer[zoomLevelToRequest], true);
+        }
+    }
+
     if (version === 2 || version === 3) {
 
         // Zoom detection
@@ -95,59 +106,32 @@ function DataViz2(_, $, c3, turf, version) {
 
             if (version === 2 || (version === 3 && zoomLevelToRequest === 0)) {
                 console.log("Requesting server for zoom level " + zoomLevelToRequest);
-
-                if (self.labelDataLayer[zoomLevelToRequest] === undefined) {
-                    $.getJSON("/dataviz/labels/zoom/" + zoomLevelToRequest, function (data) {
-                        self.labelDataLayer.push(data);
-                        applyLayers(data, true);
-                    });
-                } else {
-                    applyLayers(self.labelDataLayer[zoomLevelToRequest], true);
-                }
+                requestAndApplyDataForZoomLevel(zoomLevelToRequest)
             }
         });
 
         if (version === 3) {
-            map.on('zoomend', function onZoomEnd() {
-
-                // alert(
-                //     'positionNW:' + map.getBounds().getNorthWest() + '\n' +
-                //     'positionSE:' + map.getBounds().getSouthEast()
-                // );
+            function onZoomAndPanEnd() {
 
                 if (zoomLevelToRequest > 0) {
-                    L.marker(map.getBounds().getCenter()).addTo(map);
+                    var lat1 = map.getBounds().getNorthWest().lat,
+                        lng1 = map.getBounds().getNorthWest().lng,
+                        lat2 = map.getBounds().getSouthEast().lat,
+                        lng2 = map.getBounds().getSouthEast().lng;
 
-                    var overlayPolygon = {
-                        "type": "FeatureCollection",
-                        "features": [{
-                            "type": "Feature", "geometry": {
-                                "type": "Polygon", "coordinates": [
-                                    map.getBounds().getNorthWest(),
-                                    map.getBounds().getNorthEast(),
-                                    map.getBounds().getSouthEast(),
-                                    map.getBounds().getSouthWest()
 
-                                ]
-                            }
-                        }]
-                    };
-                    var layer = L.geoJson(overlayPolygon);
-                    layer.setStyle({color: "#0000ff", fillColor: "#000"});
-                    layer.addTo(map);
+                    var queryString = "lat1=" + lat1 + "&lng1=" + lng1 + "&lat2=" + lat2 + "&lng2=" + lng2 +
+                        "&zoomLevel=" + zoomLevelToRequest;
+                    var url = "/dataviz/labels/box?" + queryString;
+                    //console.log("Requesting version 3 for " + url);
 
-                    console.log("Requesting version 3 for zoom level " + zoomLevelToRequest);
-
-                    if (self.labelDataLayer[zoomLevelToRequest] === undefined) {
-                        $.getJSON("/dataviz/labels/zoom/" + zoomLevelToRequest, function (data) {
-                            self.labelDataLayer.push(data);
-                            applyLayers(data, true);
-                        });
-                    } else {
-                        applyLayers(self.labelDataLayer[zoomLevelToRequest], true);
-                    }
+                    $.getJSON(url, function (data) {
+                        applyLayers(data, true);
+                    });
                 }
-            });
+            }
+            map.on('zoomend', onZoomAndPanEnd);
+            map.on('dragend', onZoomAndPanEnd);
         }
     }
 
@@ -291,7 +275,14 @@ function DataViz2(_, $, c3, turf, version) {
             url = "/dataviz/labels/zoom/0"
         }
         $.getJSON(url, function (data) {
-            // Create layers for each of the 35 different label-severity combinations
+            if (version === 2) {
+                if (self.labelDataLayer[0] === undefined) {
+                    self.labelDataLayer.push(data);
+                } else {
+                    //Unlikely
+                    console.log("Zoom level 0 already available");
+                }
+            }
             applyLayers(data, false);
         });
     }
@@ -335,7 +326,7 @@ function DataViz2(_, $, c3, turf, version) {
 
     function applyLayers(data, reapply) {
 
-        // Put all labels in the same layer
+        // Remove previous labels and apply a new layer if reapply=true
         if (reapply) map.removeLayer(self.labelLayer);
         self.labelLayer = createLayer({"type": "FeatureCollection", "features": data.features});
         self.labelLayer.addTo(map);

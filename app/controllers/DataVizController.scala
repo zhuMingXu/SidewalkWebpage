@@ -68,13 +68,12 @@ class DataVizController @Inject()(implicit val env: Environment[User, SessionAut
   def getLabelsWithinBoxAtZoomLevel(lat1: Double, lng1: Double, lat2: Double, lng2: Double, zoomLevel: String) = UserAwareAction.async { implicit request =>
 
     println("Zoom Level " + zoomLevel)
-    println("Box (" + lat1 + lng2 + "), (" + lat2 + lng2 + ")")
+    println("Box (" + lat1 + lng1 + "), (" + lat2 + lng2 + ")")
 
     val minLat = min(lat1, lat2)
     val maxLat = max(lat1, lat2)
     val minLng = min(lng1, lng2)
     val maxLng = max(lng1, lng2)
-
 
     val labels: List[LabelLocation] = LabelTable.selectLocationsOfLabelsIn(minLat, minLng, maxLat, maxLng, Some(zoomLevel))
 
@@ -85,7 +84,7 @@ class DataVizController @Inject()(implicit val env: Environment[User, SessionAut
         "audit_task_id" -> label.auditTaskId,
         "label_id" -> label.labelId,
         "gsv_panorama_id" -> label.gsvPanoramaId,
-        "label_type" -> label.labelType,
+        "label_type" -> label.labelType
       )
       Json.obj("type" -> "Feature", "geometry" -> point, "properties" -> properties)
     }
