@@ -72,8 +72,35 @@ function DataViz2(_, $, c3, turf, version) {
 
     var currentZoomLevel = defaultZoomLevel;
 
-    if (version === 2) {
-        console.log("Version 2 requested");
+    if (version === 2 || version === 3) {
+
+        if (version === 3) {
+            map.on('zoomend', function onDragEnd() {
+
+                alert(
+                    'positionNW:' + map.getBounds().getNorthWest() + '\n' +
+                    'positionSE:' + map.getBounds().getSouthEast()
+                );
+
+                L.marker(map.getBounds().getCenter()).addTo(map);
+
+                var overlayPolygon = {
+                    "type": "FeatureCollection",
+                    "features": [{
+                        "type": "Feature", "geometry": {
+                            "type": "Polygon", "coordinates": [
+                                map.getBounds().getNorthWest(), map.getBounds().getNorthEast()
+                            ]
+                        }
+                    }]
+                };
+                var layer = L.geoJson(overlayPolygon);
+                layer.setStyle({color: "#faebd7", fillColor: "#faebd7"});
+                layer.addTo(map);
+
+
+            });
+        }
 
         // Zoom detection
         map.on("zoomstart", function (e) {
