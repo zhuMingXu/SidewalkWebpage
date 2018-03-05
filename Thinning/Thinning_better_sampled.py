@@ -98,7 +98,7 @@ def query(cur):
     """
     ]
 
-def buildRtree(cur):
+def buildIndex(cur):
     cur.execute(
     """
     DROP INDEX IF EXISTS rt;
@@ -106,7 +106,7 @@ def buildRtree(cur):
     """
     )
 
-def dropRtree(cur):
+def dropIndex(cur):
     cur.execute(
     """
     DROP INDEX rt ON sidewalk.label;
@@ -121,7 +121,7 @@ def test_Index(cur):
     end_time = time.time()
     print("Query time without index= ", end_time - begin_time)
 
-    buildRtree(cur)
+    buildIndex(cur)
 
     begin_time = time.time()
     for i in range(100):
@@ -198,6 +198,7 @@ def main():
     #seperateTables(cur,ZOOM_LEVEL)
 
     #test_Index(cur)
+    buildIndex(cur)
     conn.commit()
 
 

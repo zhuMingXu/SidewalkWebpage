@@ -106,7 +106,7 @@ def buildIndex(cur):
     """
     )
 
-def dropRtree(cur):
+def dropIndex(cur):
     cur.execute(
     """
     DROP INDEX idx ON sidewalk.label;
@@ -198,6 +198,7 @@ def main():
     #seperateTables(cur,ZOOM_LEVEL)
 
     #test_Index(cur)
+    buildIndex(cur)
     conn.commit()
 
 
