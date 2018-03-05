@@ -68,18 +68,6 @@ def addZoomLevel(cur,zoomLevel):
     for point in zoomLevel:
         cur.execute("INSERT INTO sidewalk.label_presampled VALUES (%d, %d);"%(point[0],point[1]))
 
-def seperateTables(cur,ZOOM_LEVEL):
-    for z in range(ZOOM_LEVEL):
-        cur.execute(
-        """
-        INSERT INTO sidewalk.label_presampled_z%d(
-        SELECT ps.label_id
-        FROM sidewalk.label_presampled ps
-        WHERE ps.zoom_level = %d
-        );
-        """%(z,z)
-        )
-
 def clean_tables(cur):
     cur.execute(
     """
@@ -90,11 +78,18 @@ def clean_tables(cur):
 def query(cur):
     queries = [
     """
-    SELECT l.label_id
-    FROM sidewalk.label l, sidewalk.label_presampled lp
-    WHERE l.label_id = lp.label_id and lp.zoom_level = 6
-    and l.panorama_lat>38.87 and l.panorama_lat<38.95
-    and l.panorama_lng>-77.5 and l.panorama_lng<-77;
+    SELECT label.label_id, label.audit_task_id, label.gsv_panorama_id, label_type.label_type, label_point.lat, label_point.lng
+      FROM sidewalk.label
+    INNER JOIN sidewalk.label_type
+      ON label.label_type_id = label_type.label_type_id
+    INNER JOIN sidewalk.label_point
+      ON label.label_id = label_point.label_id
+    INNER JOIN sidewalk.label_presampled
+      ON label.label_id = label_presampled.label_id
+    WHERE label.deleted = false
+      AND label_presampled.zoom_level = 6
+      AND label_point.lat IS NOT NULL
+      AND ST_Intersects(label_point.geom, ST_MakeEnvelope(-77.5, 38.87, -77, 38.95, 4326))
     """
     ]
 
@@ -195,10 +190,8 @@ def main():
         zoomLevel = calculateZoomLevel(LABEL_TYPE,ZOOM_LEVEL,allPoints,VisNum)
         addZoomLevel(cur,zoomLevel)
 
-    #seperateTables(cur,ZOOM_LEVEL)
 
-    #test_Index(cur)
-    buildIndex(cur)
+    test_Index(cur)
     conn.commit()
 
 
