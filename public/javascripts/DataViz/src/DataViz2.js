@@ -275,7 +275,7 @@ function DataViz2(_, $, c3, turf, version) {
             url = "/dataviz/labels/zoom/0"
         }
         $.getJSON(url, function (data) {
-            if (version === 2) {
+            if (version === 3) {
                 if (self.labelDataLayer[0] === undefined) {
                     self.labelDataLayer.push(data);
                 } else {
