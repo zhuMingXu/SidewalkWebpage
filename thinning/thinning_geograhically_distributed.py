@@ -12,7 +12,7 @@ def DropTables(cur):
     for command in drop_tables:
         cur.execute(command)
 
-def getNumber(cur,region):
+def getNumber(cur,region,LABEL_TYPE):
     get_number = [
     """
     select l.label_type_id, count(*)
@@ -25,15 +25,15 @@ def getNumber(cur,region):
     for command in get_number:
         cur.execute(command)
         rows = cur.fetchall()
-        num = np.zeros(7)
+        num = np.zeros(LABEL_TYPE)
         for row in rows:
             num[int(row[0])-1]=int(row[1])
     return num
 
 
-def getAllPoints(cur, region):
+def getAllPoints(cur, region, LABEL_TYPE):
     get_all_points = []
-    for i in range(7):
+    for i in range(LABEL_TYPE):
         get_all_points.append(
         """
         select distinct ps.label_id, ps.severity
@@ -68,18 +68,6 @@ def addZoomLevel(cur,zoomLevel):
     for point in zoomLevel:
         cur.execute("INSERT INTO sidewalk.label_presampled VALUES (%d, %d);"%(point[0],point[1]))
 
-def seperateTables(cur,ZOOM_LEVEL):
-    for z in range(ZOOM_LEVEL):
-        cur.execute(
-        """
-        INSERT INTO sidewalk.label_presampled_z%d(
-        SELECT ps.label_id
-        FROM sidewalk.label_presampled ps
-        WHERE ps.zoom_level = %d
-        );
-        """%(z,z)
-        )
-
 def clean_tables(cur):
     cur.execute(
     """
@@ -90,11 +78,18 @@ def clean_tables(cur):
 def query(cur):
     queries = [
     """
-    SELECT l.label_id
-    FROM sidewalk.label l, sidewalk.label_presampled lp
-    WHERE l.label_id = lp.label_id and lp.zoom_level = 6
-    and l.panorama_lat>38.87 and l.panorama_lat<38.95
-    and l.panorama_lng>-77.5 and l.panorama_lng<-77;
+    SELECT label.label_id, label.audit_task_id, label.gsv_panorama_id, label_type.label_type, label_point.lat, label_point.lng
+      FROM sidewalk.label
+    INNER JOIN sidewalk.label_type
+      ON label.label_type_id = label_type.label_type_id
+    INNER JOIN sidewalk.label_point
+      ON label.label_id = label_point.label_id
+    INNER JOIN sidewalk.label_presampled
+      ON label.label_id = label_presampled.label_id
+    WHERE label.deleted = false
+      AND label_presampled.zoom_level = 6
+      AND label_point.lat IS NOT NULL
+      AND ST_Intersects(label_point.geom, ST_MakeEnvelope(-77.5, 38.87, -77, 38.95, 4326))
     """
     ]
 
@@ -102,14 +97,14 @@ def buildIndex(cur):
     cur.execute(
     """
     DROP INDEX IF EXISTS rt;
-    CREATE INDEX idx ON sidewalk.label(panorama_lat,panorama_lng);
+    CREATE INDEX rt ON sidewalk.label(panorama_lat,panorama_lng);
     """
     )
 
-def dropRtree(cur):
+def dropIndex(cur):
     cur.execute(
     """
-    DROP INDEX idx ON sidewalk.label;
+    DROP INDEX rt ON sidewalk.label;
     """
     )
 
@@ -153,7 +148,7 @@ def create_reg_lab(cur):
 
 
 def getRegion(cur):
-    print("Geting distinct region ids")
+    print("Getting distinct region ids")
     cur.execute(
     """
     SELECT rl.region_id
@@ -185,19 +180,18 @@ def main():
     #print(regions)
     for region in regions:
         #print("processing region:", region)
-        totalNum = getNumber(cur,region)
+        totalNum = getNumber(cur,region,LABEL_TYPE)
         VisNum = np.zeros((ZOOM_LEVEL,LABEL_TYPE))
         VisNum[ZOOM_LEVEL-1] = totalNum
         for i in range(ZOOM_LEVEL-1):
             VisNum[ZOOM_LEVEL-2-i] = VisNum[ZOOM_LEVEL-1-i]*SampDeg
         VisNum.astype(int)
-        allPoints = getAllPoints(cur,region)
+        allPoints = getAllPoints(cur,region,LABEL_TYPE)
         zoomLevel = calculateZoomLevel(LABEL_TYPE,ZOOM_LEVEL,allPoints,VisNum)
         addZoomLevel(cur,zoomLevel)
 
-    #seperateTables(cur,ZOOM_LEVEL)
 
-    #test_Index(cur)
+    test_Index(cur)
     conn.commit()
 
 
