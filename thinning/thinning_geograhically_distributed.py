@@ -125,7 +125,7 @@ def test_Index(cur):
     print("Query time with index = ", end_time - begin_time)
 
 def create_reg_lab(cur):
-    print("Building reg_lab table...")
+    print("Building region_to_label table...")
     queries = [
     """
     DROP TABLE IF EXISTS reg_lab;
@@ -169,7 +169,7 @@ def main():
     LABEL_TYPE = 7
     SampDeg = 0.6
     try:
-        conn = psycopg2.connect("dbname='sidewalk' user='sidewalk' host='localhost' port='5433' password='sidewalk'")
+        conn = psycopg2.connect("dbname='sidewalkfull' user='sidewalk' host='localhost' port='5433' password='sidewalk'")
     except psycopg2.Error:
         print("I am unable to connect to the database")
     cur = conn.cursor()
@@ -189,7 +189,6 @@ def main():
         allPoints = getAllPoints(cur,region,LABEL_TYPE)
         zoomLevel = calculateZoomLevel(LABEL_TYPE,ZOOM_LEVEL,allPoints,VisNum)
         addZoomLevel(cur,zoomLevel)
-
 
     test_Index(cur)
     conn.commit()

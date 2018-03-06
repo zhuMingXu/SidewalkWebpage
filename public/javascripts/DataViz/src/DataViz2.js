@@ -123,7 +123,7 @@ function DataViz2(_, $, c3, turf, version) {
                     var queryString = "lat1=" + lat1 + "&lng1=" + lng1 + "&lat2=" + lat2 + "&lng2=" + lng2 +
                         "&zoomLevel=" + zoomLevelToRequest;
                     var url = "/dataviz/labels/box?" + queryString;
-                    //console.log("Requesting version 3 for " + url);
+                    console.log("Requesting server for zoom level " + zoomLevelToRequest + "\n" + url);
 
                     $.getJSON(url, function (data) {
                         applyLayers(data, true);
