@@ -215,33 +215,4 @@ for region in regions:
 np.savetxt("total_better.csv", sum(totalVisNum), delimiter=",")
 
 
-# In[ ]:
-
-cur.execute("select * from sidewalk.label_presampled_z6 limit 20;")
-rows = cur.fetchall()
-rows
-
-
-# In[ ]:
-
-cur.execute(
-"""
-select rl.region_id,count(*)
-from reg_lab rl
-group by rl.region_id;
-"""
-)
-rows = cur.fetchall()
-rows
-
-
-# In[9]:
-
-a= np.genfromtxt('total_better.csv',delimiter=',').astype(int)
-a
-
-
-# In[ ]:
-
-
 

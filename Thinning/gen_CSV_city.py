@@ -216,12 +216,4 @@ for row in rows:
 np.savetxt("205.csv", VisNum, delimiter=",")
 
 
-# In[8]:
-
-VisNum
-
-
-# In[ ]:
-
-
 
