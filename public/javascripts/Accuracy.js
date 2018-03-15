@@ -35,7 +35,7 @@ function getLabelCountsBySegment(chunks, gtLabs, workerLabs, workerThresh, optio
     let lowSeverityThreshold = options.low_severity_threshold || 4;
 
     let segOutput = {"CurbRamp": {}, "NoCurbRamp": {}, "NoSidewalk": {},"Obstacle": {}, "Occlusion": {}, "SurfaceProblem": {}, "Problem": {}};
-    let problemLabelTypes = ["NoCurbRamp", "NoSidewalk", "Obstacle", "SurfaceProblem"];
+    let problemLabelTypes = ["NoCurbRamp", "Obstacle", "SurfaceProblem"];
 
     for (let labelType in segOutput) {
         if (segOutput.hasOwnProperty(labelType)) {
