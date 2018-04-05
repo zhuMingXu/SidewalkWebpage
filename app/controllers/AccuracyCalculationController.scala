@@ -37,8 +37,10 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
   /** Gets */
 
   /**
-    * Returns the set of street edges, plus GT, volunteer, & turker labels associated with every MTurk condition
+    * Returns the set of street edges, plus GT, volunteer, & turker labels associated with every MTurk condition.
     *
+    * @param workerType One of "turker" or "volunteer"
+    * @param clusterNum Number of turkers to cluster; ignored when workerType = "volunteer"
     * @return
     */
   def getAccuracyData(workerType: String, clusterNum: String) = UserAwareAction.async { implicit request =>
@@ -114,6 +116,9 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
   /**
     * Returns set of street edges, GT labs, & clustered volunteer & turker labels associated w/ every MTurk condition.
     *
+    * @param workerType One of "turker" or "volunteer"
+    * @param clusterNum Number of turkers to cluster; ignored when workerType = "volunteer"
+    * @param threshold
     * @return
     */
   def getAccuracyDataWithSinglePersonClustering(workerType: String, clusterNum: String, threshold: Option[Float]) = UserAwareAction.async { implicit request =>
@@ -189,6 +194,11 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
   /**
     * Returns set of street edges, GT labs, & clustered labels for each turker associated w/ every MTurk condition.
     *
+    * We essentially do what getAccuracyDataWithSinglePersonClustering('turker', 1) would do, but we do it 5 times, and
+    * put the results of each iteration into an array. So we end up with an array of 5 objects, where each object
+    * contains all the accuracy data for the ith turker who completed each condition.
+    *
+    * @param threshold
     * @return
     */
   def getAccuracyForEachTurker(threshold: Option[Float]) = UserAwareAction.async { implicit request =>
@@ -211,23 +221,29 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
 
     val gtLabels: List[JsObject] = conditionIds.flatMap(GTLabelTable.selectGTLabelsByCondition(_).map(_.toGeoJSON))
 
-    // Run single-user clustering for the first 5 turkers in every condition.
-    val sessions: List[(Int, Int)] = conditionIds.flatMap { conditionId =>
-      runSingleTurkerClusteringForRoutesInCondition(conditionId, 5, threshold)
-    }
-
-    // 5 turkers did each route, so split the clustering session ids into 5 groups, with 1 turker from each route going
-    // in each group
-    val groupedSessions: List[List[Int]] = (0 to 4).toList.map(n => sessions.groupBy(_._2).flatMap(_._2.map(_._1).lift(n)).toList)
-
-    // output json as feature collection
     val finalJson = Json.arr(
-      groupedSessions.map { sIds =>
-        val labs: List[JsObject] = ClusteringSessionTable.getSingleClusteredTurkerLabelsForAccuracy(sIds).map(_.toJSON)
+      (0 to 4).toList.map { n =>
         Json.obj(
           "gt_labels" -> Json.obj("type" -> "FeatureCollection", "features" -> gtLabels),
-          "worker_labels" -> Json.obj("type" -> "FeatureCollection", "features" -> labs),
-          "streets" -> Json.obj("type" -> "FeatureCollection", "features" -> streets)
+          "streets" -> Json.obj("type" -> "FeatureCollection", "features" -> streets),
+          "workers" -> conditionIds.map { condition => Json.obj(
+            "condition_id" -> condition,
+            "worker_ids" -> List(AMTAssignmentTable.getTurkersWithAcceptedHITForCondition(condition)(n))
+          )},
+          // For the worker labels: For each condition, grab the nth turker to audit it, run single user clustering for
+          // them on every route in that condition, and combine the results of the clustering at all these conditions.
+          "worker_labels" ->
+            Json.obj(
+              "type" -> "FeatureCollection",
+              "features" -> conditionIds.flatMap { condition =>
+                val turker: Option[String] = AMTAssignmentTable.getTurkersWithAcceptedHITForCondition(condition).lift(n)
+                val routesToCluster: List[Int] = AMTConditionTable.getRouteIdsForACondition(condition)
+                val sessionIds: List[Int] = routesToCluster.map(routeId =>
+                  runClustering("turker", singleUser = true, turker, threshold, Some(routeId), None, None, old = false)
+                )
+                ClusteringSessionTable.getSingleClusteredTurkerLabelsForAccuracy(sessionIds).map(_.toJSON)
+              }
+            )
         )
       }
     )

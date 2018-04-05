@@ -190,11 +190,11 @@ function setupAccuracy(data, clusterNum, options) {
     // gets unique set of conditions that workers have completed
     // let conditions = [...new Set(workerLabelData.features.map(label => label.properties.condition_id))];
     // let conditions = [72, 74, 85, 98, 100, 120, 122, 128, 131, 134, 136, 138];
-    // let conditions = [72, 74, 98, 100, 122]; // a few conditions for testing
+	// let conditions = [72, 74, 98, 100, 122, 128]; // a few conditions for testing
     let notReady = [71, 104, 105, 123, 124, 130, 138];
     let conditions = Array.from(new Array(71), (x,i) => i + 70).filter(c => notReady.indexOf(c) < 0);
-	// let conditions = [72]; // for testing
-	// let conditions = [73]; // for testing
+    // let conditions = [72]; // for testing
+    // let conditions = [73]; // for testing
 
     // remove "Other" label type for now since there are none of them in GT
     // TODO decide if we want to do some analysis of the "Other" label type
