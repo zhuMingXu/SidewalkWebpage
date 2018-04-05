@@ -652,7 +652,7 @@ allIndividualTurkerButton.onclick = function() {
         }
 
         // export CSV
-        exportCSVFile(accuracyOutputArray, "accuracies-turker");
+        exportCSVFile(accuracyOutputArray, "accuracies-turker-all-individuals");
         $("#all-accuracy-result").html("Success! Enjoy your CSV!");
     });
 };
