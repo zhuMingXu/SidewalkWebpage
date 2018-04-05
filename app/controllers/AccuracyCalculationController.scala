@@ -56,12 +56,10 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     val routeIds: List[Int] = AMTConditionTable.getRouteIdsForAllConditions
     streets = routeIds.flatMap(ClusteringSessionTable.getStreetGeomForIRR(_).map(_.toJSON))
 
-    // NOTE there are no volunteer labels for conditions 123 and 124
-    // TODO figure out what is wrong with the following conditions...
-    // -> 0 turkers and 0 gt labels: 71, 104
-    // -> 0 gt labels, but there are turkers: 105, 130
-    // -> 0 turkers, but there are gt labels: 138
-    val notReady: List[Int] = List(71, 104, 105, 123, 124, 130, 138)
+    // NOTE The reasons for excluding the following list of conditions: 71, 104, 123, 124, 138
+    // Required jumps (which we did not allow in study):  71, 104
+    // No labels were placed by the anonymous volunteers: 123, 124, 138
+    val notReady: List[Int] = List(71, 104, 123, 124, 138)
 
 //    val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
 //    val conditionIds: List[Int] = (73 to 73).toList // one condition for testing
@@ -128,12 +126,10 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     val routeIds: List[Int] = AMTConditionTable.getRouteIdsForAllConditions
     val streets: List[JsObject] = routeIds.flatMap(ClusteringSessionTable.getStreetGeomForIRR(_).map(_.toJSON))
 
-    // NOTE there are no volunteer labels for conditions 123 and 124
-    // TODO figure out what is wrong with the following conditions...
-    // -> 0 turkers and 0 gt labels: 71, 104
-    // -> 0 gt labels, but there are turkers: 105, 130
-    // -> 0 turkers, but there are gt labels: 138
-    val notReady: List[Int] = List(71, 104, 105, 123, 124, 130, 138)
+    // NOTE The reasons for excluding the following list of conditions: 71, 104, 123, 124, 138
+    // Required jumps (which we did not allow in study):  71, 104
+    // No labels were placed by the anonymous volunteers: 123, 124, 138
+    val notReady: List[Int] = List(71, 104, 123, 124, 138)
 
     //    val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
     //    val conditionIds: List[Int] = (73 to 73).toList // one condition for testing
@@ -207,12 +203,10 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
     val routeIds: List[Int] = AMTConditionTable.getRouteIdsForAllConditions
     val streets: List[JsObject] = routeIds.flatMap(ClusteringSessionTable.getStreetGeomForIRR(_).map(_.toJSON))
 
-    // NOTE there are no volunteer labels for conditions 123 and 124
-    // TODO figure out what is wrong with the following conditions...
-    // -> 0 turkers and 0 gt labels: 71, 104
-    // -> 0 gt labels, but there are turkers: 105, 130
-    // -> 0 turkers, but there are gt labels: 138
-    val notReady: List[Int] = List(71, 104, 105, 123, 124, 130, 138)
+    // NOTE The reasons for excluding the following list of conditions: 71, 104, 123, 124, 138
+    // Required jumps (which we did not allow in study):  71, 104
+    // No labels were placed by the anonymous volunteers: 123, 124, 138
+    val notReady: List[Int] = List(71, 104, 123, 124, 138)
 
     //    val conditionIds: List[Int] = (72 to 72).toList // one condition for testing
     //    val conditionIds: List[Int] = (73 to 73).toList // one condition for testing
