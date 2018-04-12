@@ -65,15 +65,15 @@ function getLabelCountsBySegment(chunks, gtLabs, workerLabs, workerThresh, optio
 
                 if ((currLabels.length >= 1 && labelSource === "gt") || currLabels.length >= workerThresh) {
                     let centerPoint = turf.centerOfMass({"features": currLabels, "type": "FeatureCollection"});
-                    let repLabel = turf.nearest(centerPoint, {"features": currLabels, "type": "FeatureCollection"});
-                    let currType = repLabel.properties.label_type;
+                    // let repLabel = turf.nearest(centerPoint, {"features": currLabels, "type": "FeatureCollection"});
+                    let currType = currLabels[0].properties.label_type;
 
                     // get closest segment to this label
                     // http://turfjs.org/docs/#pointonline
                     let chunkIndex;
                     let minDist = Number.POSITIVE_INFINITY;
                     for (let i = 0; i < chunks.length; i++) {
-                        let closestPoint = turf.pointOnLine(chunks[i], repLabel);
+                        let closestPoint = turf.pointOnLine(chunks[i], centerPoint);
                         if (closestPoint.properties.dist < minDist) {
                             chunkIndex = i;
                             minDist = closestPoint.properties.dist;
