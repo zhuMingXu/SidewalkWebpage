@@ -2,7 +2,9 @@
 # --- !Ups
 CREATE TABLE user_clustering_session (
   user_clustering_session_id SERIAL NOT NULL,
-  user_id TEXT NOT NULL,
+  is_registered BOOLEAN NOT NULL,
+  user_id TEXT,
+  ip_address TEXT,
   clustering_session_id INT NOT NULL,
   PRIMARY KEY (user_clustering_sesssion_id),
   FOREIGN KEY (user_id) REFERENCES "user" (user_id),

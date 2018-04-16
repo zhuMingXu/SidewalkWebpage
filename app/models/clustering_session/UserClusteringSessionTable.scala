@@ -11,12 +11,18 @@ import play.api.Play.current
 import scala.slick.lifted.{ForeignKeyQuery, ProvenShape}
 import scala.language.postfixOps
 
-case class UserClusteringSession(userClusteringSessionId: Int, userId: String, clusteringSessionId: Int)
+case class UserClusteringSession(userClusteringSessionId: Int,
+                                 isRegistered: Boolean,
+                                 userId: Option[String],
+                                 ipAddress: Option[String],
+                                 clusteringSessionId: Int)
 
 
 class UserClusteringSessionTable(tag: Tag) extends Table[UserClusteringSession](tag, Some("sidewalk"), "user_clustering_session") {
   def userClusteringSessionLabelId: Column[Int] = column[Int]("user_clustering_session_id", O.NotNull, O.PrimaryKey, O.AutoInc)
-  def userId: Column[Int] = column[String]("user_id", O.NotNull)
+  def isRegistered: Column[Boolean] = column[Boolean]("is_registered", O.NotNull)
+  def userId: Column[Int] = column[String]("user_id")
+  def ipAddress: Column[String] = column[String]("ip_address")
   def clusteringSessionId: Column[Int] = column[Int]("clustering_session_id", O.NotNull)
 
   def * : ProvenShape[UserClusteringSession] = (clusteringSessionLabelTypeThresholdId, userId, clusteringSessionId) <>
@@ -39,8 +45,9 @@ object UserClusteringSessionTable {
   val clusteringSessions = TableQuery[ClusteringSessionTable]
 
 
-  def getSessionIdsForUser(userId: String): List[Int] = db.withTransaction { implicit session =>
-    userClusteringSessions.filter(_.userId === userId).map(_.clusteringSessionId).list
+  def getSessionIdsForUser(userId: String, isRegistered: Boolean): List[Int] = db.withTransaction { implicit session =>
+    if (isRegistered) userClusteringSessions.filter(_.userId === userId).map(_.clusteringSessionId).list
+    else              userClusteringSessions.filter(_.ipAddress === userId).map(_.clusteringSessionId).list
   }
 
   def getAllSessions: List[UserClusteringSession] = db.withTransaction { implicit session =>
