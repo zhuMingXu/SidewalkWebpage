@@ -63,6 +63,10 @@ object DBTableDefinitions {
       }
     }
 
+    def getAllUserIds: List[String] = db.withTransaction { implicit session =>
+      slickUsers.map(_.userId).list
+    }
+
     def count: Int = db.withTransaction { implicit session =>
       val users = slickUsers.list
       users.length

@@ -140,9 +140,10 @@ GET   /labelsForGTFixSeverity/:conditionId                              @control
 GET   /clusteringsessions                                               @controllers.ClusteringSessionController.getClusteringSessionsWithoutDeleted
 GET   /clusterRoute/:routeId/:hitId                                     @controllers.ClusteringSessionController.runClustering(routeId: Int, hitId: String)
 GET   /clusterUser/:userId                                              @controllers.ClusteringSessionController.runUserClustering(userId: String)
+GET   /clusterEachUser                                                  @controllers.ClusteringSessionController.runSingleUserClusteringForAllUsers
 # GETS used by the label_clustering.py file
 GET   /labelsToCluster/:routeId/:hitId                                  @controllers.ClusteringSessionController.getLabelsToCluster(routeId, hitId)
-GET   /userLabelsToCluster/:userId                                      @controllers.ClusteringSessionController.getUserLabelsToCluster(userId)
+GET   /userLabelsToCluster/:userId                                      @controllers.ClusteringSessionController.getUserLabelsToCluster(userId, isRegistered: Boolean)
 GET   /volunteerLabelsToCluster/:routeId                                @controllers.ClusteringSessionController.getVolunteerLabelsToClusterForRoute(routeId: Int)
 GET   /nonGTLabelsToCluster/:routeId/:n                                 @controllers.ClusteringSessionController.getTurkerLabelsToCluster(routeId, n)
 GET   /singleTurkerLabels/:turkerId/:routeId                            @controllers.ClusteringSessionController.getSingleTurkerLabelsToCluster(turkerId, routeId: Int)

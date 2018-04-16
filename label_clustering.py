@@ -81,6 +81,8 @@ if __name__ == '__main__':
                         help='User id of a single user who\'s labels should be clustered.')
     parser.add_argument('--turker_id', type=str,
                         help='Turker id of a single turker who\'s labels should be clustered.')
+    parser.add_argument('--is_registered', type=bool, default=True,
+                        help='Whether a user is registered or anonymous.')
     parser.add_argument('--clust_thresh', type=float, default=0.0075,
                         help='Cluster distance threshold (in meters)')
     parser.add_argument('--debug', action='store_true',
@@ -94,6 +96,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     DEBUG = args.debug
     OLD = args.old
+    IS_REGISTERED = args.is_registered
     CLUSTER_THRESHOLD = args.clust_thresh
     ROUTE_ID = args.route_id
     HIT_ID = args.hit_id
@@ -144,7 +147,7 @@ if __name__ == '__main__':
         SINGLE_USER = True
         MAJORITY_THRESHOLD = 1
     elif USER_ID:
-        getURL = 'http://localhost:9000/userLabelsToCluster/' + str(USER_ID)
+        getURL = 'http://localhost:9000/userLabelsToCluster/' + str(USER_ID) + '?isRegistered=' + str(IS_REGISTERED)
         postURL = 'http://localhost:9000/singleUserClusteringResults' \
                   '?volunteerOrTurkerId=' + str(USER_ID) + \
                   '&threshold=' + str(CLUSTER_THRESHOLD)

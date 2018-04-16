@@ -7,7 +7,7 @@ import java.util.UUID
 
 import com.vividsolutions.jts.geom.{Coordinate, LineString}
 import models.amt._
-import models.audit.AuditTaskTable
+import models.audit.{AuditTaskEnvironmentTable, AuditTaskTable}
 import models.daos.slick.DBTableDefinitions.UserTable
 import models.label.{LabelLocation, LabelTable, ProblemDescriptionTable, ProblemTemporarinessTable}
 import models.route.{Route, RouteTable}
@@ -266,12 +266,48 @@ object ClusteringSessionTable{
     * @param userId
     * @return
     */
-  def getUserLabelsToCluster(userId: String): List[UserLabelToCluster] = db.withSession { implicit session =>
+  def getRegisteredUserLabelsToCluster(userId: String): List[UserLabelToCluster] = db.withSession { implicit session =>
 
     val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
 
     val labels = for {
       _tasks <- AuditTaskTable.auditTasks if _tasks.userId === userId
+      _labs <- nonOnboardingLabs if _labs.auditTaskId === _tasks.auditTaskId
+      _latlngs <- LabelTable.labelPoints if _labs.labelId === _latlngs.labelId
+      _types <- LabelTable.labelTypes if _labs.labelTypeId === _types.labelTypeId
+    } yield (_labs.labelId, _types.labelType, _latlngs.lat, _latlngs.lng)
+
+    // left joins to get severity for any labels that have them
+    val labelsWithSeverity = for {
+      (_labs, _severity) <- labels.leftJoin(LabelTable.severities).on(_._1 === _.labelId)
+    } yield (_labs._1, _labs._2, _labs._3, _labs._4, _severity.severity.?)
+
+    // left joins to get temporariness for any labels that have them (those that don't are marked as temporary=false)
+    val labelsWithTemporariness = for {
+      (_labs, _temporariness) <- labelsWithSeverity.leftJoin(ProblemTemporarinessTable.problemTemporarinesses).on(_._1 === _.labelId)
+    } yield (_labs._1, _labs._2, _labs._3, _labs._4, _labs._5, _temporariness.temporaryProblem.?)
+
+    labelsWithTemporariness.list.map(x => UserLabelToCluster.tupled((x._1, x._2, x._3, x._4, x._5, x._6.getOrElse(false))))
+  }
+
+  /**
+    * Returns labels that were placed by the specified user, in the form needed for clustering.
+    *
+    * @param ipAddress
+    * @return
+    */
+  def getAnonymousUserLabelsToCluster(ipAddress: String): List[UserLabelToCluster] = db.withSession { implicit session =>
+
+    val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
+
+    val userAudits: List[Int] =
+      AuditTaskEnvironmentTable.auditTaskEnvironments
+      .filter(_.ipAddress === ipAddress)
+      .map(_.auditTask)
+      .list.toSet
+
+    val labels = for {
+      _tasks <- AuditTaskTable.auditTasks if _tasks.auditTaskId inSet userAudits
       _labs <- nonOnboardingLabs if _labs.auditTaskId === _tasks.auditTaskId
       _latlngs <- LabelTable.labelPoints if _labs.labelId === _latlngs.labelId
       _types <- LabelTable.labelTypes if _labs.labelTypeId === _types.labelTypeId

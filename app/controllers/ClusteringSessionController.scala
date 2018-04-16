@@ -64,6 +64,22 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     //    }
   }
 
+  def runSingleUserClusteringForAllUsers = UserAwareAction.async {implicit request =>
+    val userIds: List[String] = UserTable.getAllUserIds
+    val testUserIds: List[String] = List(
+      "",
+      "",
+      "",
+      "",
+      ""
+    )
+    testUserIds.map {
+      userId => ("python label_clustering.py --user_id " + userId + " --is_registered " + true).!!
+    }
+    val testJson = Json.obj("what did we run?" -> "clustering!", "output" -> "something")
+    Future.successful(Ok(testJson))
+  }
+
   /**
     * Returns all records in clustering_session table that are not marked as deleted.
     */
@@ -112,9 +128,13 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     * @param userId
     * @return
     */
-  def getUserLabelsToCluster(userId: String) = UserAwareAction.async { implicit request =>
+  def getUserLabelsToCluster(userId: String, isRegistered: Boolean) = UserAwareAction.async { implicit request =>
     //    if (isAdmin(request.identity)) {
-    val labsToCluster: List[UserLabelToCluster] = ClusteringSessionTable.getUserLabelsToCluster(userId)
+    val labsToCluster: List[UserLabelToCluster] = if(isRegistered) {
+      ClusteringSessionTable.getRegisteredUserLabelsToCluster(userId)
+    } else {
+      ClusteringSessionTable.getAnonymousUserLabelsToCluster(userId)
+    }
     val json = Json.arr(labsToCluster.map(x => Json.obj(
       "label_id" -> x.labelId,
       "label_type" -> x.labelType,
@@ -204,11 +224,15 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
   def postSingleUserClusteringResults(volunteerOrTurkerId: String, threshold: Double, routeId: Option[Int]) = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>
     // Validation https://www.playframework.com/documentation /2.3.x/ScalaJson
 
-    val userIdRegex: Regex = raw".+-.+-.+-.+".r
+    val registeredUserIdRegex: Regex = raw".+-.+-.+-.+".r
+    val anonUserIdRegex: Regex = raw".+\..+\..+\..+".r
     val userType: String = volunteerOrTurkerId match {
-      case userIdRegex() => "volunteer"
+      case registeredUserIdRegex() => "volunteer"
+      case anonUserIdRegex() => "volunteer"
       case _ => "turker"
     }
+
+    val isRegistered: Boolean = !anonUserIdRegex(volunteerOrTurkerId)
 
     val submission = request.body.validate[ClusteringFormats.ClusteringSubmission]
     submission.fold(
@@ -234,6 +258,12 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
           case "turker" => ClusteringSessionTable.save(
             ClusteringSession(0, routeId, threshold, timestamp, deleted = false, userId = None, turkerId = Some(volunteerOrTurkerId))
           )
+        }
+        // Add corresponding entry to the user_clustering_session table
+        val userSessionId: Int = if (isRegistered) {
+          UserClusteringSessionTable.save(UserClusteringSession(0, isRegistered, Some(volunteerOrTurkerId), None, sessionId))
+        } else {
+          UserClusteringSessionTable.save(UserClusteringSession(0, isRegistered, None, Some(volunteerOrTurkerId), sessionId))
         }
         // Add the thresholds to the clustering_session_label_type_threshold table
         for (threshold <- thresholds) yield {
