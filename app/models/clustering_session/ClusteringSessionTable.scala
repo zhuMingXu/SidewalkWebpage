@@ -300,10 +300,10 @@ object ClusteringSessionTable{
 
     val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
 
-    val userAudits: List[Int] =
+    val userAudits: Set[Int] =
       AuditTaskEnvironmentTable.auditTaskEnvironments
       .filter(_.ipAddress === ipAddress)
-      .map(_.auditTask)
+      .map(_.auditTaskId)
       .list.toSet
 
     val labels = for {

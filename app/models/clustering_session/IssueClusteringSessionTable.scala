@@ -14,10 +14,10 @@ case class IssueClusteringSession(issueClusteringSessionId: Int, clusteringSessi
 
 
 class IssueClusteringSessionTable(tag: Tag) extends Table[IssueClusteringSession](tag, Some("sidewalk"), "issue_clustering_session") {
-  def issueClusteringSessionLabelId: Column[Int] = column[Int]("issue_clustering_session_id", O.NotNull, O.PrimaryKey, O.AutoInc)
+  def issueClusteringSessionId: Column[Int] = column[Int]("issue_clustering_session_id", O.NotNull, O.PrimaryKey, O.AutoInc)
   def clusteringSessionId: Column[Int] = column[Int]("clustering_session_id", O.NotNull)
 
-  def * : ProvenShape[IssueClusteringSession] = (clusteringSessionLabelTypeThresholdId, clusteringSessionId) <>
+  def * : ProvenShape[IssueClusteringSession] = (issueClusteringSessionId, clusteringSessionId) <>
     ((IssueClusteringSession.apply _).tupled, IssueClusteringSession.unapply)
 
   def clusteringSession: ForeignKeyQuery[ClusteringSessionTable, ClusteringSession] =
@@ -25,7 +25,7 @@ class IssueClusteringSessionTable(tag: Tag) extends Table[IssueClusteringSession
 }
 
 /**
-  * Data access object for the ClusteringSessionLabelTypeThreshold table
+  * Data access object for the IssueClusteringSessionTable table
   */
 object IssueClusteringSessionTable {
   val db = play.api.db.slick.DB

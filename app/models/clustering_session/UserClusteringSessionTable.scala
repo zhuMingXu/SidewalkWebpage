@@ -19,13 +19,13 @@ case class UserClusteringSession(userClusteringSessionId: Int,
 
 
 class UserClusteringSessionTable(tag: Tag) extends Table[UserClusteringSession](tag, Some("sidewalk"), "user_clustering_session") {
-  def userClusteringSessionLabelId: Column[Int] = column[Int]("user_clustering_session_id", O.NotNull, O.PrimaryKey, O.AutoInc)
+  def userClusteringSessionId: Column[Int] = column[Int]("user_clustering_session_id", O.NotNull, O.PrimaryKey, O.AutoInc)
   def isRegistered: Column[Boolean] = column[Boolean]("is_registered", O.NotNull)
-  def userId: Column[Int] = column[String]("user_id")
-  def ipAddress: Column[String] = column[String]("ip_address")
+  def userId: Column[Option[String]] = column[Option[String]]("user_id")
+  def ipAddress: Column[Option[String]] = column[Option[String]]("ip_address")
   def clusteringSessionId: Column[Int] = column[Int]("clustering_session_id", O.NotNull)
 
-  def * : ProvenShape[UserClusteringSession] = (clusteringSessionLabelTypeThresholdId, userId, clusteringSessionId) <>
+  def * : ProvenShape[UserClusteringSession] = (userClusteringSessionId, isRegistered, userId, ipAddress, clusteringSessionId) <>
     ((UserClusteringSession.apply _).tupled, UserClusteringSession.unapply)
 
   def clusteringSession: ForeignKeyQuery[ClusteringSessionTable, ClusteringSession] =
@@ -36,7 +36,7 @@ class UserClusteringSessionTable(tag: Tag) extends Table[UserClusteringSession](
 }
 
 /**
-  * Data access object for the ClusteringSessionLabelTypeThreshold table
+  * Data access object for the UserClusteringSessionTable table
   */
 object UserClusteringSessionTable {
   val db = play.api.db.slick.DB

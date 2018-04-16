@@ -6,7 +6,7 @@ CREATE TABLE user_clustering_session (
   user_id TEXT,
   ip_address TEXT,
   clustering_session_id INT NOT NULL,
-  PRIMARY KEY (user_clustering_sesssion_id),
+  PRIMARY KEY (user_clustering_session_id),
   FOREIGN KEY (user_id) REFERENCES "user" (user_id),
   FOREIGN KEY (clustering_session_id) REFERENCES clustering_session(clustering_session_id)
 );
@@ -14,7 +14,7 @@ CREATE TABLE user_clustering_session (
 CREATE TABLE issue_clustering_session (
   issue_clustering_session_id SERIAL NOT NULL,
   clustering_session_id INT NOT NULL,
-  PRIMARY KEY (issue_clustering_sesssion_id),
+  PRIMARY KEY (issue_clustering_session_id),
   FOREIGN KEY (clustering_session_id) REFERENCES clustering_session(clustering_session_id)
 );
 

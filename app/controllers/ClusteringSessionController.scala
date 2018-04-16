@@ -232,7 +232,10 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
       case _ => "turker"
     }
 
-    val isRegistered: Boolean = !anonUserIdRegex(volunteerOrTurkerId)
+    val isRegistered: Boolean = volunteerOrTurkerId match {
+      case anonUserIdRegex() => false
+      case _ => true
+    }
 
     val submission = request.body.validate[ClusteringFormats.ClusteringSubmission]
     submission.fold(
