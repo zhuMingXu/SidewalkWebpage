@@ -71,11 +71,13 @@ object DBTableDefinitions {
 
     def getHighLabelingFrequencyRegisteredUserIds: List[String] = db.withTransaction { implicit session =>
 
+      val onboardingPanos = List("bdmGHJkiSgmO7_80SnbzXw", "OgLbmLAuC4urfE5o7GP_JQ", "stxXyCKAbd73DmkM2vsIHA")
+      val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId inSet onboardingPanos)
+
       slickUsers
         .filterNot(_.username === "anonymous")  // Take only registered users
         .innerJoin(AuditTaskTable.auditTasks).on(_.userId === _.userId)
-        .innerJoin(LabelTable.labels).on(_._2.auditTaskId === _.auditTaskId)
-        .filterNot(_._2.deleted)
+        .innerJoin(nonOnboardingLabs).on(_._2.auditTaskId === _.auditTaskId)
         .groupBy(_._1._2.userId)
         .map { case (userId, group) => (userId, group.length) }
         .filter(_._2 < 50)
@@ -85,12 +87,14 @@ object DBTableDefinitions {
 
     def getHighLabelingFrequencyAnonUserIps: List[String] = db.withTransaction { implicit session =>
 
+      val onboardingPanos = List("bdmGHJkiSgmO7_80SnbzXw", "OgLbmLAuC4urfE5o7GP_JQ", "stxXyCKAbd73DmkM2vsIHA")
+      val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId inSet onboardingPanos)
+
       slickUsers
         .filter(_.username === "anonymous")  // Take only anonymous users
         .innerJoin(AuditTaskTable.auditTasks).on(_.userId === _.userId)
         .innerJoin(AuditTaskEnvironmentTable.auditTaskEnvironments).on(_._2.auditTaskId === _.auditTaskId)
-        .innerJoin(LabelTable.labels).on(_._2.auditTaskId === _.auditTaskId)
-        .filterNot(_._2.deleted)
+        .innerJoin(nonOnboardingLabs).on(_._2.auditTaskId === _.auditTaskId)
         .groupBy(_._1._2.ipAddress)
         .map { case (ip, group) => (ip, group.length) }
         .filter(_._2 < 50)

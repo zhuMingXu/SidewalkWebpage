@@ -268,7 +268,8 @@ object ClusteringSessionTable{
     */
   def getRegisteredUserLabelsToCluster(userId: String): List[UserLabelToCluster] = db.withSession { implicit session =>
 
-    val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
+    val onboardingPanos = List("bdmGHJkiSgmO7_80SnbzXw", "OgLbmLAuC4urfE5o7GP_JQ", "stxXyCKAbd73DmkM2vsIHA")
+    val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId inSet onboardingPanos)
 
     val labels = for {
       _tasks <- AuditTaskTable.auditTasks if _tasks.userId === userId
@@ -298,7 +299,8 @@ object ClusteringSessionTable{
     */
   def getAnonymousUserLabelsToCluster(ipAddress: String): List[UserLabelToCluster] = db.withSession { implicit session =>
 
-    val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId === "stxXyCKAbd73DmkM2vsIHA")
+    val onboardingPanos = List("bdmGHJkiSgmO7_80SnbzXw", "OgLbmLAuC4urfE5o7GP_JQ", "stxXyCKAbd73DmkM2vsIHA")
+    val nonOnboardingLabs = LabelTable.labelsWithoutDeleted.filterNot(_.gsvPanoramaId inSet onboardingPanos)
 
     val userAudits: Set[Int] =
       AuditTaskEnvironmentTable.auditTaskEnvironments
