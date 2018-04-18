@@ -70,16 +70,20 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     UserClusteringSessionTable.truncateTable()
 
     val userIds: List[String] = UserTable.getAllUserIds
-    val goodUserIds: List[String] =
-      UserTable.getHighLabelingFrequencyRegisteredUserIds ++ UserTable.getHighLabelingFrequencyAnonUserIps
+    val goodRegisteredUsers: List[String] = UserTable.getHighLabelingFrequencyRegisteredUserIds
+    val goodAnonymousUsers: List[String] = UserTable.getHighLabelingFrequencyAnonUserIps
     val testUserIds: List[String] = List(
       "9efaca05-53bb-492e-83ab-2b47219ee863",
       "22c8024d-98a1-4d08-984c-103e3211fcc5"
     )
-    println(goodUserIds)
-    goodUserIds.map {
+    println(goodRegisteredUsers)
+    goodAnonymousUsers.map {
       userId =>
-//        println("python label_clustering.py --user_id \"" + userId + "\" --is_registered")
+        val x = ("python label_clustering.py --user_id \"" + userId + "\"").!!
+//        println(x)
+    }
+    goodRegisteredUsers.map {
+      userId =>
         val x = ("python label_clustering.py --user_id \"" + userId + "\" --is_registered").!!
 //        println(x)
     }
