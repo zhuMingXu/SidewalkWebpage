@@ -65,6 +65,10 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
   }
 
   def runSingleUserClusteringForAllUsers = UserAwareAction.async {implicit request =>
+
+    // First truncate the user_clustering_session table
+    UserClusteringSessionTable.truncateTable()
+
     val userIds: List[String] = UserTable.getAllUserIds
     val goodUserIds: List[String] =
       UserTable.getHighLabelingFrequencyRegisteredUserIds ++ UserTable.getHighLabelingFrequencyAnonUserIps

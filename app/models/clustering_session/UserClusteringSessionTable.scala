@@ -9,6 +9,7 @@ import models.utils.MyPostgresDriver.simple._
 import play.api.Play.current
 
 import scala.slick.lifted.{ForeignKeyQuery, ProvenShape}
+import scala.slick.jdbc.{StaticQuery => Q}
 import scala.language.postfixOps
 
 case class UserClusteringSession(userClusteringSessionId: Int,
@@ -52,6 +53,10 @@ object UserClusteringSessionTable {
 
   def getAllSessions: List[UserClusteringSession] = db.withTransaction { implicit session =>
     userClusteringSessions.list
+  }
+
+  def truncateTable() = db.withTransaction { implicit session =>
+    Q.updateNA("TRUNCATE TABLE user_clustering_session").execute
   }
 
   def save(newSess: UserClusteringSession): Int = db.withTransaction { implicit session =>
