@@ -13,6 +13,7 @@ import json
 import argparse
 import re
 from sklearn.cluster import KMeans
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 # Custom distance function that returns max float if from the same turker id, haversine distance otherwise
 def custom_dist(u, v):
@@ -32,9 +33,9 @@ def cluster(labels, curr_type, thresholds, single_user):
 
     # Cuts tree so that only labels less than clust_threth kilometers apart are clustered, adds a col
     # to dataframe with label for the cluster they are in
-    labels.loc[:,'cluster'] = fcluster(link, t=thresholds[curr_type], criterion='distance')
     labelsCopy = labels.copy()
-    newClustId = np.max(labels.cluster) + 1
+    labelsCopy.loc[:,'cluster'] = fcluster(link, t=thresholds[curr_type], criterion='distance')
+    newClustId = np.max(labelsCopy.cluster) + 1
 
     # Majority vote to decide what is included. If a cluster has at least MAJORITY_VOTE people agreeing on the type
     # of the label, it is included.
@@ -62,7 +63,7 @@ def cluster(labels, curr_type, thresholds, single_user):
         print 'We agreed on this many ' + curr_type + ' labels: ' + str(agreement_count)
         print 'We disagreed on this many ' + curr_type + ' labels: ' + str(disagreement_count)
 
-    return (included, curr_type, agreement_count, disagreement_count)
+    return (included, labelsCopy, curr_type, agreement_count, disagreement_count)
 
 
 if __name__ == '__main__':
@@ -81,8 +82,8 @@ if __name__ == '__main__':
                         help='User id of a single user who\'s labels should be clustered.')
     parser.add_argument('--turker_id', type=str,
                         help='Turker id of a single turker who\'s labels should be clustered.')
-    parser.add_argument('--is_registered', type=bool, default=True,
-                        help='Whether a user is registered or anonymous.')
+    parser.add_argument('--is_registered', action='store_true',
+                        help='Denotes that the user is registered.')
     parser.add_argument('--clust_thresh', type=float, default=0.0075,
                         help='Cluster distance threshold (in meters)')
     parser.add_argument('--debug', action='store_true',
@@ -101,7 +102,7 @@ if __name__ == '__main__':
     ROUTE_ID = args.route_id
     HIT_ID = args.hit_id
     N_LABELERS = args.n_labelers
-    USER_ID = args.user_id
+    USER_ID = args.user_id.strip('\'\"')
     TURKER_ID = args.turker_id
     SINGLE_USER = False
     SESSION_IDS = args.session_ids
@@ -147,8 +148,9 @@ if __name__ == '__main__':
         SINGLE_USER = True
         MAJORITY_THRESHOLD = 1
     elif USER_ID:
-        getURL = 'http://localhost:9000/userLabelsToCluster/' + str(USER_ID) + '?isRegistered=' + str(IS_REGISTERED)
-        postURL = 'http://localhost:9000/singleUserClusteringResults' \
+        getURL = 'http://localhost:9000/userLabelsToCluster/' + str(USER_ID) + \
+                 '?isRegistered=' + str.lower(str(IS_REGISTERED))
+        postURL = 'http://localhost:9000/singleUserClusteringResults' + \
                   '?volunteerOrTurkerId=' + str(USER_ID) + \
                   '&threshold=' + str(CLUSTER_THRESHOLD)
         SINGLE_USER = True
@@ -206,7 +208,7 @@ if __name__ == '__main__':
         sys.exit()
 
     # Pick which label types should be included in clustering
-    included_types = ['CurbRamp', 'SurfaceProblem', 'Obstacle', 'NoCurbRamp', 'NoSidewalk', 'Occlusion', 'Other', 'Problem']
+    included_types = ['CurbRamp', 'NoSidewalk', 'Problem', 'Occlusion', 'SurfaceProblem', 'Obstacle', 'Other', 'NoCurbRamp']
     problem_types = ['SurfaceProblem', 'Obstacle', 'NoCurbRamp']
     label_data = label_data[label_data.label_type.isin(included_types)]
 
@@ -228,36 +230,60 @@ if __name__ == '__main__':
         for label_type in included_types:
             print 'Number of ' + label_type + ' labels: ' + str(sum(label_data.label_type == label_type))
 
+    # Check if there are 0 labels left after removing ones with errors. If so, just send the post request and exit.
+    if len(label_data) == 0:
+        if SINGLE_USER or (not OLD and SESSION_IDS):
+            response = requests.post(postURL, data=json.dumps({'thresholds': [], 'labels': [], 'clusters': []}), headers=POST_HEADER)
+        else:
+            response = requests.post(postURL, data=json.dumps({'thresholds': [], 'labels': []}), headers=POST_HEADER)
+        sys.exit()
+
     # Put lat-lng in a tuple so it plays nice w/ haversine function
     label_data['coords'] = label_data.apply(lambda x: (x.lat, x.lng), axis = 1)
     label_data['id'] =  label_data.index.values
 
-    # Cluster labels for each label_type, and add the results to output_data
+    def cluster_label_type_at_index(i):
+        clusterz = pd.DataFrame(columns=cluster_cols)
+        labelz = pd.DataFrame(columns=label_cols)
+        label_type = included_types[i]
+        if label_type == 'Problem':
+            type_data = label_data[label_data.label_type.isin(problem_types)]
+        else:
+            type_data = label_data[label_data.label_type == label_type]
+
+        if type_data.shape[0] > 1:
+            (clusterz, labelz, ltype, a_cnt, d_cnt) = cluster(type_data, label_type, thresholds, SINGLE_USER)
+        elif type_data.shape[0] == 1:
+            labelz = type_data.copy()
+            labelz.loc[:,'cluster'] = 1
+            clusterz = labelz.filter(items=cluster_cols)
+
+        return (label_type, clusterz, labelz)
+
+    def multiprocessing(func, args, workers):
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            res = executor.map(func, args)
+        return list(res)
+
     label_cols = ['label_id', 'label_type', 'cluster']
     cluster_cols = ['label_type', 'cluster', 'lat', 'lng', 'severity', 'temporary']
     label_output = pd.DataFrame(columns=label_cols)
     cluster_output = pd.DataFrame(columns=cluster_cols)
     clustOffset = 0
-    for label_type in included_types:
+
+    all_res = multiprocessing(cluster_label_type_at_index, range(0, len(included_types)), 3)
+
+    for i in range(0, len(included_types)):
+        (label_type, clusterz, labelz) = all_res[i]
         if not label_output.empty:
             clustOffset = np.max(label_output.cluster)
 
-        if label_type == 'Problem':
-            type_data = label_data[label_data.label_type.isin(problem_types)]
-        else:
-            type_data = label_data[label_data.label_type == label_type]
-        type_data.is_copy = False # gets rid of SettingWithCopyWarning (I know what I'm doing)
+        cluster_output = cluster_output.append(clusterz)
+        cluster_output.loc[cluster_output['label_type'] == label_type, 'cluster'] += clustOffset
 
-        if type_data.shape[0] > 1:
-            cluster_output = cluster_output.append(cluster(type_data, label_type, thresholds, SINGLE_USER)[0])
-            cluster_output.loc[cluster_output['label_type'] == label_type, 'cluster'] += clustOffset
+        labelz.cluster += clustOffset
+        label_output = label_output.append(labelz.filter(items=label_cols))
 
-            type_data.cluster += clustOffset
-            label_output = label_output.append(type_data.filter(items=label_cols))
-        elif type_data.shape[0] == 1:
-            type_data.loc[:,'cluster'] = 1 + clustOffset
-            label_output = label_output.append(type_data.filter(items=label_cols))
-            cluster_output = cluster_output.append(type_data.filter(items=cluster_cols))
 
     for label_type in included_types:
         print str(label_type) + ": " + str(cluster_output[cluster_output.label_type == label_type].cluster.nunique())
@@ -278,6 +304,7 @@ if __name__ == '__main__':
         output_json = json.dumps({'thresholds': json.loads(threshold_json),
                                   'labels': json.loads(label_json)})
     # print output_json
+    print 'chars in json: ' + str(len(output_json))
     response = requests.post(postURL, data=output_json, headers=POST_HEADER)
     # print response
 

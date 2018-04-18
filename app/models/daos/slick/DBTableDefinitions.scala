@@ -1,5 +1,7 @@
 package models.daos.slick
 
+import models.audit.{AuditTaskEnvironmentTable, AuditTaskTable}
+import models.label.LabelTable
 import models.utils.MyPostgresDriver.simple._
 
 object DBTableDefinitions {
@@ -65,6 +67,35 @@ object DBTableDefinitions {
 
     def getAllUserIds: List[String] = db.withTransaction { implicit session =>
       slickUsers.map(_.userId).list
+    }
+
+    def getHighLabelingFrequencyRegisteredUserIds: List[String] = db.withTransaction { implicit session =>
+
+      slickUsers
+        .filterNot(_.username === "anonymous")  // Take only registered users
+        .innerJoin(AuditTaskTable.auditTasks).on(_.userId === _.userId)
+        .innerJoin(LabelTable.labels).on(_._2.auditTaskId === _.auditTaskId)
+        .filterNot(_._2.deleted)
+        .groupBy(_._1._2.userId)
+        .map { case (userId, group) => (userId, group.length) }
+        .filter(_._2 < 50)
+        .map(_._1)
+        .list.take(10)
+    }
+
+    def getHighLabelingFrequencyAnonUserIps: List[String] = db.withTransaction { implicit session =>
+
+      slickUsers
+        .filter(_.username === "anonymous")  // Take only anonymous users
+        .innerJoin(AuditTaskTable.auditTasks).on(_.userId === _.userId)
+        .innerJoin(AuditTaskEnvironmentTable.auditTaskEnvironments).on(_._2.auditTaskId === _.auditTaskId)
+        .innerJoin(LabelTable.labels).on(_._2.auditTaskId === _.auditTaskId)
+        .filterNot(_._2.deleted)
+        .groupBy(_._1._2.ipAddress)
+        .map { case (ip, group) => (ip, group.length) }
+        .filter(_._2 < 50)
+        .map(_._1)
+        .list.flatten.take(10)
     }
 
     def count: Int = db.withTransaction { implicit session =>

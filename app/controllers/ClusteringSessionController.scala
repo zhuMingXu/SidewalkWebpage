@@ -66,15 +66,18 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
 
   def runSingleUserClusteringForAllUsers = UserAwareAction.async {implicit request =>
     val userIds: List[String] = UserTable.getAllUserIds
+    val goodUserIds: List[String] =
+      UserTable.getHighLabelingFrequencyRegisteredUserIds ++ UserTable.getHighLabelingFrequencyAnonUserIps
     val testUserIds: List[String] = List(
-      "",
-      "",
-      "",
-      "",
-      ""
+      "9efaca05-53bb-492e-83ab-2b47219ee863",
+      "22c8024d-98a1-4d08-984c-103e3211fcc5"
     )
-    testUserIds.map {
-      userId => ("python label_clustering.py --user_id " + userId + " --is_registered " + true).!!
+    println(goodUserIds)
+    goodUserIds.map {
+      userId =>
+//        println("python label_clustering.py --user_id \"" + userId + "\" --is_registered")
+        val x = ("python label_clustering.py --user_id \"" + userId + "\" --is_registered").!!
+//        println(x)
     }
     val testJson = Json.obj("what did we run?" -> "clustering!", "output" -> "something")
     Future.successful(Ok(testJson))
@@ -221,9 +224,11 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     * @param routeId
     * @return
     */
-  def postSingleUserClusteringResults(volunteerOrTurkerId: String, threshold: Double, routeId: Option[Int]) = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>
+  def postSingleUserClusteringResults(volunteerOrTurkerId: String, threshold: Double, routeId: Option[Int]) = UserAwareAction.async(BodyParsers.parse.json(maxLength = 1024 * 1024 * 50)) {implicit request =>
+    // 50MB max size
     // Validation https://www.playframework.com/documentation /2.3.x/ScalaJson
 
+    println("thumps up")
     val registeredUserIdRegex: Regex = raw".+-.+-.+-.+".r
     val anonUserIdRegex: Regex = raw".+\..+\..+\..+".r
     val userType: String = volunteerOrTurkerId match {
@@ -313,7 +318,8 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     * Takes in results of multi-turker clustering for validation, and adds the data to the relevant tables
     * @return
     */
-  def postMultiTurkerClusteringResults(threshold: Double, routeId: Option[Int]) = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>
+  def postMultiTurkerClusteringResults(threshold: Double, routeId: Option[Int]) = UserAwareAction.async(BodyParsers.parse.json(maxLength = 1024 * 1024 * 50)) { implicit request =>
+    // 50MB max size
     // Validation https://www.playframework.com/documentation /2.3.x/ScalaJson
 
     val submission = request.body.validate[ClusteringFormats.ClusteringSubmission]
@@ -380,7 +386,8 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
   /**
     * Takes in results of clustering, and adds the data to the relevant tables
     */
-  def postClusteringResults(routeId: String, threshold: String, fromClusters: Option[Boolean]) = UserAwareAction.async(BodyParsers.parse.json) { implicit request =>
+  def postClusteringResults(routeId: String, threshold: String, fromClusters: Option[Boolean]) = UserAwareAction.async(BodyParsers.parse.json(maxLength = 1024 * 1024 * 50)) { implicit request =>
+    // 50MB max size
     // Validation https://www.playframework.com/documentation /2.3.x/ScalaJson
     val submission = request.body.validate[ClusteringFormats.ClusteringSubmissionAlt]
     submission.fold(
