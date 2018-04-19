@@ -100,6 +100,8 @@ object AuditTaskTable {
   val streetEdges = TableQuery[StreetEdgeTable]
   val users = TableQuery[UserTable]
 
+  val completedTasks = auditTasks.filter(_.completed)
+
   case class AuditCountPerDay(date: String, count: Int)
   case class AuditTaskWithALabel(userId: String, username: String, auditTaskId: Int, streetEdgeId: Int, taskStart: Timestamp, taskEnd: Option[Timestamp], labelId: Option[Int], temporaryLabelId: Option[Int], labelType: Option[String])
 

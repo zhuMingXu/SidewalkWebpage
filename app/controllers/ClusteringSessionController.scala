@@ -11,6 +11,7 @@ import models.amt.{AMTAssignmentTable, AMTConditionTable, TurkerLabel}
 import models.clustering_session._
 import models.daos.slick.DBTableDefinitions.UserTable
 import models.label.LabelTypeTable
+import models.region.RegionTable
 import models.user.User
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json.{JsError, JsObject, Json}
@@ -66,10 +67,13 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
 
   def runSingleAndMultiUserClusteringForIssuesOnProduction = UserAwareAction.async {implicit request =>
 
+    // ----------------------------------
+    // ----- SINGLE USER CLUSTERING -----
+    // ----------------------------------
+
     // First truncate the user_clustering_session table
     UserClusteringSessionTable.truncateTable()
 
-    val userIds: List[String] = UserTable.getAllUserIds
     val goodRegisteredUsers: List[String] = UserTable.getHighLabelingFrequencyRegisteredUserIds
     val goodAnonymousUsers: List[String] = UserTable.getHighLabelingFrequencyAnonUserIps
     val nUsers = goodRegisteredUsers.length + goodAnonymousUsers.length
@@ -84,10 +88,12 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     }
     println("\nFinshed 100% of users!!\n\n")
 
-    // NOW THE MULTI USER CLUSTERING PART
+    // ---------------------------------
+    // ----- MULTI USER CLUSTERING -----
+    // ---------------------------------
     IssueClusteringSessionTable.truncateTable()
-//    val regionIds: List[Int] = RegionTable.selectAllNeighborhoods.map(_.regionId).sortBy(x => x)
-    val regionIds = List(199, 200, 203, 211, 261)
+    val regionIds: List[Int] = RegionTable.selectAllNeighborhoods.map(_.regionId).sortBy(x => x)
+//    val regionIds = List(199, 200,s 203, 211, 261)
     val nRegions: Int = regionIds.length
 
     for ((regionId, i) <- regionIds.view.zipWithIndex) {
