@@ -80,11 +80,11 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
 
     for ((userId, i) <- goodAnonymousUsers.view.zipWithIndex) {
       println(s"\nUser $userId, finished ${f"${100.0 * i / nUsers}%1.2f"}% of users.")
-      val clusteringOutput = ("python label_clustering.py --user_id \"" + userId + "\"").!!
+      val clusteringOutput = Seq("python", "label_clustering.py", "--user_id", userId).!!
     }
     for ((userId, i) <- goodRegisteredUsers.view.zipWithIndex) {
       println(s"\nUser $userId, finished ${f"${100.0 * (i + goodAnonymousUsers.length) / nUsers}%1.2f"}% of users.")
-      val clusteringOutput = ("python label_clustering.py --user_id \"" + userId + "\" --is_registered").!!
+      val clusteringOutput = Seq("python", "label_clustering.py", "--user_id", userId, "--is_registered").!!
     }
     println("\nFinshed 100% of users!!\n\n")
 
