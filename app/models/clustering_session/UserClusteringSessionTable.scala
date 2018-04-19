@@ -54,6 +54,39 @@ object UserClusteringSessionTable {
   def getAllSessions: List[UserClusteringSession] = db.withTransaction { implicit session =>
     userClusteringSessions.list
   }
+  
+  /**
+    * Gets all clusters from single-user clustering that are in this region, outputs in format needed for clustering.
+    *
+    * @param regionId
+    * @return
+    */
+  def getClusteredLabelsInRegion(regionId: Int): List[LabelToCluster] = db.withTransaction { implicit session =>
+    import models.clustering_session.ClusteringSessionTable.labelToClusterConverter
+    val clustersInRegionQuery = Q.query[Int, LabelToCluster](
+      """SELECT clustering_session_cluster.clustering_session_cluster_id,
+        |        label_type.label_type,
+        |        clustering_session_cluster.lat, clustering_session_cluster.lng,
+        |        clustering_session_cluster.severity,
+        |        clustering_session_cluster.temporary,
+        |        clustering_session.user_id
+        |FROM user_clustering_session
+        |INNER JOIN clustering_session
+        |    ON user_clustering_session.clustering_session_id = clustering_session.clustering_session_id
+        |INNER JOIN clustering_session_cluster
+        |    ON clustering_session.clustering_session_id = clustering_session_cluster.clustering_session_id
+        |INNER JOIN label_type ON clustering_session_cluster.label_type_id = label_type.label_type_id
+        |INNER JOIN region
+        |    ON st_intersects
+        |    (
+        |        st_setsrid(st_makepoint(clustering_session_cluster.lng, clustering_session_cluster.lat), 4326),
+        |        region.geom
+        |    )
+        |WHERE region.region_id = ?;
+      """.stripMargin
+    )
+    clustersInRegionQuery(regionId).list
+  }
 
   def truncateTable() = db.withTransaction { implicit session =>
     Q.updateNA("TRUNCATE TABLE user_clustering_session").execute

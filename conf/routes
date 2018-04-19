@@ -140,19 +140,20 @@ GET   /labelsForGTFixSeverity/:conditionId                              @control
 GET   /clusteringsessions                                               @controllers.ClusteringSessionController.getClusteringSessionsWithoutDeleted
 GET   /clusterRoute/:routeId/:hitId                                     @controllers.ClusteringSessionController.runClustering(routeId: Int, hitId: String)
 GET   /clusterUser/:userId                                              @controllers.ClusteringSessionController.runUserClustering(userId: String)
-GET   /clusterEachUser                                                  @controllers.ClusteringSessionController.runSingleUserClusteringForAllUsers
+GET   /clusterAllIssuesForProduction                                    @controllers.ClusteringSessionController.runSingleAndMultiUserClusteringForIssuesOnProduction
 # GETS used by the label_clustering.py file
 GET   /labelsToCluster/:routeId/:hitId                                  @controllers.ClusteringSessionController.getLabelsToCluster(routeId, hitId)
 GET   /userLabelsToCluster/:userId                                      @controllers.ClusteringSessionController.getUserLabelsToCluster(userId, isRegistered: Boolean)
 GET   /volunteerLabelsToCluster/:routeId                                @controllers.ClusteringSessionController.getVolunteerLabelsToClusterForRoute(routeId: Int)
 GET   /nonGTLabelsToCluster/:routeId/:n                                 @controllers.ClusteringSessionController.getTurkerLabelsToCluster(routeId, n)
 GET   /singleTurkerLabels/:turkerId/:routeId                            @controllers.ClusteringSessionController.getSingleTurkerLabelsToCluster(turkerId, routeId: Int)
+GET   /clusteredLabelsInRegion                                          @controllers.ClusteringSessionController.getClusteredLabelsInRegion(regionId: Int)
 GET   /clusteredTurkerLabels/:sessionIds                                @controllers.AccuracyCalculationController.getClusteredTurkerLabelsToCluster(sessionIds, routeId: Option[Int] ?= None)
 GET   /clusteredVolunteerLabels/:sessionIds                             @controllers.AccuracyCalculationController.getClusteredVolunteerLabelsToCluster(sessionIds)
 # POSTS used by the label_clustering.py file
 POST  /clusteringResults/:routeId/:threshold                            @controllers.ClusteringSessionController.postClusteringResults(routeId, threshold, fromClusters: Option[Boolean] ?= None)
 POST  /singleUserClusteringResults                                      @controllers.ClusteringSessionController.postSingleUserClusteringResults(volunteerOrTurkerId: String, threshold: Double, routeId: Option[Int] ?= None)
-POST  /multiTurkerClusteringResults                                     @controllers.ClusteringSessionController.postMultiTurkerClusteringResults(threshold: Double, routeId: Option[Int] ?= None)
+POST  /multiUserClusteringResults                                       @controllers.ClusteringSessionController.postMultiUserClusteringResults(threshold: Double, routeId: Option[Int] ?= None, forProduction: Boolean)
 
 # IRR Related
 GET   /getIRRData/:hitId/:routeId                                       @controllers.IRRController.getDataForIRR(hitId: String, routeId: Int)

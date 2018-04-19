@@ -80,6 +80,8 @@ if __name__ == '__main__':
                         help='Number of turkers to cluster.')
     parser.add_argument('--user_id', type=str,
                         help='User id of a single user who\'s labels should be clustered.')
+    parser.add_argument('--region_id', type=int,
+                        help='Region id of a region who\'s user-clustered should be clustered.')
     parser.add_argument('--turker_id', type=str,
                         help='Turker id of a single turker who\'s labels should be clustered.')
     parser.add_argument('--is_registered', action='store_true',
@@ -102,7 +104,8 @@ if __name__ == '__main__':
     ROUTE_ID = args.route_id
     HIT_ID = args.hit_id
     N_LABELERS = args.n_labelers
-    USER_ID = args.user_id.strip('\'\"')
+    USER_ID = args.user_id.strip('\'\"') if args.user_id else args.user_id
+    REGION_ID = args.region_id
     TURKER_ID = args.turker_id
     SINGLE_USER = False
     SESSION_IDS = args.session_ids
@@ -124,8 +127,9 @@ if __name__ == '__main__':
         SINGLE_USER = False
     elif SESSION_IDS:
         getURL = 'http://localhost:9000/clusteredTurkerLabels/' + re.sub('[\[\] ]', '', str(SESSION_IDS))
-        postURL = 'http://localhost:9000/multiTurkerClusteringResults' \
-                  '?threshold=' + str(CLUSTER_THRESHOLD)
+        postURL = 'http://localhost:9000/multiUserClusteringResults' \
+                  '?threshold=' + str(CLUSTER_THRESHOLD) + \
+                  '&forProduction=false'
         if ROUTE_ID:
             getURL += ('?routeId=' + str(ROUTE_ID))
             postURL += ('&routeId=' + str(ROUTE_ID))
@@ -160,6 +164,12 @@ if __name__ == '__main__':
         SINGLE_USER = False
         getURL = 'http://localhost:9000/labelsToCluster/' + str(ROUTE_ID) + '/' + str(HIT_ID)
         postURL = 'http://localhost:9000/clusteringResults/' + str(ROUTE_ID) + '/' + str(CLUSTER_THRESHOLD)
+    elif REGION_ID:
+        SINGLE_USER = False
+        getURL = 'http://localhost:9000/clusteredLabelsInRegion?regionId=' + str(REGION_ID)
+        postURL = 'http://localhost:9000/multiUserClusteringResults' \
+                  '?threshold=' + str(CLUSTER_THRESHOLD) + \
+                  '&forProduction=true'
     else: # this is being used for clustering actual (non-researcher) turkers
         MAJORITY_THRESHOLD = math.ceil(N_LABELERS / 2.0)
         SINGLE_USER = False
@@ -201,7 +211,7 @@ if __name__ == '__main__':
 
     # Check if there are 0 labels. If so, just send the post request and exit.
     if len(label_data) == 0:
-        if SINGLE_USER or (not OLD and SESSION_IDS):
+        if SINGLE_USER or REGION_ID or (not OLD and SESSION_IDS):
             response = requests.post(postURL, data=json.dumps({'thresholds': [], 'labels': [], 'clusters': []}), headers=POST_HEADER)
         else:
             response = requests.post(postURL, data=json.dumps({'thresholds': [], 'labels': []}), headers=POST_HEADER)
@@ -232,7 +242,7 @@ if __name__ == '__main__':
 
     # Check if there are 0 labels left after removing ones with errors. If so, just send the post request and exit.
     if len(label_data) == 0:
-        if SINGLE_USER or (not OLD and SESSION_IDS):
+        if SINGLE_USER or REGION_ID or (not OLD and SESSION_IDS):
             response = requests.post(postURL, data=json.dumps({'thresholds': [], 'labels': [], 'clusters': []}), headers=POST_HEADER)
         else:
             response = requests.post(postURL, data=json.dumps({'thresholds': [], 'labels': []}), headers=POST_HEADER)
@@ -296,7 +306,7 @@ if __name__ == '__main__':
                                    'threshold': thresholds.values()}).to_json(orient='records', lines=False)
 
     # Clustering for a single user has a different POST function than for clustering multiple users.
-    if SINGLE_USER or (not OLD and SESSION_IDS):
+    if SINGLE_USER or REGION_ID or (not OLD and SESSION_IDS):
         output_json = json.dumps({'thresholds': json.loads(threshold_json),
                                   'labels': json.loads(label_json),
                                   'clusters': json.loads(cluster_json)})

@@ -31,7 +31,23 @@ case class ClusteringSession(clusteringSessionId: Int,
 
 // TODO combine these into one type
 case class LabelToCluster(labelId: Int, labelType: String, lat: Option[Float], lng: Option[Float],
-                          severity: Option[Int], temp: Boolean, turkerId: String)
+                          severity: Option[Int], temp: Boolean, turkerId: String) {
+  /**
+    * This method converts the data into the JSON format
+    * @return
+    */
+  def toJSON: JsObject = {
+    Json.obj(
+      "label_id" -> labelId,
+      "label_type" -> labelType,
+      "lat" -> lat,
+      "lng" -> lng,
+      "severity" -> severity,
+      "temporary" -> temp,
+      "turker_id" -> turkerId
+    )
+  }
+}
 case class UserLabelToCluster(labelId: Int, labelType: String, lat: Option[Float], lng: Option[Float],
                           severity: Option[Int], temp: Boolean)
 
@@ -142,6 +158,10 @@ object ClusteringSessionTable{
 
   implicit val labelConverter = GetResult[LabelCaseClass](r => {
     LabelCaseClass(r.nextString, r.nextInt, r.nextString, r.nextInt, r.nextString, r.nextInt, r.nextBooleanOption, r.nextFloat, r.nextFloat, r.nextInt)
+  })
+
+  implicit val labelToClusterConverter = GetResult[LabelToCluster](r => {
+    LabelToCluster(r.nextInt, r.nextString, r.nextFloatOption, r.nextFloatOption, r.nextIntOption, r.nextBoolean, r.nextString)
   })
 
   def getClusteringSession(clusteringSessionId: Int): Option[ClusteringSession] = db.withSession { implicit session =>

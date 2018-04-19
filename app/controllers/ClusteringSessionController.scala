@@ -9,7 +9,7 @@ import controllers.headers.ProvidesHeader
 import formats.json.ClusteringFormats
 import models.amt.{AMTAssignmentTable, AMTConditionTable, TurkerLabel}
 import models.clustering_session._
-import models.daos.slick.DBTableDefinitions.{DBUser, UserTable}
+import models.daos.slick.DBTableDefinitions.UserTable
 import models.label.LabelTypeTable
 import models.user.User
 import org.joda.time.{DateTime, DateTimeZone}
@@ -64,7 +64,7 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     //    }
   }
 
-  def runSingleUserClusteringForAllUsers = UserAwareAction.async {implicit request =>
+  def runSingleAndMultiUserClusteringForIssuesOnProduction = UserAwareAction.async {implicit request =>
 
     // First truncate the user_clustering_session table
     UserClusteringSessionTable.truncateTable()
@@ -72,21 +72,30 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     val userIds: List[String] = UserTable.getAllUserIds
     val goodRegisteredUsers: List[String] = UserTable.getHighLabelingFrequencyRegisteredUserIds
     val goodAnonymousUsers: List[String] = UserTable.getHighLabelingFrequencyAnonUserIps
-    val testUserIds: List[String] = List(
-      "9efaca05-53bb-492e-83ab-2b47219ee863",
-      "22c8024d-98a1-4d08-984c-103e3211fcc5"
-    )
-    println(goodRegisteredUsers)
-    goodAnonymousUsers.map {
-      userId =>
-        val x = ("python label_clustering.py --user_id \"" + userId + "\"").!!
-//        println(x)
+    val nUsers = goodRegisteredUsers.length + goodAnonymousUsers.length
+
+    for ((userId, i) <- goodAnonymousUsers.view.zipWithIndex) {
+      println(s"\nUser $userId, finished ${f"${100.0 * i / nUsers}%1.2f"}% of users.")
+      val clusteringOutput = ("python label_clustering.py --user_id \"" + userId + "\"").!!
     }
-    goodRegisteredUsers.map {
-      userId =>
-        val x = ("python label_clustering.py --user_id \"" + userId + "\" --is_registered").!!
-//        println(x)
+    for ((userId, i) <- goodRegisteredUsers.view.zipWithIndex) {
+      println(s"\nUser $userId, finished ${f"${100.0 * (i + goodAnonymousUsers.length) / nUsers}%1.2f"}% of users.")
+      val clusteringOutput = ("python label_clustering.py --user_id \"" + userId + "\" --is_registered").!!
     }
+    println("\nFinshed 100% of users!!\n\n")
+
+    // NOW THE MULTI USER CLUSTERING PART
+    IssueClusteringSessionTable.truncateTable()
+//    val regionIds: List[Int] = RegionTable.selectAllNeighborhoods.map(_.regionId).sortBy(x => x)
+    val regionIds = List(199, 200, 203, 211, 261)
+    val nRegions: Int = regionIds.length
+
+    for ((regionId, i) <- regionIds.view.zipWithIndex) {
+      println(s"\nRegion $regionId, finished ${f"${100.0 * i / nRegions}%1.2f"}% of regions.")
+      val clusteringOutput = ("python label_clustering.py --region_id " + regionId).!!
+    }
+    println("\nFinshed 100% of regions!!\n\n")
+
     val testJson = Json.obj("what did we run?" -> "clustering!", "output" -> "something")
     Future.successful(Ok(testJson))
   }
@@ -224,6 +233,12 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     Future.successful(Ok(json))
   }
 
+  def getClusteredLabelsInRegion(regionId: Int) = UserAwareAction.async { implicit request =>
+    val labelsToCluster: List[LabelToCluster] = UserClusteringSessionTable.getClusteredLabelsInRegion(regionId)
+    val json = Json.arr(labelsToCluster.map(_.toJSON))
+    Future.successful(Ok(json))
+  }
+
   /**
     * Takes in results of single-user clustering, and adds the data to the relevant tables
     *
@@ -235,8 +250,6 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
   def postSingleUserClusteringResults(volunteerOrTurkerId: String, threshold: Double, routeId: Option[Int]) = UserAwareAction.async(BodyParsers.parse.json(maxLength = 1024 * 1024 * 50)) {implicit request =>
     // 50MB max size
     // Validation https://www.playframework.com/documentation /2.3.x/ScalaJson
-
-    println("thumps up")
     val registeredUserIdRegex: Regex = raw".+-.+-.+-.+".r
     val anonUserIdRegex: Regex = raw".+\..+\..+\..+".r
     val userType: String = volunteerOrTurkerId match {
@@ -326,7 +339,7 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
     * Takes in results of multi-turker clustering for validation, and adds the data to the relevant tables
     * @return
     */
-  def postMultiTurkerClusteringResults(threshold: Double, routeId: Option[Int]) = UserAwareAction.async(BodyParsers.parse.json(maxLength = 1024 * 1024 * 50)) { implicit request =>
+  def postMultiUserClusteringResults(threshold: Double, routeId: Option[Int], forProduction: Boolean) = UserAwareAction.async(BodyParsers.parse.json(maxLength = 1024 * 1024 * 50)) { implicit request =>
     // 50MB max size
     // Validation https://www.playframework.com/documentation /2.3.x/ScalaJson
 
@@ -350,6 +363,11 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
         val sessionId: Int = ClusteringSessionTable.save(
           ClusteringSession(0, routeId, threshold, timestamp, deleted = false, userId = None, turkerId = None)
         )
+        // Add corresponding entry to the issue_clustering_session table if for production
+        if (forProduction) {
+          IssueClusteringSessionTable.save(IssueClusteringSession(0, sessionId))
+          println(s"User issues: ${labels.length}, Final issues: ${clusters.length}")
+        }
         // Add the thresholds to the clustering_session_label_type_threshold table
         for (threshold <- thresholds) yield {
           val threshId: Int =
