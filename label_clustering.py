@@ -204,7 +204,7 @@ if __name__ == '__main__':
 
     # Pick which label types should be included in clustering
     included_types = ['CurbRamp', 'SurfaceProblem', 'Obstacle', 'NoCurbRamp', 'NoSidewalk', 'Occlusion', 'Other', 'Problem']
-    problem_types = ['SurfaceProblem', 'Obstacle', 'NoCurbRamp']
+    problem_types = ['SurfaceProblem', 'Obstacle', 'NoCurbRamp'] if SINGLE_USER else ['Problem']
     label_data = label_data[label_data.label_type.isin(included_types)]
 
     # Remove NAs
