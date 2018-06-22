@@ -528,8 +528,7 @@ function Accuracy(data, clusterNum, turf) {
     console.log("Data received: ", data);
     let output = setupAccuracy(data, clusterNum);
     let accuracies = calculateAccuracy(output);
-    exportCSVFile([accuracies], "accuracies-volunteer", "accuracy")
-    exportCSVFile([output], "labels-volunteer", "labels")
+    exportCSVFile([accuracies], "accuracies-volunteer", "accuracy");
 }
 
 
@@ -821,4 +820,24 @@ testDifferentThresholdsButton2.onclick = function() {
 	}
 
 	runClusteringForThreshold(0.0, 0.001, 0, 0.05);
+};
+
+let volunteerLabelsButton = document.getElementById('volunteerLabels');
+volunteerLabelsButton.onclick = function() {
+    // Get data
+    $.getJSON("/accuracyDataWithSinglePersonClust/volunteer/1", function (volunteerData) {
+        // $.getJSON("/accuracyData/volunteer/1", function (volunteerData) {
+        let output = setupAccuracy(volunteerData, 1);
+        exportCSVFile([output], "labels-volunteer", "labels");
+    });
+};
+
+let turkerLabelsButton = document.getElementById('turkerLabels');
+turkerLabelsButton.onclick = function() {
+    // Get data
+    $.getJSON("/accuracyDataWithSinglePersonClust/turker/1", function (turkerData) {
+        // $.getJSON("/accuracyData/volunteer/1", function (volunteerData) {
+        let output = setupAccuracy(turkerData, 1);
+        exportCSVFile([output], "labels-turker", "labels");
+    });
 };
