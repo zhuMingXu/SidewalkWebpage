@@ -8,20 +8,20 @@ function splitIntoChunks(streets, segDist) {
     let lineIndex = 0;
     while (lineIndex < streets.length) {
         contiguousStart = lineIndex;
-        // search for end of contiguous segment
+        // Search for end of contiguous segment
         while (lineIndex + 1 < streets.length && turf.lineIntersect(streets[lineIndex], streets[lineIndex+1]).features.length > 0) {
             lineIndex++;
         }
         lineIndex++;
 
-        // combine the streets, split the contiguous line up into equally sized segs, approx equal to segDist
+        // Combine the streets, split the contiguous line up into equally sized segs, approx equal to segDist
         let contiguousStreets = turf.combine({"features": streets.slice(contiguousStart, lineIndex), "type": "FeatureCollection"});
         let nSegs = Math.round(turf.lineDistance(contiguousStreets) / segDist);
         let exactSegDist = turf.lineDistance(contiguousStreets) / nSegs;
         chunks = chunks.concat(turf.lineChunk(contiguousStreets, exactSegDist).features);
     }
 
-    // remove any stray chunks of 0 length (thanks floating point errors)
+    // Remove any stray chunks of 0 length (thanks floating point errors)
     chunks = chunks.filter(chunk => Array.isArray(chunk.geometry.coordinates[0]));
     return chunks;
 }
@@ -31,7 +31,7 @@ function getLabelCountsBySegment(chunks, gtLabs, workerLabs, workerThresh, optio
     // unpack optional arguments
     options = options || {};
     let binary = options.binary || false;
-    let includedSeverity = options.included_severity || "";
+    let includedSeverity = options.included_severity || "all";
 
     let isInSeverityRange = {
         "all": function(severity) { return true },
@@ -49,7 +49,7 @@ function getLabelCountsBySegment(chunks, gtLabs, workerLabs, workerThresh, optio
         if (segOutput.hasOwnProperty(labelType)) {
             segOutput[labelType] = [];
             for (let i = 0; i < chunks.length; i++) {
-                segOutput[labelType][i] = {"gt": 0, "worker": 0};
+                segOutput[labelType][i] = {"chunk_index": i, "gt": {"label_count" :0, "labels": []}, "worker": {"label_count": 0, "labels": []}};
             }
         }
     }
@@ -75,6 +75,7 @@ function getLabelCountsBySegment(chunks, gtLabs, workerLabs, workerThresh, optio
                     let centerPoint = turf.centerOfMass({"features": currLabels, "type": "FeatureCollection"});
                     // let repLabel = turf.nearest(centerPoint, {"features": currLabels, "type": "FeatureCollection"});
                     let currType = currLabels[0].properties.label_type;
+                    let currId = labelSource === "gt" ? currLabels[0].properties.gt_label_id : currLabels[0].properties.label_id;
 
                     // get closest segment to this label
                     // http://turfjs.org/docs/#pointonline
@@ -92,14 +93,18 @@ function getLabelCountsBySegment(chunks, gtLabs, workerLabs, workerThresh, optio
                     // Increment this segment's count of labels (for this label type). Since we don't run clustering on
                     // GT labels, we have to manually mark the Problem label type for GT ourselves.
                     if (binary) {
-                        segOutput[currType][chunkIndex][labelSource] = 1;
+                        segOutput[currType][chunkIndex][labelSource]["label_count"] = 1;
+                        segOutput[currType][chunkIndex][labelSource]["labels"].push(currId);
                         if (labelSource === "gt" && problemLabelTypes.indexOf(currType) >= 0) {
-                            segOutput["Problem"][chunkIndex][labelSource] = 1;
+                            segOutput["Problem"][chunkIndex][labelSource]["label_count"] = 1;
+                            segOutput["Problem"][chunkIndex][labelSource]["labels"].push(currId);
                         }
                     } else {
-                        segOutput[currType][chunkIndex][labelSource] += 1;
+                        segOutput[currType][chunkIndex][labelSource]["label_count"] += 1;
+                        segOutput[currType][chunkIndex][labelSource]["labels"].push(currId);
                         if (labelSource === "gt" && problemLabelTypes.indexOf(currType) >= 0) {
-                            segOutput["Problem"][chunkIndex][labelSource] += 1;
+                            segOutput["Problem"][chunkIndex][labelSource]["label_count"] += 1;
+                            segOutput["Problem"][chunkIndex][labelSource]["labels"].push(currId);
                         }
                     }
                 }
@@ -288,6 +293,7 @@ function setupAccuracy(data, clusterNum, options) {
 }
 
 function calculateAccuracy(counts) {
+    console.log("Counts:");
     console.log(counts);
 
     let granularities = ["5_meter", "10_meter", "street"];
@@ -337,10 +343,12 @@ function calculateAccuracy(counts) {
                     let falseNeg = 0;
                     // These counts work in both binary and ordinal case.
                     for (let segIndex = 0; segIndex < setOfCounts.length; segIndex++) {
-                        truePos += Math.min(setOfCounts[segIndex].gt, setOfCounts[segIndex].worker);
-                        falsePos += Math.max(0, setOfCounts[segIndex].worker - setOfCounts[segIndex].gt);
-                        falseNeg += Math.max(0, setOfCounts[segIndex].gt - setOfCounts[segIndex].worker);
-                        if (Math.max(setOfCounts[segIndex].gt, setOfCounts[segIndex].worker) === 0) {
+                        let gtCount = setOfCounts[segIndex].gt.label_count;
+                        let workerCount = setOfCounts[segIndex].worker.label_count;
+                        truePos += Math.min(gtCount, workerCount);
+                        falsePos += Math.max(0, workerCount - gtCount);
+                        falseNeg += Math.max(0, gtCount - workerCount);
+                        if (Math.max(gtCount, workerCount) === 0) {
                             trueNeg += 1;
                         }
                     }
@@ -452,12 +460,49 @@ function convertToCSV(resultObjects) {
     return str;
 }
 
-function exportCSVFile(items, fileTitle) {
+function convertLabelsToCSV(resultObjects) {
+    let str = 'condition.id,segment.id,label.type,label.source,label.id\r\n';
+    let gran = "5_meter";
+
+    let outerArray = typeof resultObjects !== 'object' ? JSON.parse(resultObjects) : resultObjects;
+
+    for (let objectIndex = 0; objectIndex < outerArray.length; objectIndex++) {
+        let array = outerArray[objectIndex];
+        // console.log({level: "outer_array", data: array});
+        for (let i = 0; i < array.length; i++) {
+            // console.log({level: "condition", data: array[i]});
+            for (let labType in array[i][gran]) {
+                if (array[i][gran].hasOwnProperty(labType)) {
+                    // console.log({level: "label_type", data: array[i][gran][labType]});
+                    for (let segId = 0; segId < array[i][gran][labType].length; segId++) {
+                        // console.log({level: "chunk", data: array[i][gran][labType][segId]});
+                        let labSrcs = ["gt", "worker"];
+                        for (let labSrcId = 0; labSrcId < labSrcs.length; labSrcId++) {
+                            let labSrc = labSrcs[labSrcId];
+                            // console.log({level: "label_source", data: array[i][gran][labType][segId][labSrc]});
+                            for (let labId = 0; labId < array[i][gran][labType][segId][labSrc]["labels"].length; labId++) {
+                                let line = String(array[i].condition_id);
+                                line += "," + String(array[i][gran][labType][segId].chunk_index);
+                                line += "," + labType;
+                                line += "," + labSrc;
+                                line += "," + array[i][gran][labType][segId][labSrc]["labels"][labId];
+                                str += line + '\r\n';
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return str;
+}
+
+function exportCSVFile(items, fileTitle, accuracyOrLabels) {
 
     // Convert Object to JSON
     let jsonObject = JSON.stringify(items);
 
-    let csv = this.convertToCSV(jsonObject);
+    let csv = accuracyOrLabels === "labels" ? this.convertLabelsToCSV(jsonObject) : this.convertToCSV(jsonObject);
 
     let exportedFilename = fileTitle + '.csv';
 
@@ -483,7 +528,8 @@ function Accuracy(data, clusterNum, turf) {
     console.log("Data received: ", data);
     let output = setupAccuracy(data, clusterNum);
     let accuracies = calculateAccuracy(output);
-    exportCSVFile([accuracies], "accuracies.csv")
+    exportCSVFile([accuracies], "accuracies-volunteer", "accuracy")
+    exportCSVFile([output], "labels-volunteer", "labels")
 }
 
 
@@ -519,7 +565,7 @@ allVolunteerButton.onclick = function() {
         }
 
         // export CSV
-        exportCSVFile(accuracyOutputArray, "accuracies-volunteer");
+        exportCSVFile(accuracyOutputArray, "accuracies-volunteer", "accuracy");
 
         $("#all-accuracy-result").html("Success! Enjoy your CSV!");
     });
@@ -649,7 +695,7 @@ allTurkerButton.onclick = function() {
                 }
 
                 // export CSV
-                exportCSVFile(accuracyOutputArray, "accuracies-turker");
+                exportCSVFile(accuracyOutputArray, "accuracies-turker", "accuracy");
                 $("#all-accuracy-result").html("Success! Enjoy your CSV!");
             });
         });
@@ -689,7 +735,7 @@ allIndividualTurkerButton.onclick = function() {
         }
 
         // export CSV
-        exportCSVFile(accuracyOutputArray, "accuracies-turker-all-individuals");
+        exportCSVFile(accuracyOutputArray, "accuracies-turker-all-individuals", "accuracy");
         $("#all-accuracy-result").html("Success! Enjoy your CSV!");
     });
 };
@@ -716,7 +762,7 @@ testDifferentThresholdsButton.onclick = function() {
 			}
 
 			// export CSV
-			exportCSVFile(accuracyOutputArray, "accuracies-turker-" + currentThreshold.toFixed(3));
+			exportCSVFile(accuracyOutputArray, "accuracies-turker-" + currentThreshold.toFixed(3), "accuracy");
 
 			// recursive call to run clustering on a new threshold
 			if (currentThreshold + thresholdIncrement < maxThreshold + floatBuffer) {
@@ -761,7 +807,7 @@ testDifferentThresholdsButton2.onclick = function() {
             }
 
 			// export CSV
-			exportCSVFile(accuracyOutputArray, "accuracies-turker-5-" + currentThreshold.toFixed(5));
+			exportCSVFile(accuracyOutputArray, "accuracies-turker-5-" + currentThreshold.toFixed(5), "accuracy");
 
 			// recursive call to run clustering on a new threshold
 			if (currentThreshold + thresholdIncrement < maxThreshold + floatBuffer) {
