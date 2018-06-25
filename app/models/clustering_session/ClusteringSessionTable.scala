@@ -537,6 +537,65 @@ object ClusteringSessionTable{
                                   x._14, x._15, x._16, x._17, x._18, x._19, x._20, x._21, x._22.getOrElse(false))))
   }
 
+  /**
+    * Returns labels that were used in the specified clustering session, includes all data needed for gt_label table.
+    *
+    * @param clusterIds
+    * @return
+    */
+  def getVolunteerLabelsForClassification(clusterIds: List[Int]): List[LabelsForResolution] = db.withTransaction { implicit session =>
+    // does a bunch of inner joins to get most of the label data
+    val labels = for {
+      _clust <- ClusteringSessionClusterTable.clusteringSessionClusters
+      _sess <- ClusteringSessionTable.clusteringSessions if _clust.clusteringSessionId === _sess.clusteringSessionId
+      _clustLab <- ClusteringSessionLabelTable.clusteringSessionLabels if _clust.clusteringSessionClusterId === _clustLab.clusteringSessionClusterId
+      _lab <- LabelTable.labels if _clustLab.labelId === _lab.labelId
+      _task <- AuditTaskTable.auditTasks if _lab.auditTaskId === _task.auditTaskId
+      _labPoint <- LabelTable.labelPoints if _lab.labelId === _labPoint.labelId
+      _type <- LabelTable.labelTypes if _lab.labelTypeId === _type.labelTypeId
+      if _clust.clusteringSessionClusterId inSet clusterIds
+      if !_sess.routeId.isEmpty
+      if !_sess.userId.isEmpty
+      if !_clustLab.labelId.isEmpty
+    } yield (_lab.labelId, _clust.clusteringSessionClusterId, _sess.routeId, _sess.userId,
+      _lab.gsvPanoramaId, _type.labelType, _labPoint.svImageX, _labPoint.svImageY, _labPoint.canvasX,
+      _labPoint.canvasY, _labPoint.heading, _labPoint.pitch, _labPoint.zoom, _labPoint.canvasHeight,
+      _labPoint.canvasWidth, _labPoint.alphaX, _labPoint.alphaY, _labPoint.lat, _labPoint.lng)
+
+    println(labels.list)
+    println("labels")
+    // left joins to get descriptions for any labels that have them
+    val labelsWithDescription = for {
+      (_labs, _descriptions) <- labels.leftJoin(ProblemDescriptionTable.problemDescriptions).on(_._1 === _.labelId)
+    } yield (_labs._1, _labs._2, _labs._3, _labs._4, _labs._5, _labs._6, _labs._7, _labs._8, _labs._9, _labs._10,
+      _labs._11, _labs._12, _labs._13, _labs._14, _labs._15, _labs._16, _labs._17, _labs._18, _labs._19,
+      _descriptions.description.?)
+    println(labelsWithDescription.list)
+    println("labelsWithDescription")
+
+    // left joins to get severity for any labels that have them
+    val labelsWithSeverity = for {
+      (_labs, _severity) <- labelsWithDescription.leftJoin(LabelTable.severities).on(_._1 === _.labelId)
+    } yield (_labs._1, _labs._2, _labs._3, _labs._4, _labs._5, _labs._6, _labs._7, _labs._8, _labs._9, _labs._10,
+      _labs._11, _labs._12, _labs._13, _labs._14, _labs._15, _labs._16, _labs._17, _labs._18, _labs._19,
+      _labs._20, _severity.severity.?)
+    println(labelsWithSeverity.list)
+    println("labelsWithSeverity")
+
+    // left joins to get temporariness for any labels that have them (those that don't are marked as temporary=false)
+    val labelsWithTemporariness = for {
+      (_labs, _temporariness) <- labelsWithSeverity.leftJoin(ProblemTemporarinessTable.problemTemporarinesses).on(_._1 === _.labelId)
+    } yield (_labs._1, _labs._2, _labs._3.get, _labs._4.get, _labs._5, _labs._6, _labs._7, _labs._8, _labs._9, _labs._10,
+      _labs._11, _labs._12, _labs._13, _labs._14, _labs._15, _labs._16, _labs._17, _labs._18, _labs._19,
+      _labs._20, _labs._21, _temporariness.temporaryProblem.?)
+    println(labelsWithTemporariness.list)
+    println("labelsWithTemporariness")
+
+    labelsWithTemporariness.list.map(x =>
+      LabelsForResolution.tupled((x._1, x._2, x._3, x._4, x._5, x._6, x._7, x._8, x._9, x._10, x._11, x._12, x._13,
+        x._14, x._15, x._16, x._17, x._18, x._19, x._20, x._21, x._22.getOrElse(false))))
+  }
+
   def getLabelsForIRR(hitId: String, routeId: Int): List[LabelCaseClass] = db.withSession { implicit session =>
     val labelsQuery = Q.query[(String, Int), LabelCaseClass](
       """SELECT abc.hit_id,

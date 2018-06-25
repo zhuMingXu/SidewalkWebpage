@@ -2,6 +2,7 @@ package controllers
 
 import java.sql.Timestamp
 import javax.inject.Inject
+import scala.io.Source
 
 import com.mohiva.play.silhouette.api.{Environment, Silhouette}
 import com.mohiva.play.silhouette.impl.authenticators.SessionAuthenticator
@@ -394,6 +395,26 @@ class ClusteringSessionController @Inject()(implicit val env: Environment[User, 
 
   def getLabelsForGtResolution(clusteringSessionId: String) = UserAwareAction.async { implicit request =>
     val labels = ClusteringSessionTable.getLabelsForGtResolution(clusteringSessionId.toInt)
+    val json = Json.arr(labels.map(x => Json.obj(
+      "label_id" -> x.labelId, "cluster_id" -> x.clusterId, "route_id" -> x.routeId, "turker_id" -> x.turkerId,
+      "pano_id" -> x.gsvPanoramaId, "label_type" -> x.labelType, "sv_image_x" -> x.svImageX, "sv_image_y" -> x.svImageY,
+      "sv_canvas_x" -> x.canvasX, "sv_canvas_y" -> x.canvasY, "heading" -> x.heading, "pitch" -> x.pitch,
+      "zoom" -> x.zoom, "canvas_height" -> x.canvasHeight, "canvas_width" -> x.canvasWidth, "alpha_x" -> x.alphaX,
+      "alpha_y" -> x.alphaY, "lat" -> x.lat, "lng" -> x.lng, "description" -> x.description, "severity" -> x.severity,
+      "temporary" -> x.temporaryProblem
+    )))
+    Future.successful(Ok(json))
+  }
+
+  def getVolunteerLabelsForClassification() = UserAwareAction.async { implicit request =>
+    println("abc")
+    val bufferedSource = Source.fromFile("volunteer_fp.csv")
+    val listOfLines = bufferedSource.getLines.toList
+    val clusterIds: List[Int] = listOfLines.map(_.toInt)
+    println(clusterIds)
+    bufferedSource.close
+
+    val labels = ClusteringSessionTable.getVolunteerLabelsForClassification(clusterIds)
     val json = Json.arr(labels.map(x => Json.obj(
       "label_id" -> x.labelId, "cluster_id" -> x.clusterId, "route_id" -> x.routeId, "turker_id" -> x.turkerId,
       "pano_id" -> x.gsvPanoramaId, "label_type" -> x.labelType, "sv_image_x" -> x.svImageX, "sv_image_y" -> x.svImageY,
