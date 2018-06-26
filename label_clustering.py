@@ -49,7 +49,7 @@ def cluster(labels, curr_type, thresholds, single_user):
         # if len(clust) >= MAJORITY_THRESHOLD:
         ave = np.mean(clust['coords'].tolist(), axis=0) # use ave pos of clusters
         ave_sev = None if pd.isnull(clust['severity']).all() else int(round(np.nanmedian(clust['severity'])))
-        ave_temp = None if pd.isnull(clust['temporary']).all() else bool(1 - round(1 - np.mean(clust['temporary'])))
+        ave_temp = None if pd.isnull(clust['temporary']).all() else bool(round(np.mean(clust['temporary'])))
         included_labels.append((curr_type, clust_num, ave[0], ave[1], ave_sev, ave_temp))
         # agreement_count += 1
         # else:
