@@ -175,7 +175,7 @@ object AMTConditionTable {
       case rId if registeredUserConditions.contains(getConditionIdForRoute(rId)) =>
         for {
           _streets <- filteredStreets
-          _tasks <- AuditTaskTable.auditTasks if _tasks.streetEdgeId === _streets._5
+          _tasks <- AuditTaskTable.auditTasks if _tasks.streetEdgeId === _streets._5 && _streets._3 === _tasks.userId
           _labs <- nonOnboardingLabs if _tasks.auditTaskId === _labs.auditTaskId
           _latlngs <- LabelTable.labelPoints if _labs.labelId === _latlngs.labelId
           _types <- LabelTable.labelTypes if _labs.labelTypeId === _types.labelTypeId

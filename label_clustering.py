@@ -25,9 +25,9 @@ def custom_dist(u, v):
 def cluster(labels, curr_type, thresholds, single_user):
 
     if single_user:
-        dist_matrix = pdist(np.array(labels[['lat', 'lng']].as_matrix()), lambda x, y: haversine(x, y))
+        dist_matrix = pdist(np.array(labels[['lat', 'lng']].values), lambda x, y: haversine(x, y))
     else:
-        dist_matrix = pdist(np.array(labels[['lat', 'lng', 'turker_id']].as_matrix()), custom_dist)
+        dist_matrix = pdist(np.array(labels[['lat', 'lng', 'turker_id']].values), custom_dist)
     link = linkage(dist_matrix, method='complete')
 
     # Cuts tree so that only labels less than clust_threth kilometers apart are clustered, adds a col
@@ -254,6 +254,7 @@ if __name__ == '__main__':
         elif type_data.shape[0] == 1:
             type_data.loc[:,'cluster'] = 1 + clustOffset
             label_output = label_output.append(type_data.filter(items=label_cols))
+            type_data.loc[:,'label_type'] = label_type
             cluster_output = cluster_output.append(type_data.filter(items=cluster_cols))
 
     for label_type in included_types:
