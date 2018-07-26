@@ -524,6 +524,10 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
         }
     }
 
+    function initializeLabelSearch() {
+        self.adminLabelSearch = AdminLabelSearch();
+    }
+
     function initializeAdminGSVLabelView() {
         self.adminGSVLabelView = AdminGSVLabel();
     }
@@ -1258,6 +1262,7 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
 
     initializeLabelTable();
     initializeAdminGSVLabelView();
+    initializeLabelSearch();
 
     self.clearMap = clearMap;
     self.redrawLabels = redrawLabels;
