@@ -11,7 +11,7 @@ import models.amt.{AMTAssignment, AMTAssignmentTable}
 import models.daos.slick.DBTableDefinitions.{DBUser, UserTable}
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.mvc._
-
+import models.sidewalk.Populator
 
 import scala.concurrent.Future
 import scala.util.Random
@@ -248,6 +248,20 @@ class ApplicationController @Inject() (implicit val env: Environment[User, Sessi
         Future.successful(Ok(views.html.accessScoreDemo("Project Sidewalk - Explore Accessibility", Some(user))))
       case None =>
         Future.successful(Redirect("/anonSignUp?url=/demo"))
+    }
+  }
+
+  def test = UserAwareAction.async { implicit request =>
+    request.identity match {
+      case Some(user) =>
+        val now = new DateTime(DateTimeZone.UTC)
+        val timestamp: Timestamp = new Timestamp(now.getMillis)
+        val ipAddress: String = request.remoteAddress
+
+        WebpageActivityTable.save(WebpageActivity(0, user.userId.toString, ipAddress, "Visit_Map", timestamp))
+        Future.successful(Ok(views.html.sidewalkDetect("Project Sidewalk - Explore Accessibility", Some(user))))
+      case None =>
+        Future.successful(Redirect("/anonSignUp?url=/test"))
     }
   }
 

@@ -1,0 +1,13 @@
+@import models.user.User
+@import models.sidewalk.LabelConnTable
+@import models.sidewalk.Populator
+
+@(title: String, user: Option[User] = None)
+@main(title) {
+    @navbar(user)
+    <!--print out all the connections when we move to this url-->
+    @for(connection: (Int,Int) <- LabelConnTable.getLabelsById(0)){
+        <p>Start: @connection._1, End: @connection._2</p>
+    }
+    <p>@Populator.getJson</p>
+}
