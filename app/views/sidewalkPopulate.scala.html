@@ -1,0 +1,8 @@
+@import models.user.User
+@import models.sidewalk.Populator
+
+@(title: String, user: Option[User] = None)
+@main(title) {
+    <!-- show the populator log after we make the population -->
+    <p>@Populator.log</p>
+}

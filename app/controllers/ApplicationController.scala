@@ -251,7 +251,7 @@ class ApplicationController @Inject() (implicit val env: Environment[User, Sessi
     }
   }
 
-  def test = UserAwareAction.async { implicit request =>
+  def populate_sidewalks = UserAwareAction.async { implicit request =>
     request.identity match {
       case Some(user) =>
         val now = new DateTime(DateTimeZone.UTC)
@@ -259,7 +259,22 @@ class ApplicationController @Inject() (implicit val env: Environment[User, Sessi
         val ipAddress: String = request.remoteAddress
 
         WebpageActivityTable.save(WebpageActivity(0, user.userId.toString, ipAddress, "Visit_Map", timestamp))
-        Future.successful(Ok(views.html.sidewalkDetect("Project Sidewalk - Explore Accessibility", Some(user))))
+        Populator.populate
+        Future.successful(Ok(views.html.sidewalkPopulate("Populating sidewalks...", Some(user))))
+      case None =>
+        Future.successful(Redirect("/anonSignUp?url=/test"))
+    }
+  }
+
+  def show_sidewalk_detection = UserAwareAction.async { implicit request =>
+    request.identity match {
+      case Some(user) =>
+        val now = new DateTime(DateTimeZone.UTC)
+        val timestamp: Timestamp = new Timestamp(now.getMillis)
+        val ipAddress: String = request.remoteAddress
+
+        WebpageActivityTable.save(WebpageActivity(0, user.userId.toString, ipAddress, "Visit_Map", timestamp))
+        Future.successful(Ok(views.html.sidewalkDetect("sidewalk detection tool", Some(user))))
       case None =>
         Future.successful(Redirect("/anonSignUp?url=/test"))
     }

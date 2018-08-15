@@ -1,13 +1,123 @@
 @import models.user.User
 @import models.sidewalk.LabelConnTable
-@import models.sidewalk.Populator
 
 @(title: String, user: Option[User] = None)
-@main(title) {
-    @navbar(user)
-    <!--print out all the connections when we move to this url-->
-    @for(connection: (Int,Int) <- LabelConnTable.getLabelsById(0)){
-        <p>Start: @connection._1, End: @connection._2</p>
-    }
-    <p>@Populator.getJson</p>
-}
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Drawing Tools</title>
+        <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+        <meta charset="utf-8">
+        <style>
+                /* Always set the map height explicitly to define the size of the div
+                 * element that contains the map. */
+                #map {
+                    height: 100%;
+                }
+                /* Optional: Makes the sample page fill the window. */
+                html, body {
+                    height: 100%;
+                    margin: 0;
+                    padding: 0;
+                }
+        </style>
+    </head>
+    <body>
+        <div id="map"></div>
+        <!-- putting in the labels -->
+        <div id="labels-info">
+            @for(label: (Int, Int) <- LabelConnTable.getConnectedLabels()){
+                |@LabelConnTable.getPositionFromId(label._1)._1,@LabelConnTable.getPositionFromId(label._1)._2,@LabelConnTable.getPositionFromId(label._2)._1,@LabelConnTable.getPositionFromId(label._2)._2
+            }
+        </div>
+
+
+
+        <div id="no-sidewalk-info">
+
+        </div>
+
+        <script>
+                var labelCircles = [];
+                var tempMarkers = [];
+                // This example requires the Drawing library. Include the libraries=drawing
+                // parameter when you first load the API. For example:
+                // <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=drawing">
+
+                function initMap() {
+                    var map = new google.maps.Map(document.getElementById('map'), {
+                        center: {lat: 38.8952632, lng: -77.0729659},
+                        zoom: 12
+                    });
+
+                    var labelLocs = document.getElementById('labels-info').innerText.split('|');
+
+                    for(var i = 0; i < labelLocs.length; i++){
+                        if(labelLocs[i] === ""){
+                            continue;
+                        }
+                        var label = new google.maps.Marker({
+                            position: {lat: parseFloat(labelLocs[i].split(',')[0]), lng: parseFloat(labelLocs[i].split(',')[1])},
+                            icon: {
+                                path: google.maps.SymbolPath.CIRCLE,
+                                fillOpacity: 0.3,
+                                fillColor: '#17ff00',
+                                strokeOpacity: 0.3,
+                                strokeColor: '#17ff00',
+                                strokeWeight: 3.0,
+                                scale: 5, //pixels
+                                zIndex: 1
+                            }
+                        });
+
+                        label.setMap(map);
+                        labelCircles.push(label);
+                    }
+
+                    for(var i = 0; i < labelCircles.length; i++){
+                        labelCircles[i].addListener('click', function() {
+                            for(var i1 = 0; i1 < tempMarkers.length; i1++){
+                                tempMarkers[i1].setMap(null);
+                            }
+                            map.setCenter(this.getPosition());
+
+                            var labelLocs = document.getElementById('labels-info').innerText.split('|');
+                            for(var i2 = 0; i2 < labelLocs.length; i2++){
+                                if(labelLocs[i2] === ""){
+                                    continue;
+                                }
+
+                                console.log(this.getPosition());
+
+                                console.log("lat: " + Math.abs(this.getPosition().lat() - parseFloat(labelLocs[i2].split(',')[0])) + " long: " + Math.abs(this.getPosition().lng() - parseFloat(labelLocs[i2].split(',')[1])));
+                                if(Math.abs(this.getPosition().lat() - parseFloat(labelLocs[i2].split(',')[0])) < 0.00005 && Math.abs(this.getPosition().lng() - parseFloat(labelLocs[i2].split(',')[1])) < 0.00005){
+
+                                    console.log("made temp marker");
+                                    var tempMarker = new google.maps.Marker({
+                                        position: {lat: parseFloat(labelLocs[i2].split(',')[2])+0.00001, lng: parseFloat(labelLocs[i2].split(',')[3])},
+                                        icon: {
+                                            path: google.maps.SymbolPath.CIRCLE,
+                                            fillOpacity: 1.0,
+                                            fillColor: '#ff5100',
+                                            strokeOpacity: 1.0,
+                                            strokeColor: '#ff5100',
+                                            strokeWeight: 3.0,
+                                            scale: 5, //pixels
+                                            zIndex: 0
+                                        }
+                                    });
+                                    tempMarker.setMap(map);
+                                    tempMarkers.push(tempMarker);
+                                }
+                            }
+                        });
+                    }
+                }
+
+        </script>
+        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDCBNAIxzx31wIKhxMv91i3cM5yK8gDxCk&libraries=drawing&callback=initMap"
+        async defer></script>
+    </body>
+
+</html>

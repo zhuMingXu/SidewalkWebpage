@@ -20,6 +20,7 @@ import scala.slick.jdbc.{GetResult, StaticQuery => Q}
 import scala.slick.lifted.ForeignKeyQuery
 import play.api.libs.json._
 import scala.collection.JavaConverters._
+import scala.util.control.Breaks._
 
 case class SidewalkEdge(sidewalkEdgeId: Option[Int], geom: LineString, source: Int, target: Int,
                         x1: Float, y1: Float, x2: Float, y2: Float, wayType: String, deleted: Boolean, timestamp: Option[Timestamp])
@@ -101,42 +102,73 @@ object LabelConnTable{
   val db = play.api.db.slick.DB
 
   def getConnectedLabelsToId(id: Int): List[(Int,Int)]= db.withSession { implicit session =>
-    val queryResult = Q.query[Int, (Int, Int)](
+    val queryResult = Q.query[(Int), (Int, Int)](
       """SELECT l.label_1_id, l.label_2_id FROM sidewalk.label_connections AS l
         |   WHERE l.label_1_id = ?
       """.stripMargin
     )
-    queryResult(id).list
+    queryResult((id)).list
   }
 
-  def getPositionFromId(id: Int): (Double, Double) = db.withSession { implicit session =>
-    val selectQuery = Q.query[Int, (Double, Double)](
+  def getConnectedLabels(): List[(Int,Int)]= db.withSession { implicit session =>
+    val queryResult = Q.queryNA[(Int, Int)](
+      """SELECT l.label_1_id, l.label_2_id FROM sidewalk.label_connections AS l
+      """.stripMargin
+    )
+    queryResult.list
+  }
+
+  def getPositionFromId(id: Int): (Float, Float) = db.withSession { implicit session =>
+    val selectQuery = Q.query[(Int), (Float, Float)](
       """SELECT lp.lat,
-        |       lp.lng,
-        |FROM sidewalk.label_point AS lp,
+        |       lp.lng
+        |FROM sidewalk.label_point AS lp
         |WHERE lp.label_id = ?""".stripMargin
     )
-    selectQuery(id).list.headOption
+    selectQuery((id)).list.head
   }
 
+  def getHeadingFromId(id: Int): (Float) = db.withSession { implicit session =>
+    val selectQuery = Q.query[(Int), (Float)](
+      """SELECT lb.photographer_heading
+        |FROM sidewalk.label AS lb
+        |WHERE lb.label_id = ?""".stripMargin
+    )
+    selectQuery((id)).list.head
+  }
 }
 
 object Populator {
 
   val db = play.api.db.slick.DB
+  var logStr = "";
+
+  var pairs : List[(Int, Int)] = List[(Int, Int)]()
+  def log(): String = {
+     logStr
+  }
+
+
+
+  def logprint(msg : String)= {
+     logStr += msg + " | "
+  }
 
   def populate(): Unit ={
-      for(streetEdge: (Double, Double, Double, Double) <- getStreetStartsAndEnds(10)){
+      val streetEdges = getStreetStartsAndEnds(10);
+      for(streetEdge: (Float, Float, Float, Float) <- streetEdges){
           //get the path of lat longs
-          val path: Array[(Double, Double)] = getPointsOfPath(getJsonString(streetEdge._1,streetEdge._2,streetEdge._3,streetEdge._4))
+          val path: Array[(Float, Float)] = getPointsOfPath(getJsonString(streetEdge._1,streetEdge._2,streetEdge._3,streetEdge._4))
+
 
           //get the bounds around the start, get all the labels that are in those bounds
 
 
-          obtuseBearing: List[(Int, Double, Double, Int)] = new List[(Int, Double, Double, Int)]
-          acuteBearing: List[(Int, Double, Double, Int)] = new List[(Int, Double, Double, Int)]
+          var obtuseBearing: List[(Int, Float, Float, Int, Float, Float)] = List[(Int, Float, Float, Int, Float, Float)]()
+          var acuteBearing: List[(Int, Float, Float, Int, Float, Float)] = List[(Int, Float, Float, Int, Float, Float)]()
 
-
+          var numLbl = 0
+          var recentLabels: List[(Int, Float, Float, Int)] = List[(Int, Float, Float, Int)]()
           //go through our path
           for(i <- 0 until path.length - 1){
               //get the start and end points
@@ -145,85 +177,133 @@ object Populator {
 
               //get our bearing from the start to the end
               val bearing = getBearing(start._1, start._2, end._1, end._2)
-              val bounds = getRectBounds(start._1, start._2, 10)
-              val labelsInBounds : List[(Int, Double, Double, Int)] = getLabelsIn(bounds._1, bounds._2, bounds._3, bounds._4)
+
+              val bounds = getRectBounds(start._1, start._2, 0.00025F)
+
+              val labelsInBounds : List[(Int, Float, Float, Int)] = getLabelsIn(bounds._1, bounds._2, bounds._3, bounds._4)
+
+              var newRecentLabels: List[(Int, Float, Float, Int)] = List[(Int, Float, Float, Int)]()
 
 
-              for(label <- labelsInBounds){
-                 val labelBearing = getBearing(start._1, start._2, label._2, label._3)
-                 //if curb ramp or missing curb ramp, add label to respective side of street
-                 if(label._4 == 1 /*curb ramp*/ || label._4 == 2 /*missing curb ramp*/){
-                    if(labelBearing - bearing < 0){
-                        acuteBearing += label
-                    }else{
-                        obtuseBearing += label
+              for(label <- labelsInBounds) {
+                breakable{
+                  newRecentLabels = label :: newRecentLabels
+                  if(hasLabelCopy(recentLabels, label) || !placeIdsMatch((label._3, label._2),start)) {
+                    break
+                  }
+                  numLbl = numLbl + 1
+                  val labelBearingLatLng = getBearing(start._1, start._2, label._3, label._2)
+                  val photographerBearing = LabelConnTable.getHeadingFromId(label._1)
+                  val labelBearing = labelBearingLatLng
+
+                  logprint((labelBearing - bearing) + "")
+                  val labelMetaData: (Int, Float, Float, Int, Float, Float) = (label._1, label._2, label._3, label._4, (labelBearing-bearing), bearing)
+
+                  //if curb ramp or missing curb ramp, add label to respective side of street
+                  if (label._4 == 1 /*curb ramp*/ || label._4 == 2 /*missing curb ramp*/ ) {
+                    if (labelBearing - bearing < 0 && labelBearing - bearing > -180) {
+                      if(!hasLabelCopyMeta(obtuseBearing, label)) {
+                        acuteBearing = labelMetaData :: acuteBearing
+                      }
+                    } else {
+                      if(!hasLabelCopyMeta(acuteBearing, label)){
+                        obtuseBearing = labelMetaData :: obtuseBearing
+                      }
                     }
-                 }
-                 //if no sidewalk, clear the list and connect what we have
-                 else if(label._4 == 7/*no sidewalk*/){
-                   if(labelBearing - bearing < 0){
-                     makeConnections(acuteBearing)
-                     acuteBearing = new List[(Int, Double, Double, Int)]
-                   }else{
-                     makeConnections(obtuseBearing)
-                     obtuseBearing = new List[(Int, Double, Double, Int)]
-                   }
-                 }
+                  }
+                  //if no sidewalk, clear the list and connect what we have
+                  else if (label._4 == 7 /*no sidewalk*/ ) {
+                    if ((labelBearing - bearing < 0 && labelBearing - bearing > -180) || (labelBearing - bearing > 180 && labelBearing - bearing < 360)){
+                      makeConnections(acuteBearing)
+                      acuteBearing = List[(Int, Float, Float, Int, Float, Float)]()
+                    } else {
+                      makeConnections(obtuseBearing)
+                      obtuseBearing = List[(Int, Float, Float, Int, Float, Float)]()
+                    }
+                  }
+                }
               }
-
-              //make connections between all the labels that we have remaining.
-              makeConnections(acuteBearing)
-              makeConnections(obtuseBearing)
+              recentLabels = newRecentLabels
           }
+
+          //make connections between all the labels that we have remaining.
+          makeConnections(acuteBearing)
+          makeConnections(obtuseBearing)
       }
   }
 
+  def hasLabelCopy(list: List[(Int, Float, Float, Int)], labelToAdd : (Int, Float, Float, Int)): Boolean = {
+      for(label : (Int, Float, Float, Int) <- list){
+          if(label._1 == labelToAdd._1){
+            return true
+          }
+      }
+      return false
+  }
 
-  def makeConnections(labels: List[(Int, Double, Double, Int)]): Unit ={
+  def hasLabelCopyMeta(list: List[(Int, Float, Float, Int,Float,Float)], labelToAdd : (Int, Float, Float, Int)): Boolean = {
+    for(label : (Int, Float, Float, Int,Float,Float) <- list){
+      if(label._1 == labelToAdd._1){
+        return true
+      }
+    }
+    return false
+  }
+
+  def placeIdsMatch(p1: (Float, Float), p2: (Float, Float)): Boolean = {
+      val url1 = "https://roads.googleapis.com/v1/nearestRoads?&points=" + p1._2 + "," + p1._1 + "&key=AIzaSyDCBNAIxzx31wIKhxMv91i3cM5yK8gDxCk"
+      val url2 = "https://roads.googleapis.com/v1/nearestRoads?&points=" + p2._2 + "," + p2._1 + "&key=AIzaSyDCBNAIxzx31wIKhxMv91i3cM5yK8gDxCk"
+      val jsonStr1 = scala.io.Source.fromURL(url1).mkString.toString
+      val jsonStr2 = scala.io.Source.fromURL(url2).mkString.toString
+      val jsonObj1: JsValue = Json.parse(jsonStr1)
+      val jsonObj2: JsValue = Json.parse(jsonStr2)
+      return ((jsonObj1 \ "snappedPoints")(0) \ "placeId").toString == ((jsonObj2 \ "snappedPoints")(0) \ "placeId").toString
+  }
+
+  def makeConnections(labels: List[(Int, Float, Float, Int, Float, Float)]): Unit ={
       for(label1 <- labels){
           for(label2 <- labels){
-              if(label1._1 !== label2._1){
-                insertEntry(label1._1, label2._1)
+              if(label1._1 != label2._1 && Math.abs(label1._6 - label2._6) < 20){
+
+                insertEntry(label1._1, label2._1, label1._5, label2._5, label1._6, label2._6)
               }
           }
       }
   }
 
-
-  def getRectBounds(startLat: Double, startLng: Double, maxRad: Double): (Double, Double, Double, Double) = {
-      val upperLeft = flyCrowFromStart(startLat, startLng, 135, maxRad);
-      val lowerRight = flyCrowFromStart(startLat, startLng, -45, maxRad);
-      (upperLeft._1, lowerRight._1, lowerRight._2, upperLeft._2)
-  }
-
-
-  def flyCrowFromStart(startLat: Double, startLng: Double, bearing: Double, distance: Double): (Double,Double) ={
-    val lat = Math.asin(Math.sin(startLat) * Math.cos(d / R) + Math.cos(startLat) * Math.sin(d / R) * Math.cos(bearing))
-    val lng = startLng + Math.atan2(Math.sin(bearing) * Math.sin(d / R) * Math.cos(startLat), Math.cos(d / R) - Math.sin(startLat) * Math.sin(lat))
-    (lat, lng)
+  def hasPair(pairs: List[(Int, Int)], pair: (Int, Int)): Boolean = {
+      for(p <- pairs){
+        if(p._1 == pair._1 && p._2 == pair._2){
+          return true
+        }
+      }
+      return false
   }
 
   //gets distance between two lat long coordinates "as the crow flies"
-  def getDist(startLat: Double, startLng: Double, endLat: Double, endLng: Double): Double ={
+  def getDist(startLat: Float, startLng: Float, endLat: Float, endLng: Float): Float ={
     val R = 6371e3 // meters
     val rad_lat_start = startLat.toRadians
     val rad_lat_end = endLat.toRadians
-    val delta_rad_lat = (endLat - startLat).toRadians
-    val delta_rad_lng = (endLng - startLng).toRadians
-    val a = Math.sin(delta_rad_lat / 2) * Math.sin(delta_rad_lat / 2) + Math.cos(rad_lat_start) * Math.cos(rad_lat_end) * Math.sin(delta_rad_lng / 2) * Math.sin(delta_rad_lng / 2)
-    val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(_start - a))
-    R * c
+    val delta_rad_lat = ((endLat - startLat).toDouble).toRadians
+    val delta_rad_lng = ((endLng - startLng).toDouble).toRadians
+    val a = Math.sin(delta_rad_lat.toDouble / 2F) * Math.sin(delta_rad_lat.toDouble / 2F) + Math.cos(rad_lat_start.toDouble) * Math.cos(rad_lat_end.toDouble) * Math.sin(delta_rad_lng.toDouble / 2F) * Math.sin(delta_rad_lng.toDouble / 2F)
+    val c = 2 * Math.atan2(Math.sqrt(a.toDouble), Math.sqrt((rad_lat_start - a).toDouble))
+    (R * c).toFloat
   }
 
-  def getBearing(startLat: Double, startLng: Double, endLat: Double, endLng: Double): Double ={
-      val y = Math.sin(endLng - startLng) * Math.cos(endLat)
-      val x = Math.cos(startLat) * Math.sin(endLat) - Math.sin(startLat) * Math.cos(endLat) * Math.cos(endLng - startLng)
-      val bearing = Math.atan2(y, x).toDegrees
+  def getBearing(startLat: Float, startLng: Float, endLat: Float, endLng: Float): Float ={
+      val y = Math.sin((endLng - startLng).toDouble) * Math.cos(endLat.toDouble)
+      val x = Math.cos(startLat.toDouble) * Math.sin(endLat.toDouble) - Math.sin(startLat.toDouble) * Math.cos(endLat.toDouble) * Math.cos((endLng - startLng).toDouble)
+      Math.atan2(y, x).toDegrees.toFloat
   }
 
+  def getRectBounds(startLat: Float, startLng: Float, maxRad: Float): (Float, Float, Float, Float) = {
+    (startLat - maxRad, startLat + maxRad, startLng - maxRad, startLng + maxRad)
+  }
 
-  def getLabelsIn(minLat: Double, maxLat: Double, minLng: Double, maxLng: Double): List[(Int, Double, Double, Int)] = db.withSession { implicit session =>
-    val selectQuery = Q.query[Double, Double, Double, Double, (Int, Double, Double, Int)](
+  def getLabelsIn(minLat: Float, maxLat: Float, minLng: Float, maxLng: Float): List[(Int, Float, Float, Int)] = db.withSession { implicit session =>
+    val selectQuery = Q.query[(Float, Float, Float, Float), (Int, Float, Float, Int)](
                       """SELECT lb.label_id,
                         |       lp.lat,
                         |       lp.lng,
@@ -231,79 +311,96 @@ object Populator {
                         |FROM sidewalk.label AS lb,
                         |     sidewalk.label_point AS lp
                         |WHERE lp.label_id = lb.label_id AND
+                        |lp.lat NOTNULL AND lp.lng NOTNULL AND
                         |lp.lat > ? AND lp.lat < ? AND
-                        |lp.lng > ? AND lp.lng < ? AND""".stripMargin
+                        |lp.lng > ? AND lp.lng < ?""".stripMargin
                       )
-    selectQuery(minLat,maxLat,minLng,maxLng)
+    selectQuery((minLng,maxLng,minLat,maxLat)).list
   }
 
 
-  def getPointsOfPath(jsonString: String): Array[(Double, Double)] = {
-      val polylineList = decode(Json.parse(jsonString)['overview_polyline'])
-      polylineList.asScala.toArray
+  def getPointsOfPath(jsonString: String): Array[(Float, Float)] = {
+      var fullPolyline = List[(Float, Float)]()
+      val jsonObj: JsValue = Json.parse(jsonString)
+      val pointsList = jsonObj \\ "points"
+      for (points <- pointsList){
+          if(points.toString.length != 0){
+            val polylineList = decode(points.toString)
+            for (point <- polylineList){
+              fullPolyline = point :: fullPolyline
+            }
+          }
+      }
+      var polyLineArr : Array[(Float, Float)] = new Array[(Float, Float)](fullPolyline.length)
+      var i = 0
+      for(point: (Float, Float) <- fullPolyline){
+          polyLineArr(i) = point
+          i = i + 1
+      }
+      polyLineArr
   }
 
-  import java.util
 
   /**
     * Decodes an encoded path string into a sequence of LatLngs.
     */
-  def decode(encodedPath: String): util.List[(Double, Double)] = {
-    val len = encodedPath.length
-    // For speed we preallocate to an upper bound on the final length, then
-    // truncate the array before returning.
-    val path = new util.ArrayList[Nothing]
+
+  def decode(encoded: String): List[(Float, Float)] = {
+    var poly = List[(Float, Float)]()
     var index = 0
+    val len = encoded.length
     var lat = 0
     var lng = 0
     while ( {
       index < len
     }) {
-      var result = 1
-      var shift = 0
       var b = 0
+      var shift = 0
+      var result = 0
       do {
-        b = encodedPath.charAt({
+        b = encoded.charAt({
           index += 1; index - 1
-        }) - 63 - 1
-        result += b << shift
+        }) - 63
+        result |= (b & 0x1f) << shift
         shift += 5
       } while ( {
-        b >= 0x1f
+        b >= 0x20
       })
-      lat +=
-      if ((result & 1) != 0) ~result >> 1
-      else result >> 1
-      result = 1
+      val dlat = if ((result & 1) != 0) ~((result >> 1))
+      else (result >> 1)
+      lat += dlat
       shift = 0
+      result = 0
       do {
-        b = encodedPath.charAt({
+        b = encoded.charAt({
           index += 1; index - 1
-        }) - 63 - 1
-        result += b << shift
+        }) - 63
+        result |= (b & 0x1f) << shift
         shift += 5
       } while ( {
-        b >= 0x1f
+        b >= 0x20
       })
-      lng +=
-      if ((result & 1) != 0) ~result >> 1
-      else result >> 1
-      path.add((lat * 1e-5, lng * 1e-5))
+      val dlng = if ((result & 1) != 0) ~((result >> 1))
+      else (result >> 1)
+      lng += dlng
+      val p = ((lat * 10e-6).toFloat, (lng * 10e-6).toFloat)
+      poly = p :: poly
     }
-    path
+    poly
   }
 
   //get the json from the points
-  def getJsonString(x1: Double, y1: Double, x2: Double, y2: Double): String={
+  def getJsonString(x1: Float, y1: Float, x2: Float, y2: Float): String={
       //uses google to get the route as a json string
-      val url = "https://maps.googleapis.com/maps/api/directions/json?origin="+ x1 + "," + y1 +"&destination="+ x2 + "," + y2 +"&key="
-      scala.io.Source.fromURL(url).mkString
+      //need that API key!!!!!!!!!!!!!!!!!
+      val url = "https://maps.googleapis.com/maps/api/directions/json?origin="+ y1 + "," + x1 +"&destination="+ y2 + "," + x2 +"&key=AIzaSyDCBNAIxzx31wIKhxMv91i3cM5yK8gDxCk"
+      scala.io.Source.fromURL(url).mkString.toString
   }
 
-  //get the starts and ends of the streets as a List of Double arrays.
+  //get the starts and ends of the streets as a List of Float arrays.
   //in format x1,y1,x2,y2
-  def getStreetStartsAndEnds(limit) = db.withSession { implicit session =>
-    val queryResult = Q.queryNA[Int, (Double, Double, Double, Double)](
+  def getStreetStartsAndEnds(limit: Int): List[(Float, Float, Float, Float)] = db.withSession { implicit session =>
+    val queryResult = Q.query[(Int), (Float, Float, Float, Float)](
         """SELECT s.x1,
           |       s.y1,
           |       s.x2,
@@ -315,7 +412,7 @@ object Populator {
   }
 
   //inserts an entry into the label_connections table.
-  def insertEntry(label1Id: Int, label2Id: Int): Unit = db.withSession { implicit session =>
-    Q.updateNA("INSERT INTO sidewalk.label_connections VALUES("+ label1Id + "," + label2Id + ")").execute
+  def insertEntry(label1Id: Int, label2Id: Int, relBearing1: Float, relBearing2: Float, turtleBearing1: Float, turtleBearing2: Float): Unit = db.withSession { implicit session =>
+    Q.updateNA("INSERT INTO sidewalk.label_connections VALUES("+ label1Id + "," + label2Id + "," + relBearing1 + "," + relBearing2 + "," + turtleBearing1 + "," + turtleBearing2 + ")").execute
   }
 }
