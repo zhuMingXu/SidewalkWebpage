@@ -220,7 +220,6 @@ object ClusteringSessionTable{
       if !_session.turkerId.isEmpty
       _clusters <- ClusteringSessionClusterTable.clusteringSessionClusters if _session.clusteringSessionId === _clusters.clusteringSessionId
       _types <- LabelTable.labelTypes if _clusters.labelTypeId === _types.labelTypeId
-      if !(_types.labelType === "Problem")
     } yield (
       _clusters.clusteringSessionClusterId,
       _types.labelType,
