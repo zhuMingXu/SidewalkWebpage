@@ -22,11 +22,11 @@ function AdminPanoramaLabelSearch(svHolder) {
         NoSidewalk : 'assets/javascripts/SVLabel/img/admin_label_tool/AdminTool_NoSidewalk.png'
     };
 
-    // Adjust zoom level for GSV Panorama
+    // Adjust zoom level for GSV Panorama.
     var zoomLevel = {
-        1: 1.55,
-        2: 2.55,
-        3: 3.6
+        1: 1,
+        2: 1.95,
+        3: 2.95
     };
 
     /**
@@ -50,16 +50,25 @@ function AdminPanoramaLabelSearch(svHolder) {
         self.svHolder.append($(self.panoCanvas));
 
         self.panorama = new google.maps.StreetViewPanorama(self.panoCanvas, { mode: 'html4' });
-        self.panoId = null;
+        self.panorama.addListener('pano_changed', function() {
+            if (self.labelMarker) {
+                var currentPano = self.panorama.getPano();
+                if (currentPano === self.panoId) {
+                    self.labelMarker.setVisible(true);
+                } else {
+                    self.labelMarker.setVisible(false);
+                }
+            }
+        });
 
         if (self.panorama) {
             self.panorama.set('addressControl', false);
-            self.panorama.set('clickToGo', false);
+            self.panorama.set('clickToGo', true);
             self.panorama.set('disableDefaultUI', true);
             self.panorama.set('linksControl', false);
             self.panorama.set('navigationControl', false);
             self.panorama.set('panControl', false);
-            self.panorama.set('zoomControl', true);
+            self.panorama.set('zoomControl', false);
             self.panorama.set('keyboardShortcuts', false);
             self.panorama.set('motionTracking', false);
             self.panorama.set('motionTrackingControl', false);
@@ -70,46 +79,62 @@ function AdminPanoramaLabelSearch(svHolder) {
     }
 
     /**
+     * Sets the panorama ID and POV from label metadata
      * @param newId
      */
-    function changePanoId(newId) {
-        if(self.panoId != newId) {
-            self.panorama.setPano(newId);
-            self.panoId = newId;
-            self.refreshGSV();
+    function setPano(panoId, heading, pitch, zoom) {
+        if (typeof google != "undefined") {
+            self.svHolder.css('visibility', 'hidden');
+            self.panoId = panoId;
+
+            self.panorama.setPano(panoId);
+            self.panorama.set('pov', {heading: heading, pitch: pitch});
+            self.panorama.set('zoom', zoomLevel[zoom]);
+
+            // Based off code from Onboarding.
+            // We write another callback function because of a bug in the Google Maps API that
+            // causes the screen to go black.
+            // This callback gives time for the pano to load for 500ms. Afterwards, we trigger a
+            // resize and reset the POV/Zoom.
+            function callback () {
+                google.maps.event.trigger(self.panorama, 'resize');
+                self.panorama.set('pov', {heading: heading, pitch: pitch});
+                self.panorama.set('zoom', zoomLevel[zoom]);
+                self.svHolder.css('visibility', 'visible');
+                renderLabel(self.label);
+            }
+            setTimeout(callback, 500);
         }
         return this;
     }
 
-    /**
-     * @param options: The options object should have "heading", "pitch" and "zoom" keys
-     */
-    function setPov(coords) {
-        self.panorama.set('pov', {heading: coords['heading'], pitch: coords['pitch']});
-        // self.panorama.set('zoom', coords['zoom']);
-        self.panorama.set('zoom', zoomLevel[coords['zoom']]);
-        return this;
+    function setLabel (label) {
+        self.label = label;
     }
 
     /**
-     * Renders a panomarker on canvas
+     * Renders a Panomarker (label) onto Google Streetview Panorama.
      * @param label: instance of AdminPanoramaLabel
      * @returns {renderLabel}
      */
     function renderLabel (label) {
         var url = icons[label['label_type']];
-        var pos = getPosition(label['canvas_x'], label['canvas_y'], label['canvas_width'],
-            label['canvas_height'], label['zoom'], label['heading'], label['pitch']);
+        var pos = getPosition(label['canvasX'], label['canvasY'], label['originalCanvasWidth'],
+            label['originalCanvasHeight'], label['zoom'], label['heading'], label['pitch']);
 
-        this.labelMarker = new PanoMarker ({
+        self.labelMarker = new PanoMarker ({
             container: self.panoCanvas,
             pano: self.panorama,
-            // position: new google.maps.LatLng(labelCoords['lat'], labelCoords['lng']),
             position: {heading: pos.heading, pitch: pos.pitch},
             icon: url,
             size: new google.maps.Size(20, 20),
             anchor: new google.maps.Point(10, 10)
         });
+
+        google.maps.event.addListener(self.labelMarker, 'click', function() {
+            self.labelMarker.setVisible(false);
+        });
+        
         return this;
     }
 
@@ -176,22 +201,11 @@ function AdminPanoramaLabelSearch(svHolder) {
             195.93 / Math.pow(1.92, zoom); // parameters determined experimentally
     }
 
-
-    /*
-     * Sometimes strangely the GSV is not shown, calling this function might fix it
-     * related:http://stackoverflow.com/questions/18426083/how-do-i-force-redraw-with-google-maps-api-v3-0
-     */
-    function refreshGSV() {
-        if (typeof google != "undefined")
-            google.maps.event.trigger(self.panorama,'resize');
-    }
-
     //init
     _init();
 
-    self.changePanoId = changePanoId;
-    self.setPov = setPov;
+    self.setPano = setPano;
+    self.setLabel = setLabel;
     self.renderLabel = renderLabel;
-    self.refreshGSV = refreshGSV;
     return self;
 }
