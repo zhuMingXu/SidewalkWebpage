@@ -21,6 +21,17 @@ import scala.slick.lifted.ForeignKeyQuery
 import play.api.libs.json._
 import scala.collection.JavaConverters._
 import scala.util.control.Breaks._
+import org.geotools.geometry.jts.JTS
+import com.vividsolutions.jts.geom.Coordinate
+import models.street.StreetEdgeTable
+import play.api.libs.json._
+import play.extras.geojson
+import com.vividsolutions.jts.geom.Coordinate
+import models.utils.MyPostgresDriver.simple._
+import play.api.mvc._
+import models.street._
+import play.api.libs.json.Json
+import play.api.libs.json.Json._
 
 case class SidewalkEdge(sidewalkEdgeId: Option[Int], geom: LineString, source: Int, target: Int,
                         x1: Float, y1: Float, x2: Float, y2: Float, wayType: String, deleted: Boolean, timestamp: Option[Timestamp])
@@ -98,6 +109,8 @@ object SidewalkEdgeTable {
 //  }
 }
 
+
+//nice table for doing queries to get everything we need from the connections table.
 object LabelConnTable{
   val db = play.api.db.slick.DB
 
@@ -130,14 +143,27 @@ object LabelConnTable{
 
   def getHeadingFromId(id: Int): (Float) = db.withSession { implicit session =>
     val selectQuery = Q.query[(Int), (Float)](
-      """SELECT lb.photographer_heading
-        |FROM sidewalk.label AS lb
-        |WHERE lb.label_id = ?""".stripMargin
+      """SELECT lp.photographer_heading
+        |FROM sidewalk.label_point AS lp
+        |WHERE lp.label_id = ?""".stripMargin
     )
     selectQuery((id)).list.head
   }
 }
 
+
+
+//TODO: What we need instead is acute/obtuse correlation by bearing, not loc.
+//So we do like this:
+//1) get street segment
+//2) get labels on the street segment, and where the pictures were taken.
+//3) get the direction of the road at that point (hmm... trickier)
+//4) draw associations.
+
+//NOTE: this process is very slow - it would be much faster if we could simply link labels to the placeId of the street they are on.
+//this approach has many problems:
+//  1)duplicate label finding - because we use a box to find labels, we kinda get the same label multiple times, especially on turns.
+//  2) it's just plain inefficient. Please.
 object Populator {
 
   val db = play.api.db.slick.DB
@@ -148,27 +174,29 @@ object Populator {
      logStr
   }
 
-
-
   def logprint(msg : String)= {
      logStr += msg + " | "
   }
 
+
+
+  val numStreetEdges = 10;
   def populate(): Unit ={
-      val streetEdges = getStreetStartsAndEnds(10);
-      for(streetEdge: (Float, Float, Float, Float) <- streetEdges){
-          //get the path of lat longs
-          val path: Array[(Float, Float)] = getPointsOfPath(getJsonString(streetEdge._1,streetEdge._2,streetEdge._3,streetEdge._4))
+      //get the street edges
+      val streetEdges = StreetEdgeTable.all.take(numStreetEdges);
+      for(streetEdge: (StreetEdge) <- streetEdges){
+          //get the path of lat longs (YAY! no longer need slow google API for paths!)
+          val coordinates: Array[Coordinate] = edge.geom.getCoordinates
+          val path: Array[geojson.LatLng] = coordinates.map(coord => geojson.LatLng(coord.y, coord.x)).toArray
 
-
-          //get the bounds around the start, get all the labels that are in those bounds
-
-
+          //seperate lists for different sides of the street
           var obtuseBearing: List[(Int, Float, Float, Int, Float, Float)] = List[(Int, Float, Float, Int, Float, Float)]()
           var acuteBearing: List[(Int, Float, Float, Int, Float, Float)] = List[(Int, Float, Float, Int, Float, Float)]()
 
+          //all our labels
           var numLbl = 0
           var recentLabels: List[(Int, Float, Float, Int)] = List[(Int, Float, Float, Int)]()
+
           //go through our path
           for(i <- 0 until path.length - 1){
               //get the start and end points
@@ -176,24 +204,32 @@ object Populator {
               val end = path(i + 1)
 
               //get our bearing from the start to the end
-              val bearing = getBearing(start._1, start._2, end._1, end._2)
+              val bearing = getBearing(start.lat, start.lng, end.lat, end.lng)
 
+              //get nearby labels
               val bounds = getRectBounds(start._1, start._2, 0.00025F)
 
+              //get the labels inside the bounds
               val labelsInBounds : List[(Int, Float, Float, Int)] = getLabelsIn(bounds._1, bounds._2, bounds._3, bounds._4)
 
+              //new recentLabels
               var newRecentLabels: List[(Int, Float, Float, Int)] = List[(Int, Float, Float, Int)]()
 
-
+              //go through all the labels we just grabbed
               for(label <- labelsInBounds) {
+                //breakable because we don't want to do labels that have already been done; essentially, break if copy.
                 breakable{
+
                   newRecentLabels = label :: newRecentLabels
                   if(hasLabelCopy(recentLabels, label) || !placeIdsMatch((label._3, label._2),start)) {
                     break
                   }
+
                   numLbl = numLbl + 1
+                  //bearing based on lat long (previous method)
                   val labelBearingLatLng = getBearing(start._1, start._2, label._3, label._2)
-                  val photographerBearing = LabelConnTable.getHeadingFromId(label._1)
+                  //bearing based on heading (new method)
+                  val heading = LabelConnTable.getHeadingFromId(label._1)
                   val labelBearing = labelBearingLatLng
 
                   logprint((labelBearing - bearing) + "")
@@ -211,6 +247,7 @@ object Populator {
                       }
                     }
                   }
+
                   //if no sidewalk, clear the list and connect what we have
                   else if (label._4 == 7 /*no sidewalk*/ ) {
                     if ((labelBearing - bearing < 0 && labelBearing - bearing > -180) || (labelBearing - bearing > 180 && labelBearing - bearing < 360)){
@@ -319,18 +356,8 @@ object Populator {
   }
 
 
-  def getPointsOfPath(jsonString: String): Array[(Float, Float)] = {
-      var fullPolyline = List[(Float, Float)]()
-      val jsonObj: JsValue = Json.parse(jsonString)
-      val pointsList = jsonObj \\ "points"
-      for (points <- pointsList){
-          if(points.toString.length != 0){
-            val polylineList = decode(points.toString)
-            for (point <- polylineList){
-              fullPolyline = point :: fullPolyline
-            }
-          }
-      }
+  def getPointsOfPath(geom: String): Array[(Float, Float)] = {
+      var fullPolyline = decode(geom)
       var polyLineArr : Array[(Float, Float)] = new Array[(Float, Float)](fullPolyline.length)
       var i = 0
       for(point: (Float, Float) <- fullPolyline){
@@ -395,20 +422,6 @@ object Populator {
       //need that API key!!!!!!!!!!!!!!!!!
       val url = "https://maps.googleapis.com/maps/api/directions/json?origin="+ y1 + "," + x1 +"&destination="+ y2 + "," + x2 +"&key=AIzaSyDCBNAIxzx31wIKhxMv91i3cM5yK8gDxCk"
       scala.io.Source.fromURL(url).mkString.toString
-  }
-
-  //get the starts and ends of the streets as a List of Float arrays.
-  //in format x1,y1,x2,y2
-  def getStreetStartsAndEnds(limit: Int): List[(Float, Float, Float, Float)] = db.withSession { implicit session =>
-    val queryResult = Q.query[(Int), (Float, Float, Float, Float)](
-        """SELECT s.x1,
-          |       s.y1,
-          |       s.x2,
-          |       s.y2
-          |FROM sidewalk.street_edge AS s
-          |LIMIT ?""".stripMargin
-    )
-    queryResult(limit).list
   }
 
   //inserts an entry into the label_connections table.
