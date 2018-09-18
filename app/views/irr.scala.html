@@ -1,0 +1,44 @@
+@import models.user.User
+
+@(title: String, user: Option[User] = None)
+@main(title) {
+    @navbar(user)
+    <div id="content">
+        <div class="container">
+            <h1>IRR Calculation on Ground Truth Data</h1>
+            HITs to calculate IRR on: &nbsp;
+            <input type="text" id="hit-list" value="hit72, hit128" />&nbsp;
+            <br/><br/>
+            <button id="btnIRR">Run IRR CSV generation</button>
+            <p id="IRR-result"></p>
+        </div>
+    </div>
+
+    <script type="text/javascript" src='@routes.Assets.at("javascripts/IRR.js")'></script>
+    <script type="text/javascript" src='@routes.Assets.at("javascripts/lib/turf.min.js")'></script>
+
+    <script>
+        $(document).ready(function () {
+
+            let button= document.getElementById('btnIRR');
+            button.onclick = function() {
+                let hitIdList = document.getElementById('hit-list').value;
+                hitIdList = hitIdList.split(/[\s,]+/).join();
+                let dataToSend = JSON.stringify({hitIds: hitIdList.split(',')});
+                
+                $.ajax({
+                    type: "post",
+                    url: "/getIRRDataForHits",
+                    contentType: 'application/json; charset=utf-8',
+                    data: dataToSend,
+                    success: function (data) {
+                        $( "#IRR-result" ).html( data );
+                        window.IRR = IRR(data, turf);
+                    },
+                    dataType: "json"
+                });
+            };
+
+        });
+    </script>
+}

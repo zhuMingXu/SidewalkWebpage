@@ -10,22 +10,26 @@ import play.api.Play.current
 import scala.slick.lifted.ForeignKeyQuery
 
 
-case class ClusteringSessionLabel(clusteringSessionLabelId: Int, clusteringSessionClusterId: Int, labelId: Int)
+case class ClusteringSessionLabel(clusteringSessionLabelId: Int, clusteringSessionClusterId: Int, labelId: Option[Int], originatingClusterId: Option[Int])
 /**
   *
   */
 class ClusteringSessionLabelTable(tag: Tag) extends Table[ClusteringSessionLabel](tag, Some("sidewalk"), "clustering_session_label") {
   def clusteringSessionLabelId = column[Int]("clustering_session_label_id", O.NotNull, O.PrimaryKey, O.AutoInc)
   def clusteringSessionClusterId = column[Int]("clustering_session_cluster_id", O.NotNull)
-  def labelId = column[Int]("label_id", O.NotNull)
+  def labelId = column[Option[Int]]("label_id", O.Nullable)
+  def originatingClusterId = column[Option[Int]]("originating_cluster_id", O.Nullable)
 
-  def * = (clusteringSessionLabelId, clusteringSessionClusterId, labelId) <> ((ClusteringSessionLabel.apply _).tupled, ClusteringSessionLabel.unapply)
+  def * = (clusteringSessionLabelId, clusteringSessionClusterId, labelId, originatingClusterId) <> ((ClusteringSessionLabel.apply _).tupled, ClusteringSessionLabel.unapply)
 
   def clusteringSessionCluster: ForeignKeyQuery[ClusteringSessionClusterTable, ClusteringSessionCluster] =
     foreignKey("clustering_session_label_clustering_session_cluster_id_fkey", clusteringSessionClusterId, TableQuery[ClusteringSessionClusterTable])(_.clusteringSessionClusterId)
 
   def label: ForeignKeyQuery[LabelTable, Label] =
     foreignKey("clustering_session_label_label_id_fkey", labelId, TableQuery[LabelTable])(_.labelId)
+
+  def originatingCluster: ForeignKeyQuery[ClusteringSessionClusterTable, ClusteringSessionCluster] =
+    foreignKey("clustering_session_label_originating_cluster_id_fkey", originatingClusterId, TableQuery[ClusteringSessionClusterTable])(_.clusteringSessionClusterId)
 
 }
 

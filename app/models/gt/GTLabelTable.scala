@@ -3,19 +3,42 @@ package models.gt
 /**
   * Created by hmaddali on 7/26/17.
   */
+import models.amt.{AMTConditionTable, AMTVolunteerRouteTable}
 import models.route.{Route, RouteTable}
-import models.label.{LabelTypeTable, LabelType}
+import models.label.{LabelType, LabelTypeTable}
 import models.utils.MyPostgresDriver.simple._
 import play.api.Play.current
+import play.api.libs.json.{JsObject, Json}
+import play.extras.geojson
 
 import scala.slick.lifted.ForeignKeyQuery
 
 case class GTLabel(gtLabelId: Int, routeId: Int, gsvPanoramaId: String, labelTypeId: Int, svImageX: Int, svImageY: Int,
                    canvasX: Int, canvasY: Int, heading: Float, pitch: Float, zoom: Int, canvasHeight: Int,
                    canvasWidth: Int, alphaX: Float, alphaY: Float, lat: Option[Float], lng: Option[Float],
-                   description: String,
-                   severity: Int,
-                   temporaryProblem: Boolean)
+                   description: Option[String],
+                   severity: Option[Int],
+                   temporaryProblem: Option[Boolean]) {
+  /**
+    * This method converts the data into the GeoJSON format
+    *
+    * @return
+    */
+  def toGeoJSON: JsObject = {
+    val latlngs = geojson.Point(geojson.LatLng(lat.get.toDouble, lng.get.toDouble))
+    val properties = Json.obj(
+      "gt_label_id" -> gtLabelId,
+      "route_id" -> routeId,
+      "condition_id" -> AMTConditionTable.getConditionIdForRoute(routeId),
+      "label_type" -> LabelTypeTable.labelIdToType(labelTypeId),
+      "description" -> description,
+      "severity" -> severity,
+      "temporary" -> temporaryProblem
+    )
+    Json.obj("type" -> "Feature", "geometry" -> latlngs, "properties" -> properties)
+  }
+}
+
 /**
   *
   */
@@ -37,10 +60,9 @@ class GTLabelTable(tag: Tag) extends Table[GTLabel](tag, Some("sidewalk"), "gt_l
   def alphaY = column[Float]("alpha_y", O.NotNull)
   def lat = column[Option[Float]]("lat", O.Nullable)
   def lng = column[Option[Float]]("lng", O.Nullable)
-  def description = column[String]("description", O.NotNull)
-  def severity = column[Int]("severity", O.NotNull)
-  def temporaryProblem = column[Boolean]("temporary_problem", O.NotNull)
-
+  def description = column[Option[String]]("description", O.Nullable)
+  def severity = column[Option[Int]]("severity", O.Nullable)
+  def temporaryProblem = column[Option[Boolean]]("temporary_problem", O.Nullable)
 
 
   def * = (gtLabelId, routeId, gsvPanoramaId, labelTypeId, svImageX, svImageY,
@@ -77,7 +99,7 @@ object GTLabelTable{
     } yield _labs).list
   }
 
-  /** Returns set of labels that  */
+  /** Returns set of labels that do not have entries in existing label table */
   def selectAddedLabels: List[GTLabel] = db.withSession { implicit session =>
     (for {
       (_labs, _existingLabs) <- gtLabels.leftJoin(GTExistingLabelTable.gtExistingLabels).on(_.gtLabelId === _.gtLabelId)
@@ -85,6 +107,20 @@ object GTLabelTable{
       // http://slick.lightbend.com/doc/2.1.0/upgrade.html#isnull-and-isnotnull
       if _existingLabs.gtExistingLabelId.?.isEmpty
     } yield _labs).list
+  }
+
+  /**
+    * Returns the list of GT labels associated with the specified condition.
+    *
+    * @param conditionId
+    * @return
+    */
+  def selectGTLabelsByCondition(conditionId: Int): List[GTLabel] = db.withSession { implicit session =>
+    (for {
+      _condition <- AMTConditionTable.amtConditions if _condition.amtConditionId === conditionId
+      _routes <- AMTVolunteerRouteTable.amtVolunteerRoutes if _routes.volunteerId === _condition.volunteerId
+      _labels <- gtLabels if _labels.routeId === _routes.routeId
+    } yield _labels).list
   }
 
   def save(gtLabel: GTLabel): Int = db.withTransaction { implicit session =>

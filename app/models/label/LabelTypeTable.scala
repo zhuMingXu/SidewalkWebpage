@@ -39,6 +39,10 @@ object LabelTypeTable {
     }
   }
 
+  def labelIdToType(typeId: Int): Option[String] = db.withTransaction { implicit session =>
+    labelTypes.filter(_.labelTypeId === typeId).map(_.labelType).list.headOption
+  }
+
   /**
    * Saves a new label type in the table
    * @param lt

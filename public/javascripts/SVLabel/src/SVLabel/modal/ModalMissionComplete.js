@@ -36,6 +36,14 @@ function ModalMissionComplete (svl, missionContainer, taskContainer,
         self.show();
     });
 
+    _modalModel.on("ModalMissionComplete:showHITSubmission", function () {
+        self.show_hit_submission();
+    });
+
+    _modalModel.on("ModalMissionComplete:hideHITSubmission", function () {
+        self.hide_hit_submission();
+    });
+
     _modalModel.on("ModalMissionComplete:one", function (parameters) {
         self.one(parameters.uiComponent, parameters.eventType, parameters.callback);
     });
@@ -71,11 +79,22 @@ function ModalMissionComplete (svl, missionContainer, taskContainer,
         }
     };
 
+    this.show_hit_submission = function(){
+        this._uiModalMissionComplete.closeButton.css('visibility', 'hidden');
+        this._uiModalMissionComplete.submitHITButton.css('visibility', 'visible');
+    };
+    this.hide_hit_submission = function(){
+        this._uiModalMissionComplete.closeButton.css('visibility', 'visible');
+        this._uiModalMissionComplete.submitHITButton.css('visibility', 'hidden');
+    };
+
     this.hide = function () {
         this._status.isOpen = false;
         this._uiModalMissionComplete.holder.css('visibility', 'hidden');
         this._uiModalMissionComplete.foreground.css('visibility', "hidden");
         this._uiModalMissionComplete.background.css('visibility', "hidden");
+        this._uiModalMissionComplete.closeButton.css('visibility', 'hidden');
+        this._uiModalMissionComplete.submitHITButton.css('visibility', 'hidden');
         // this._horizontalBarMissionLabel.style("visibility", "hidden");
         this._modalMissionCompleteMap.hide();
 
@@ -88,6 +107,8 @@ function ModalMissionComplete (svl, missionContainer, taskContainer,
         uiModalMissionComplete.holder.css('visibility', 'visible');
         uiModalMissionComplete.foreground.css('visibility', "visible");
         uiModalMissionComplete.background.css('visibility', "visible");
+        uiModalMissionComplete.closeButton.css('visibility', 'visible');
+        uiModalMissionComplete.submitHITButton.css('visibility', 'hidden');
         // horizontalBarMissionLabel.style("visibility", "visible");
         modalMissionCompleteMap.show();
     };
@@ -123,11 +144,16 @@ function ModalMissionComplete (svl, missionContainer, taskContainer,
 
         this._updateMissionProgressStatistics(missionDistance, auditedDistance, remainingDistance, unit);
         this._updateMissionLabelStatistics(curbRampCount, noCurbRampCount, obstacleCount, surfaceProblemCount, otherCount);
+        //Update the completed mission count on the dashboard
+        var totalMissionsAvailable = missionContainer.getMissionsByRegionId(regionId).length;
+        var completeMissions = totalMissionsAvailable - missionContainer.getIncompleteMissionsByRegionId(regionId).length;
+        this._setMissionCount(completeMissions,totalMissionsAvailable);
 
     };
 
     //uiModalMissionComplete.background.on("click", this._handleBackgroundClick);
-    //uiModalMissionComplete.closeButton.on("click", this._handleCloseButtonClick);
+    uiModalMissionComplete.closeButton.on("click", this._handleCloseButtonClick);
+    //Add code here to make missions appear consecutively on a single HIT rather on multiple HITs
     this.hide();
 }
 
@@ -193,4 +219,8 @@ ModalMissionComplete.prototype._updateMissionLabelStatistics = function (curbRam
     this._uiModalMissionComplete.obstacleCount.html(obstacleCount);
     this._uiModalMissionComplete.surfaceProblemCount.html(surfaceProblemCount);
     this._uiModalMissionComplete.otherCount.html(otherCount);
+};
+
+ModalMissionComplete.prototype._setMissionCount = function (numMissions, totalMissionCount) {
+    this._uiModalMissionComplete.missionCounter.html(numMissions+" out of "+totalMissionCount+" missions completed");
 };

@@ -96,6 +96,7 @@ public/javascripts/SVLabel/build/*
 public/javascripts/Admin/build/*
 public/javascripts/FAQ/build/*
 public/javascripts/Progress/build/*
+public/javascripts/ClusteringValidation/build/*
 
 tmp/
 download
@@ -111,3 +112,4 @@ mturk_results
 *.pyc
 
 nohup.out
+package-lock.json

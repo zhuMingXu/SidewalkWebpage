@@ -1,0 +1,73 @@
+@import models.user.User
+
+@(title: String, user: Option[User] = None)
+@main(title) {
+    @navbar(user)
+    <div id="content">
+        <div class="container">
+            <h1>Accuracy calculation for turkers and volunteers</h1>
+            <button id="btnVolunteerAccuracy">Calculate Volunteer Accuracy</button>
+        </div>
+        <br>
+        <br>
+        <div class="container">
+            <button id="btnTurkerAccuracy">Calculate Turker Accuracy</button><br>
+            Number of turkers to cluster:
+            <input type="text" id="clustering-num" value="1" />&nbsp;
+            <p id="accuracy-result"></p>
+        </div>
+        <br>
+        <br>
+        <div class="container">
+            <button id="allVolunteerAccuracy">Run ALL the Volunteer Things!</button>
+            <button id="allTurkerAccuracy">Run ALL the Turker Things!</button>
+            <button id="allIndividualTurkerAccuracy">Run individual clustering for ALL the turkers!</button><br><br>
+            <button id="testDifferentThresholds">Run different clustering thresholds on ALL the individual turkers!</button><br><br>
+            <button id="testDifferentThresholds2">Run different clustering thresholds on ALL the clustered turkers!</button><br><br>
+            <p id="all-accuracy-result"></p>
+        </div>
+        <br>
+        <br>
+        <div class="container">
+            <button id="volunteerLabels">Get Volunteer Labels</button>
+            <button id="turkerLabels">Get Turker Labels</button>
+        </div>
+    </div>
+
+    <script type="text/javascript" src='@routes.Assets.at("javascripts/Accuracy.js")'></script>
+    <script type="text/javascript" src='@routes.Assets.at("javascripts/lib/turf.min.js")'></script>
+
+    <script>
+            $(document).ready(function () {
+
+                let turkerButton = document.getElementById('btnTurkerAccuracy');
+                turkerButton.onclick = function() {
+                    $.ajax({
+                        type: "get",
+                        url: "/accuracyData/turker/" + document.getElementById('clustering-num').value,
+                        contentType: 'application/json; charset=utf-8',
+                        success: function (data) {
+                            $( "#accuracy-result" ).html( data );
+                            window.IRR = Accuracy(data, document.getElementById('clustering-num').value, turf);
+                        },
+                        dataType: "json"
+                    });
+                };
+
+                let volunteerButton = document.getElementById('btnVolunteerAccuracy');
+                volunteerButton.onclick = function() {
+                    $.ajax({
+                        type: "get",
+                        url: "/accuracyData/volunteer/1",
+                        contentType: 'application/json; charset=utf-8',
+                        success: function (data) {
+                            $( "#accuracy-result" ).html( data );
+                            window.IRR = Accuracy(data, 1, turf);
+                        },
+                        dataType: "json"
+                    });
+                };
+
+            });
+    </script>
+}

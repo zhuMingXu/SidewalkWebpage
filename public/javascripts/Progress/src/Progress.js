@@ -343,42 +343,65 @@ function Progress (_, $, c3, L, difficultRegionIds) {
         }
 
         $.getJSON("/userapi/labels", function (data) {
-            _data.labels = data;
-            // Count a number of each label type
-            var labelCounter = {
-                "CurbRamp": 0,
-                "NoCurbRamp": 0,
-                "Obstacle": 0,
-                "SurfaceProblem": 0
-            };
+            $.getJSON("/userapi/clusteredLabels", function (clusteredLabelData) {
+                _data.labels = data;
+                // Count a number of each label type
+                var labelCounter = {
+                    "CurbRamp": 0,
+                    "NoCurbRamp": 0,
+                    "Obstacle": 0,
+                    "SurfaceProblem": 0
+                };
 
-            for (var i = data.features.length - 1; i >= 0; i--) {
-                labelCounter[data.features[i].properties.label_type] += 1;
-            }
-            document.getElementById("td-number-of-curb-ramps").innerHTML = labelCounter["CurbRamp"];
-            document.getElementById("td-number-of-missing-curb-ramps").innerHTML = labelCounter["NoCurbRamp"];
-            document.getElementById("td-number-of-obstacles").innerHTML = labelCounter["Obstacle"];
-            document.getElementById("td-number-of-surface-problems").innerHTML = labelCounter["SurfaceProblem"];
+                for (var i = data.features.length - 1; i >= 0; i--) {
+                    labelCounter[data.features[i].properties.label_type] += 1;
+                }
+                document.getElementById("td-number-of-curb-ramps").innerHTML = labelCounter["CurbRamp"];
+                document.getElementById("td-number-of-missing-curb-ramps").innerHTML = labelCounter["NoCurbRamp"];
+                document.getElementById("td-number-of-obstacles").innerHTML = labelCounter["Obstacle"];
+                document.getElementById("td-number-of-surface-problems").innerHTML = labelCounter["SurfaceProblem"];
 
-            document.getElementById("map-legend-curb-ramp").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['CurbRamp'].fillStyle + "'></svg>";
-            document.getElementById("map-legend-no-curb-ramp").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['NoCurbRamp'].fillStyle + "'></svg>";
-            document.getElementById("map-legend-obstacle").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Obstacle'].fillStyle + "'></svg>";
-            document.getElementById("map-legend-surface-problem").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['SurfaceProblem'].fillStyle + "'></svg>";
-            document.getElementById("map-legend-audited-street").innerHTML = "<svg width='20' height='20'><path stroke='rgba(128, 128, 128, 1.0)' stroke-width='3' d='M 2 10 L 18 10 z'></svg>";
+                document.getElementById("map-legend-curb-ramp").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['CurbRamp'].fillStyle + "'></svg>";
+                document.getElementById("map-legend-no-curb-ramp").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['NoCurbRamp'].fillStyle + "'></svg>";
+                document.getElementById("map-legend-obstacle").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Obstacle'].fillStyle + "'></svg>";
+                document.getElementById("map-legend-surface-problem").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['SurfaceProblem'].fillStyle + "'></svg>";
+                document.getElementById("map-legend-audited-street").innerHTML = "<svg width='20' height='20'><path stroke='rgba(128, 128, 128, 1.0)' stroke-width='3' d='M 2 10 L 18 10 z'></svg>";
 
-            // Render submitted labels
-            L.geoJson(data, {
-                pointToLayer: function (feature, latlng) {
-                    var style = $.extend(true, {}, geojsonMarkerOptions);
-                    style.fillColor = colorMapping[feature.properties.label_type].fillStyle;
-                    return L.circleMarker(latlng, style);
-                },
-                onEachFeature: onEachLabelFeature
-            })
-                .addTo(map);
+                // Render submitted labels
+                L.geoJson(data, {
+                    pointToLayer: function (feature, latlng) {
+                        var style = $.extend(true, {}, geojsonMarkerOptions);
+                        style.fillColor = colorMapping[feature.properties.label_type].fillStyle;
+                        return L.circleMarker(latlng, style);
+                    },
+                    onEachFeature: onEachLabelFeature
+                })
+                    .addTo(map);
 
-            completedInitializingSubmittedLabels = true;
-            handleInitializationComplete(map);
+                // Render clustered labels
+                console.log(clusteredLabelData);
+                L.geoJson(clusteredLabelData, {
+                    pointToLayer: function (feature, latlng) {
+                        // Same style as geojsonMarkerOptions, but with radius set to 3 instead of 5.
+                        var style = $.extend(true, {}, {
+                            radius: 3,
+                            fillColor: "#ff7800",
+                            color: "#ffffff",
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: 0.5,
+                            "stroke-width": 1
+                        });
+                        style.fillColor = colorMapping[feature.properties.label_type].fillStyle;
+                        return L.circleMarker(latlng, style);
+                    },
+                    onEachFeature: onEachLabelFeature
+                })
+                    .addTo(map);
+
+                completedInitializingSubmittedLabels = true;
+                handleInitializationComplete(map);
+            });
         });
     }
 

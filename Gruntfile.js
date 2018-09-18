@@ -38,6 +38,12 @@ module.exports = function(grunt) {
                 ],
                 dest: 'public/javascripts/Progress/build/Progress.js'
             },
+            dist_clustering_validation: {
+                src: [
+                    'public/javascripts/ClusteringValidation/src/*.js'
+                ],
+                dest: 'public/javascripts/ClusteringValidation/build/ClusteringValidation.js'
+            },
             dist_admin: {
                 src: [
                     'public/javascripts/Admin/src/*.js'
@@ -114,6 +120,7 @@ module.exports = function(grunt) {
                     'public/javascripts/SVLabel/src/**/*.js',
                     'public/javascripts/SVLabel/css/*.css',
                     'public/javascripts/Progress/src/**/*.js',
+                    'public/javascripts/ClusteringValidation/src/**/*.js',
                     'public/javascripts/Admin/src/**/*.js',
                     'public/javascripts/FAQ/src/*.js'
                 ],
@@ -139,5 +146,5 @@ module.exports = function(grunt) {
 
     // 4. Where we tell Grunt what to do when we type "grunt" into the terminal.
     grunt.registerTask('default', ['concat', 'concat_css']);
-    grunt.registerTask('dist', ['concat:dist_svl', 'concat:dist_progress', 'concat:dist_admin']);
+    grunt.registerTask('dist', ['concat:dist_svl', 'concat:dist_progress', 'concat:dist_clustering_validation', 'concat:dist_admin']);
 };

@@ -38,7 +38,8 @@ function ModalMission (missionContainer, neighborhoodContainer, uiModalMission, 
     var missionTitles = {
         "initial-mission": "Initial Mission",
         "distance-mission": "Audit __DISTANCE_PLACEHOLDER__ in __NEIGHBORHOOD_PLACEHOLDER__",
-        "coverage-mission": "Audit __DISTANCE_PLACEHOLDER__ in __NEIGHBORHOOD_PLACEHOLDER__"
+        "coverage-mission": "Audit __DISTANCE_PLACEHOLDER__ in __NEIGHBORHOOD_PLACEHOLDER__",
+        "mturk-mission": "Mission __COMPLETED_MISSION_COUNT__ of __TOTAL_MISSION_COUNT__ : Audit __DISTANCE_PLACEHOLDER__ in __NEIGHBORHOOD_PLACEHOLDER__"
     };
 
     var initialMissionHTML = '<figure> \
@@ -112,14 +113,22 @@ function ModalMission (missionContainer, neighborhoodContainer, uiModalMission, 
                 templateHTML = distanceMissionHTML;
 
             if (missionContainer.onlyMissionOnboardingDone() || missionContainer.isTheFirstMission()) {
-                missionTitle = "First Mission: " + missionTitle;
+                if(label == "distance-mission"){
+                    missionTitle = "First Mission: " + missionTitle;
+                }
                 templateHTML = initialMissionHTML;
             }
 
-            distanceString = this._auidtDistanceToString(mission.getProperty("auditDistanceMi"), "miles");
+            distanceString = this._auditDistanceToString(mission.getProperty("auditDistanceMi"), "miles");
 
             missionTitle = missionTitle.replace("__DISTANCE_PLACEHOLDER__", distanceString);
             missionTitle = missionTitle.replace("__NEIGHBORHOOD_PLACEHOLDER__", neighborhood.getProperty("name"));
+            if(label == "mturk-mission"){
+                var totalMissionsAvailable = missionContainer.getMissionsByRegionId(neighborhood.regionId).length;
+                var currentMissionNumber = 1+ totalMissionsAvailable - missionContainer.getIncompleteMissionsByRegionId(neighborhood.regionId).length;
+                missionTitle = missionTitle.replace("__COMPLETED_MISSION_COUNT__", currentMissionNumber.toString());
+                missionTitle = missionTitle.replace("__TOTAL_MISSION_COUNT__", totalMissionsAvailable.toString());
+            }
 
             templateHTML = templateHTML.replace("__DISTANCE_PLACEHOLDER__", distanceString);
             templateHTML = templateHTML.replace("__NEIGHBORHOOD_PLACEHOLDER__", neighborhood.getProperty("name"));
@@ -171,19 +180,29 @@ function ModalMission (missionContainer, neighborhoodContainer, uiModalMission, 
     uiModalMission.closeButton.on("click", this._handleCloseButtonClick);
 }
 
-ModalMission.prototype._auidtDistanceToString = function  (distance, unit) {
+ModalMission.prototype._auditDistanceToString = function  (distance, unit) {
     if (!unit) unit = "kilometers";
 
     if (unit == "miles") {
-        if (distance <= 0.20) {
+        if (distance <= 0.12){
+            return "500ft";
+        }
+        else if (distance <= 0.20) {
             return "1000ft";
-        } else if (distance <= 0.25) {
+        }
+        else if (distance <= 0.25) {
             return "&frac14;mi";
-        } else if (distance <= 0.5) {
-            return "&frac12;mi"
-        } else if (distance <= 0.75) {
+        }
+        else if(distance <= 0.39){
+            return "2000ft";
+        }
+        else if (distance <= 0.5) {
+            return "&frac12;mi";
+        }
+        else if (distance <= 0.75) {
             return "&frac34;mi";
-        } else {
+        }
+        else {
             return distance.toFixed(0, 10) + "";
         }
     } else if (unit == "feet") {

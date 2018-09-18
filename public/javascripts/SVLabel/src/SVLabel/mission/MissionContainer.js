@@ -214,7 +214,7 @@ function MissionContainer (statusFieldMission, missionModel, taskModel) {
         }
 
         var nextRegionId = this._findARegionWithMission(regionId);
-        missions = missions = self._missionStoreByRegionId[nextRegionId];
+        missions = self._missionStoreByRegionId[nextRegionId];
         missions = missions.filter(function (m) { return !m.isCompleted(); });
         return missions[0];
     };
@@ -239,7 +239,11 @@ function MissionContainer (statusFieldMission, missionModel, taskModel) {
         missions = missions.filter(function (m) { return !m.isCompleted(); });
         while (missions.length == 0) {
             nextRegionId = self._getANextRegionId(nextRegionId);
-            if (nextRegionId == currentRegionId) throw Error("No missions available");
+            if (nextRegionId == currentRegionId) {
+                svl.modalModel.showModalMissionCompleteHITSubmission();
+                console.log("No missions available");
+                return nextRegionId; //Modified for MTurk missions
+            }
             missions = self._missionStoreByRegionId[nextRegionId];
             missions = missions.filter(function (m) { return !m.isCompleted(); });
         }

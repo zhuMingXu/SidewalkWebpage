@@ -9,7 +9,9 @@ import play.api.Play.current
 
 import scala.slick.lifted.ForeignKeyQuery
 
-case class ClusteringSessionCluster(clusteringSessionClusterId: Int, clusteringSessionId: Int)
+case class ClusteringSessionCluster(clusteringSessionClusterId: Int, clusteringSessionId: Int,
+                                    labelTypeId: Option[Int], lat: Option[Float], lng: Option[Float],
+                                    severity: Option[Int], temporary: Option[Boolean])
 
 /**
   *
@@ -17,8 +19,13 @@ case class ClusteringSessionCluster(clusteringSessionClusterId: Int, clusteringS
 class ClusteringSessionClusterTable(tag: Tag) extends Table[ClusteringSessionCluster](tag, Some("sidewalk"), "clustering_session_cluster") {
   def clusteringSessionClusterId = column[Int]("clustering_session_cluster_id", O.NotNull, O.PrimaryKey, O.AutoInc)
   def clusteringSessionId = column[Int]("clustering_session_id", O.NotNull)
+  def labelTypeId = column[Option[Int]]("label_type_id", O.Nullable)
+  def lat = column[Option[Float]]("lat", O.Nullable)
+  def lng = column[Option[Float]]("lng", O.Nullable)
+  def severity = column[Option[Int]]("severity", O.Nullable)
+  def temporary = column[Option[Boolean]]("temporary", O.Nullable)
 
-  def * = (clusteringSessionClusterId, clusteringSessionId) <> ((ClusteringSessionCluster.apply _).tupled, ClusteringSessionCluster.unapply)
+  def * = (clusteringSessionClusterId, clusteringSessionId, labelTypeId, lat, lng, severity, temporary) <> ((ClusteringSessionCluster.apply _).tupled, ClusteringSessionCluster.unapply)
 
   def clusteringSession: ForeignKeyQuery[ClusteringSessionTable, ClusteringSession] =
     foreignKey("clustering_session_cluster_cluster_session_id_fkey", clusteringSessionId, TableQuery[ClusteringSessionTable])(_.clusteringSessionId)
@@ -43,6 +50,10 @@ object ClusteringSessionClusterTable{
 
   def getSpecificClusteringSessionClusters(clusteringSessionId: Int): List[ClusteringSessionCluster] = db.withSession { implicit session =>
     clusteringSessionClusters.filter(_.clusteringSessionId === clusteringSessionId).list
+  }
+
+  def save(sessionId: Int): Int = db.withTransaction { implicit session =>
+    save(ClusteringSessionCluster(0, sessionId, labelTypeId = None, lat = None, lng = None, severity = None, temporary = None))
   }
 
   def save(clusteringSessionCluster: ClusteringSessionCluster): Int = db.withTransaction { implicit session =>
