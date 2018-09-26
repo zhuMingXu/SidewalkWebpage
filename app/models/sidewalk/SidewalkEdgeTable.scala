@@ -143,7 +143,7 @@ object LabelConnTable{
 
   def getHeadingFromId(id: Int): (Float) = db.withSession { implicit session =>
     val selectQuery = Q.query[(Int), (Float)](
-      """SELECT lp.photographer_heading
+      """SELECT lp.heading
         |FROM sidewalk.label_point AS lp
         |WHERE lp.label_id = ?""".stripMargin
     )
@@ -161,9 +161,6 @@ object LabelConnTable{
 //4) draw associations.
 
 //NOTE: this process is very slow - it would be much faster if we could simply link labels to the placeId of the street they are on.
-//this approach has many problems:
-//  1)duplicate label finding - because we use a box to find labels, we kinda get the same label multiple times, especially on turns.
-//  2) it's just plain inefficient. Please.
 object Populator {
 
   val db = play.api.db.slick.DB
@@ -175,18 +172,22 @@ object Populator {
   }
 
   def logprint(msg : String)= {
-     logStr += msg + " | "
+     logStr += msg + " \n "
   }
 
 
 
-  val numStreetEdges = 10;
+
+  val numStreetEdges = 20;
   def populate(): Unit ={
-      //get the street edges
+
+      //get the street edge
       val streetEdges = StreetEdgeTable.all.take(numStreetEdges);
       for(streetEdge: (StreetEdge) <- streetEdges){
+
+
           //get the path of lat longs (YAY! no longer need slow google API for paths!)
-          val coordinates: Array[Coordinate] = edge.geom.getCoordinates
+          val coordinates: Array[Coordinate] = streetEdge.geom.getCoordinates
           val path: Array[geojson.LatLng] = coordinates.map(coord => geojson.LatLng(coord.y, coord.x)).toArray
 
           //seperate lists for different sides of the street
@@ -199,16 +200,18 @@ object Populator {
 
           //go through our path
           for(i <- 0 until path.length - 1){
+
               //get the start and end points
               val start = path(i)
               val end = path(i + 1)
 
               //get our bearing from the start to the end
-              val bearing = getBearing(start.lat, start.lng, end.lat, end.lng)
+              val bearing = getBearing(start.lat.toFloat, start.lng.toFloat, end.lat.toFloat, end.lng.toFloat)
 
               //get nearby labels
-              val bounds = getRectBounds(start._1, start._2, 0.00025F)
+              val bounds = getRectBounds(start.lat.toFloat, start.lng.toFloat, 0.00025F)
 
+              logprint(bounds._1 + ", " + bounds._2 + ", " + bounds._3 + ", " + bounds._4);
               //get the labels inside the bounds
               val labelsInBounds : List[(Int, Float, Float, Int)] = getLabelsIn(bounds._1, bounds._2, bounds._3, bounds._4)
 
@@ -217,20 +220,21 @@ object Populator {
 
               //go through all the labels we just grabbed
               for(label <- labelsInBounds) {
+
                 //breakable because we don't want to do labels that have already been done; essentially, break if copy.
                 breakable{
 
                   newRecentLabels = label :: newRecentLabels
-                  if(hasLabelCopy(recentLabels, label) || !placeIdsMatch((label._3, label._2),start)) {
+                  if(hasLabelCopy(recentLabels, label)) {
                     break
                   }
 
                   numLbl = numLbl + 1
                   //bearing based on lat long (previous method)
-                  val labelBearingLatLng = getBearing(start._1, start._2, label._3, label._2)
+                  val labelBearingLatLng = getBearing(start.lat.toFloat, start.lng.toFloat, label._3, label._2)
                   //bearing based on heading (new method)
                   val heading = LabelConnTable.getHeadingFromId(label._1)
-                  val labelBearing = labelBearingLatLng
+                  val labelBearing = heading
 
                   logprint((labelBearing - bearing) + "")
                   val labelMetaData: (Int, Float, Float, Int, Float, Float) = (label._1, label._2, label._3, label._4, (labelBearing-bearing), bearing)
@@ -342,17 +346,15 @@ object Populator {
   def getLabelsIn(minLat: Float, maxLat: Float, minLng: Float, maxLng: Float): List[(Int, Float, Float, Int)] = db.withSession { implicit session =>
     val selectQuery = Q.query[(Float, Float, Float, Float), (Int, Float, Float, Int)](
                       """SELECT lb.label_id,
-                        |       lp.lat,
-                        |       lp.lng,
+                        |       lb.panorama_lat,
+                        |       lb.panorama_lng,
                         |       lb.label_type_id
-                        |FROM sidewalk.label AS lb,
-                        |     sidewalk.label_point AS lp
-                        |WHERE lp.label_id = lb.label_id AND
-                        |lp.lat NOTNULL AND lp.lng NOTNULL AND
-                        |lp.lat > ? AND lp.lat < ? AND
-                        |lp.lng > ? AND lp.lng < ?""".stripMargin
+                        |FROM sidewalk.label AS lb
+                        |WHERE lb.panorama_lat NOTNULL AND lb.panorama_lng NOTNULL AND
+                        |lb.panorama_lat > ? AND lb.panorama_lat < ? AND
+                        |lb.panorama_lng > ? AND lb.panorama_lng < ?""".stripMargin
                       )
-    selectQuery((minLng,maxLng,minLat,maxLat)).list
+    selectQuery((minLat,maxLat,minLng,maxLng)).list
   }
 
 
