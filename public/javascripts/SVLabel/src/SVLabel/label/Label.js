@@ -921,26 +921,26 @@ function Label (svl, pathIn, params) {
      */
     function toLatLng() {
         if (!properties.labelLat) {
-            var imageCoordinates = path.getImageCoordinates(),
-                pc = svl.pointCloud.getPointCloud(properties.panoId);
-            if (pc) {
-                var minDx = 1000, minDy = 1000, i, delta, latlng,
-                    p, idx, dx, dy, r, minR;
-                for (i = 0; i < imageCoordinates.length; i ++) {
-                    p = util.scaleImageCoordinate(imageCoordinates[i].x, imageCoordinates[i].y, 1/26);
-                    idx = 3 * (Math.ceil(p.x) + 512 * Math.ceil(p.y));
-                    dx = pc.pointCloud[idx];
-                    dy = pc.pointCloud[idx + 1];
-                    r = dx * dx + dy * dy;
-                    minR = minDx * minDx + minDy + minDy;
+var imageCoordinates = path.getImageCoordinates(),
+    pc = svl.pointCloud.getPointCloud(properties.panoId);
+if (pc) {
+    var minDx = 1000, minDy = 1000, i, delta, latlng,
+        p, idx, dx, dy, r, minR;
+    for (i = 0; i < imageCoordinates.length; i ++) {
+        p = util.scaleImageCoordinate(imageCoordinates[i].x, imageCoordinates[i].y, 1/26);
+        idx = 3 * (Math.ceil(p.x) + 512 * Math.ceil(p.y));
+        dx = pc.pointCloud[idx];
+        dy = pc.pointCloud[idx + 1];
+        r = dx * dx + dy * dy;
+        minR = minDx * minDx + minDy + minDy;
 
-                    if (r < minR) {
-                        minDx = dx;
-                        minDy = dy;
-                    }
-                }
-                delta = util.math.latlngOffset(properties.panoramaLat, dx, dy);
-                latlng = {lat: properties.panoramaLat + delta.dlat, lng: properties.panoramaLng + delta.dlng};
+        if (r < minR) {
+            minDx = dx;
+            minDy = dy;
+        }
+    }
+    delta = util.math.latlngOffset(properties.panoramaLat, dx, dy);
+    latlng = {lat: properties.panoramaLat + delta.dlat, lng: properties.panoramaLng + delta.dlng};
                 setProperty('labelLat', latlng.lat);
                 setProperty('labelLng', latlng.lng);
                 return latlng;

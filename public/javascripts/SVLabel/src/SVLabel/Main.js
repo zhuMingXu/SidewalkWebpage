@@ -457,7 +457,7 @@ function Main (params) {
                 // If the user has completed the onboarding mission but the data is only stored in the browser
                 // because the user completed it as an anonymous user, store the record on the server.
                 var onboardingMission = svl.missionContainer.getMission(null, "onboarding");
-                var hasCompletionRecordStored = onboardingMission.getProperty("isCompleted");
+                var hasCompletionRecordStored = false;
                 if (svl.user.getProperty("username") !== "anonymous" && !hasCompletionRecordStored) {
                     onboardingMission.setProperty("isCompleted", true);
                     svl.missionModel.completeMission(onboardingMission, null);

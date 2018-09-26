@@ -396,18 +396,18 @@ var ColorScheme = (function () {
             },
             CurbRamp: {
                 id: 'CurbRamp',
-                fillStyle: 'rgba(0, 222, 38, 1)',  // 'rgba(0, 244, 38, 1)'
-                strokeStyle: '#ffffff'
+                fillStyle: 'rgba(11, 213, 45, 1)',  // 'rgba(0, 244, 38, 1)'
+                strokeStyle: '#777777'
             },
             NoCurbRamp: {
                 id: 'NoCurbRamp',
                 fillStyle: 'rgba(233, 39, 113, 1)',  // 'rgba(255, 39, 113, 1)'
-                strokeStyle: '#ffffff'
+                strokeStyle: '#777777'
             },
             Obstacle: {
                 id: 'Obstacle',
                 fillStyle: 'rgba(0, 161, 203, 1)',
-                strokeStyle: '#ffffff'
+                strokeStyle: '#777777'
             },
             Other: {
                 id: 'Other',
@@ -423,12 +423,12 @@ var ColorScheme = (function () {
             NoSidewalk: {
                 id: 'NoSidewalk',
                 fillStyle: 'rgba(153, 131, 239, 1)',
-                strokeStyle: '#ffffff'
+                strokeStyle: '#777777'
             },
             SurfaceProblem: {
                 id: 'SurfaceProblem',
                 fillStyle: 'rgba(241, 141, 5, 1)',
-                strokeStyle: '#ffffff'
+                strokeStyle: '#777777'
             },
             Void: {
                 id: 'Void',
