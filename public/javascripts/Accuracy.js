@@ -243,6 +243,8 @@ function setupAccuracy(data, clusterNum, options) {
     // console.log(workerLabelCounts);
 
 
+    let numStreets = 0;
+    let numSegs = 0;
     for(let conditionIndex = 0; conditionIndex < conditions.length; conditionIndex++) {
         let currCondition = conditions[conditionIndex];
         let routes = [...new Set(gtLabelData.features.filter(label => label.properties.condition_id === currCondition).map(label => label.properties.route_id))];
@@ -277,6 +279,8 @@ function setupAccuracy(data, clusterNum, options) {
 
         output[conditionIndex].street = getLabelCountsBySegment(streets, gtLabs, workerLabs, workerThresh, futureOpts);
 
+        //segOutput[currType][chunkIndex][labelSource]["label_count"] = 1;
+        numStreets = numStreets + streets.length;
 
         let segDists = [0.005, 0.01]; // in kilometers
         for(let segDistIndex = 0; segDistIndex < segDists.length; segDistIndex++) {
@@ -284,10 +288,53 @@ function setupAccuracy(data, clusterNum, options) {
             let chunks = splitIntoChunks(streets, segDist);
             output[conditionIndex][String(segDist * 1000) + "_meter"] =
                 getLabelCountsBySegment(chunks, gtLabs, workerLabs, workerThresh, futureOpts);
+            if (segDist === 0.005) numSegs = numSegs + chunks.length;
         }
     }
+    console.log("number of streets: " + String(numStreets));
+    console.log("number of segs: " + String(numSegs));
     console.log("Output:");
     console.log(output);
+
+    let numStreets2 = 0;
+    let numSegs2 = 0;
+    let numStreetsWithGT = 0;
+    let numSegsWithGT = 0;
+    for (let conditionIndex = 0; conditionIndex < output.length; conditionIndex++) {
+        output[conditionIndex]["street"]["gt_check"] = [];
+        let typez = ["CurbRamp", "NoCurbRamp", "Obstacle", "SurfaceProblem"];
+        for (let labelTypeIndex = 0; labelTypeIndex < typez.length; labelTypeIndex++) {
+            // console.log(conditionIndex);
+            let typey = typez[labelTypeIndex];
+            if (typey === "CurbRamp") {
+                numStreets2 = numStreets2 + output[conditionIndex]["street"][typey].length;
+            }
+            for (let chunkIndex = 0; chunkIndex < output[conditionIndex]["street"][typey].length; chunkIndex++) {
+                if (output[conditionIndex]["street"][typey][chunkIndex]["gt"]["label_count"] > 0 && output[conditionIndex]["street"]["gt_check"][chunkIndex] !== 1) {
+                    output[conditionIndex]["street"]["gt_check"][chunkIndex] = 1;
+                    numStreetsWithGT = numStreetsWithGT + 1;
+                }
+            }
+        }
+        output[conditionIndex]["5_meter"]["gt_check"] = [];
+        for (let labelTypeIndex = 0; labelTypeIndex < typez.length; labelTypeIndex++) {
+            // console.log(conditionIndex);
+            let typey = typez[labelTypeIndex];
+            if (typey === "CurbRamp") {
+                numSegs2 = numSegs2 + output[conditionIndex]["5_meter"][typey].length;
+            }
+            for (let chunkIndex = 0; chunkIndex < output[conditionIndex]["5_meter"][typey].length; chunkIndex++) {
+                if (output[conditionIndex]["5_meter"][typey][chunkIndex]["gt"]["label_count"] > 0 && output[conditionIndex]["5_meter"]["gt_check"][chunkIndex] !== 1) {
+                    output[conditionIndex]["5_meter"]["gt_check"][chunkIndex] = 1;
+                    numSegsWithGT = numSegsWithGT + 1;
+                }
+            }
+        }
+    }
+    console.log("number of streets: " + String(numStreets2));
+    console.log("number of segs: " + String(numSegs2));
+    console.log("number of streets with GT: " + String(numStreetsWithGT));
+    console.log("number of segs with GT: " + String(numSegsWithGT));
 
     return output;
 }

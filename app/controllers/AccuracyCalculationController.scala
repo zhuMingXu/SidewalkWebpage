@@ -80,9 +80,9 @@ class AccuracyCalculationController @Inject()(implicit val env: Environment[User
               List.concat(labels, ClusteringSessionTable.getLabelsForAccuracy(clustSessionIds).map(_.toJSON))
           }
         case "volunteer" =>
-          val currentLabs: List[VolunteerLabel] = getVolunteerLabelsByCondition(conditionId)
-          if (currentLabs.isEmpty) Logger.warn(s"There are 0 volunteer labels for condition $conditionId.")
-          List.concat(labels, currentLabs.map(_.toJSON))
+//          val currentLabs: List[VolunteerLabel] = getVolunteerLabelsByCondition(conditionId)
+//          if (currentLabs.isEmpty) Logger.warn(s"There are 0 volunteer labels for condition $conditionId.")
+          List()
         case _ => labels
       }
     }

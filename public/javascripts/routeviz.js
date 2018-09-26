@@ -32,7 +32,8 @@ function RouteViz(_, $, c3, turf, difficultRegionIds) {
 
     self.auditedStreetLayer = null;
 
-    L.mapbox.accessToken = 'pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA';
+    // L.mapbox.accessToken = 'pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA';
+    L.mapbox.accessToken = 'pk.eyJ1IjoibWlzYXVnc3RhZCIsImEiOiJjajN2dTV2Mm0wMDFsMndvMXJiZWcydDRvIn0.IXE8rQNF--HikYDjccA7Ug';
 
     // Construct a bounding box for these maps that the user cannot move out of
     // https://www.mapbox.com/mapbox.js/example/v1.0.0/maxbounds/
@@ -41,10 +42,10 @@ function RouteViz(_, $, c3, turf, difficultRegionIds) {
     var bounds = L.latLngBounds(southWest, northEast);
 
     // var tileUrl = "https://a.tiles.mapbox.com/v4/kotarohara.mmoldjeh/page.html?access_token=pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA#13/38.8998/-77.0638";
-    var tileUrl = "https:\/\/a.tiles.mapbox.com\/v4\/kotarohara.8e0c6890\/{z}\/{x}\/{y}.png?access_token=pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA";
-    var mapboxTiles = L.tileLayer(tileUrl, {
-        attribution: '<a href="http://www.mapbox.com/about/maps/" target="_blank">Terms &amp; Feedback</a>'
-    });
+    // var tileUrl = "https:\/\/a.tiles.mapbox.com\/v4\/kotarohara.8e0c6890\/{z}\/{x}\/{y}.png?access_token=pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA";
+    // var mapboxTiles = L.tileLayer(tileUrl, {
+    //     attribution: '<a href="http://www.mapbox.com/about/maps/" target="_blank">Terms &amp; Feedback</a>'
+    // });
     var map = L.mapbox.map('admin-map', "kotarohara.8e0c6890", {
         // set that bounding box as maxBounds to restrict moving the map
         // see full maxBounds documentation:
@@ -55,6 +56,8 @@ function RouteViz(_, $, c3, turf, difficultRegionIds) {
     })
         .fitBounds(bounds)
         .setView([38.892, -77.038], 12);
+
+    L.mapbox.styleLayer('mapbox://styles/mapbox/light-v9').addTo(map);
 
     // a grayscale tileLayer for the choropleth
 
@@ -137,162 +140,13 @@ function RouteViz(_, $, c3, turf, difficultRegionIds) {
         });
     }
 
-    /**
-     * Takes a completion percentage, bins it, and returns the appropriate color for a choropleth.
-     *
-     * @param p {float} represents a completion percentage, between 0 and 100
-     * @returns {string} color in hex
-     */
-
-    /**
-     * render the neighborhood polygons, colored by completion percentage
-     */
-    function initializeChoroplethNeighborhoodPolygons(map, rates) {
-        var neighborhoodPolygonStyle = { // default bright red, used to check if any regions are missing data
-                color: '#888',
-                weight: 1,
-                opacity: 0.25,
-                fillColor: "#f00",
-                fillOpacity: 1.0
-            },
-            layers = [],
-            currentLayer;
-
-        function onEachNeighborhoodFeature(feature, layer) {
-
-            var regionId = feature.properties.region_id,
-                regionName = feature.properties.region_name,
-                compRate = -1.0,
-                milesLeft = -1.0,
-                url = "/audit/region/" + regionId,
-                popupContent = "???";
-            for (var i=0; i < rates.length; i++) {
-                if (rates[i].region_id === feature.properties.region_id) {
-                    compRate = Math.round(rates[i].rate);
-                    milesLeft = Math.round(0.000621371 * (rates[i].total_distance_m - rates[i].completed_distance_m));
-
-                    var advancedMessage = '';
-                    if(difficultRegionIds.includes(feature.properties.region_id)) {
-                           advancedMessage = '<br><b>Careful!</b> This neighborhood is not recommended for new users.<br><br>';
-                    }
-
-                    if (compRate === 100) {
-                        popupContent = "<strong>" + regionName + "</strong>: " + compRate + "\% Complete!<br>" + advancedMessage +
-                            "<a href='" + url + "' class='region-selection-trigger' regionId='" + regionId + "'>Click here</a>" +
-                            " to find accessibility issues in this neighborhood yourself!";
-                    }
-                    else if (milesLeft === 0) {
-                        popupContent = "<strong>" + regionName + "</strong>: " + compRate +
-                            "\% Complete<br>Less than a mile left!<br>" + advancedMessage +
-                            "<a href='" + url + "' class='region-selection-trigger' regionId='" + regionId + "'>Click here</a>" +
-                            " to help finish this neighborhood!";
-                    }
-                    else if (milesLeft === 1) {
-                        var popupContent = "<strong>" + regionName + "</strong>: " + compRate + "\% Complete<br>Only " +
-                            milesLeft + " mile left!<br>" + advancedMessage +
-                            "<a href='" + url + "' class='region-selection-trigger' regionId='" + regionId + "'>Click here</a>" +
-                            " to help finish this neighborhood!";
-                    }
-                    else {
-                        var popupContent = "<strong>" + regionName + "</strong>: " + compRate + "\% Complete<br>Only " +
-                            milesLeft + " miles left!<br>" + advancedMessage +
-                            "<a href='" + url + "' class='region-selection-trigger' regionId='" + regionId + "'>Click here</a>" +
-                            " to help finish this neighborhood!";
-                    }
-                    break;
-                }
-            }
-            layer.bindPopup(popupContent);
-            layers.push(layer);
-
-            layer.on('mouseover', function (e) {
-                this.setStyle({opacity: 1.0, weight: 3, color: "#000"});
-
-            });
-            layer.on('mouseout', function (e) {
-                for (var i = layers.length - 1; i >= 0; i--) {
-                    if (currentLayer !== layers[i])
-                        layers[i].setStyle({opacity: 0.25, weight: 1});
-                }
-                //this.setStyle(neighborhoodPolygonStyle);
-            });
-            layer.on('click', function (e) {
-                var center = turf.center(this.feature),
-                    coordinates = center.geometry.coordinates,
-                    latlng = L.latLng(coordinates[1], coordinates[0]),
-                    zoom = map.getZoom();
-                zoom = zoom > 14 ? zoom : 14;
-
-                map.setView(latlng, zoom, {animate: true});
-                currentLayer = this;
-            });
-        }
-
-        // adds the neighborhood polygons to the map
-        $.getJSON("/neighborhoods", function (data) {
-            neighborhoodPolygonLayer = L.geoJson(data, {
-                style: style,
-                onEachFeature: onEachNeighborhoodFeature
-            })
-                .addTo(map);
-        });
-    }
-
-    /**
-     * This function queries the streets that the user audited and visualize them as segments on the map.
-     */
-    function initializeAuditedStreets(map) {
-        var distanceAudited = 0,  // Distance audited in km
-            streetLinestringStyle = {
-                color: "black",
-                weight: 3,
-                opacity: 0.75
-            };
-
-        function onEachStreetFeature(feature, layer) {
-            if (feature.properties && feature.properties.type) {
-                layer.bindPopup(feature.properties.type);
-            }
-            layer.on({
-                'add': function () {
-                    layer.bringToBack()
-                }
-            })
-        }
-
-        $.getJSON("/contribution/streets/all", function (data) {
-
-            // Render audited street segments
-            self.auditedStreetLayer = L.geoJson(data, {
-                pointToLayer: L.mapbox.marker.style,
-                style: function (feature) {
-                    var style = $.extend(true, {}, streetLinestringStyle);
-                    var randomInt = Math.floor(Math.random() * 5);
-                    style.color = "#000";
-                    style["stroke-width"] = 3;
-                    style.opacity = 0.75;
-                    style.weight = 3;
-
-                    return style;
-                },
-                onEachFeature: onEachStreetFeature
-            })
-                .addTo(map);
-
-            // Calculate total distance audited in (km)
-            for (var i = data.features.length - 1; i >= 0; i--) {
-                distanceAudited += turf.lineDistance(data.features[i]);
-            }
-            // document.getElementById("td-total-distance-audited").innerHTML = distanceAudited.toPrecision(2) + " km";
-        });
-    }
 
     function initializeRoutesGenerated(map) {
         var distanceRouted = 0,  // Distance audited in km
             streetLinestringStyle = {
-                color: "red",
+                color: "black",
                 weight: 3,
-                opacity: 0.75
+                opacity: 1.0
             };
 
         function onEachStreetFeature(feature, layer) {
@@ -313,10 +167,9 @@ function RouteViz(_, $, c3, turf, difficultRegionIds) {
                 pointToLayer: L.mapbox.marker.style,
                 style: function (feature) {
                     var style = $.extend(true, {}, streetLinestringStyle);
-                    var randomInt = Math.floor(Math.random() * 5);
                     style.color = "#000";
                     style["stroke-width"] = 3;
-                    style.opacity = 0.75;
+                    style.opacity = 1;
                     style.weight = 3;
 
                     return style;
@@ -352,13 +205,13 @@ function RouteViz(_, $, c3, turf, difficultRegionIds) {
             //document.getElementById("td-number-of-obstacles").innerHTML = labelCounter["Obstacle"];
             //document.getElementById("td-number-of-surface-problems").innerHTML = labelCounter["SurfaceProblem"];
 
-            document.getElementById("map-legend-curb-ramp").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['CurbRamp'].fillStyle + "'></svg>";
-            document.getElementById("map-legend-no-curb-ramp").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['NoCurbRamp'].fillStyle + "'></svg>";
-            document.getElementById("map-legend-obstacle").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Obstacle'].fillStyle + "'></svg>";
-            document.getElementById("map-legend-surface-problem").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['SurfaceProblem'].fillStyle + "'></svg>";
-            document.getElementById("map-legend-other").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Other'].fillStyle + "' stroke='" + colorMapping['Other'].strokeStyle + "'></svg>";
-            document.getElementById("map-legend-occlusion").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Other'].fillStyle + "' stroke='" + colorMapping['Occlusion'].strokeStyle + "'></svg>";
-            document.getElementById("map-legend-nosidewalk").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Other'].fillStyle + "' stroke='" + colorMapping['NoSidewalk'].strokeStyle + "'></svg>";
+            // document.getElementById("map-legend-curb-ramp").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['CurbRamp'].fillStyle + "'></svg>";
+            // document.getElementById("map-legend-no-curb-ramp").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['NoCurbRamp'].fillStyle + "'></svg>";
+            // document.getElementById("map-legend-obstacle").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Obstacle'].fillStyle + "'></svg>";
+            // document.getElementById("map-legend-surface-problem").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['SurfaceProblem'].fillStyle + "'></svg>";
+            // document.getElementById("map-legend-other").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Other'].fillStyle + "' stroke='" + colorMapping['Other'].strokeStyle + "'></svg>";
+            // document.getElementById("map-legend-occlusion").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Other'].fillStyle + "' stroke='" + colorMapping['Occlusion'].strokeStyle + "'></svg>";
+            // document.getElementById("map-legend-nosidewalk").innerHTML = "<svg width='20' height='20'><circle r='6' cx='10' cy='10' fill='" + colorMapping['Other'].fillStyle + "' stroke='" + colorMapping['NoSidewalk'].strokeStyle + "'></svg>";
 
             document.getElementById("map-legend-audited-street").innerHTML = "<svg width='20' height='20'><path stroke='black' stroke-width='3' d='M 2 10 L 18 10 z'></svg>";
 
@@ -486,17 +339,6 @@ function RouteViz(_, $, c3, turf, difficultRegionIds) {
         }
     }
 
-    function initializeAdminGSVLabelView() {
-        self.adminGSVLabelView = AdminGSVLabel();
-    }
-
-    function initializeLabelTable() {
-        $('.labelView').click(function (e) {
-            e.preventDefault();
-            self.adminGSVLabelView.showLabel($(this).data('labelId'));
-        });
-    }
-
     // takes an array of objects and the name of a property of the objects, returns summary stats for that property
     function getSummaryStats(data, col, options) {
         options = options || {};
@@ -604,58 +446,13 @@ function RouteViz(_, $, c3, turf, difficultRegionIds) {
             initializeOverlayPolygon(map);
             initializeNeighborhoodPolygons(map);
             initializeRoutesGenerated(map);
-            initializeSubmittedLabels(map);
-            initializeAdminGSVLabelView();
+            // initializeSubmittedLabels(map);
             setTimeout(function () {
                 map.invalidateSize(false);
             }, 1);
             self.mapLoaded = true;
         }
-        else if (e.target.id == "analytics" && self.graphsLoaded == false) {
-
-            var opt = {
-                "mode": "vega-lite",
-                "actions": false
-            };
-
-            $.getJSON("/adminapi/completionRateByDate", function (data) {
-                var chart = {
-                    // "height": 800,
-                    "height": 300,
-                    "width": 875,
-                    "mark": "area",
-                    "data": {"values": data[0], "format": {"type": "json"}},
-                    "encoding": {
-                        "x": {
-                            "field": "date",
-                            "type": "temporal",
-                            "axis": {"title": "Date", "labelAngle": 0}
-                        },
-                        "y": {
-                            "field": "completion",
-                            "type": "quantitative", "scale": {
-                                "domain": [0,100]
-                            },
-                            "axis": {
-                                "title": "DC Coverage (%)"
-                            }
-                        }
-                    },
-                    "config": {
-                        "axis": {
-                            "titleFontSize": 16
-                        }
-                    }
-                };
-                vega.embed("#completion-progress-chart", chart, opt, function(error, results) {});
-            });
-
-            self.graphsLoaded = true;
-        }
     });
-
-    initializeLabelTable();
-    initializeAdminGSVLabelView();
 
     self.clearMap = clearMap;
     self.redrawLabels = redrawLabels;
