@@ -1,6 +1,5 @@
 function Admin(_, $, c3, turf, difficultRegionIds) {
     var self = {};
-    var severityList = [1, 2, 3, 4, 5];
     self.markerLayer = null;
     self.curbRampLayers = [];
     self.missingCurbRampLayers = [];
@@ -14,7 +13,7 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
 
     var neighborhoodPolygonLayer;
 
-    for (i = 0; i < 5; i++) {
+    for (var i = 0; i < 5; i++) {
         self.curbRampLayers[i] = [];
         self.missingCurbRampLayers[i] = [];
         self.obstacleLayers[i] = [];
@@ -74,8 +73,6 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
     choropleth.scrollWheelZoom.disable();
 
     L.mapbox.styleLayer('mapbox://styles/mapbox/light-v9').addTo(choropleth);
-
-    var popup = L.popup().setContent('<p>Hello world!<br />This is a nice popup.</p>');
 
     // Initialize the map
     /**
@@ -154,16 +151,18 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
      * @returns {string} color in hex
      */
     function getColor(p) {
-        return p > 90 ? '#08306b' :
-            p > 80 ? '#08519c' :
-                p > 70 ? '#08719c' :
-                    p > 60 ? '#2171b5' :
-                        p > 50 ? '#4292c6' :
-                            p > 40 ? '#6baed6' :
-                                p > 30 ? '#9ecae1' :
-                                    p > 20 ? '#c6dbef' :
-                                        p > 10 ? '#deebf7' :
-                                            '#f7fbff';
+        //since this is a float, we cannot directly compare. Using epsilon to avoid floating point errors
+        return Math.abs(p - 100) < Number.EPSILON ? '#03152f':
+                p > 90 ? '#08306b' :
+                    p > 80 ? '#08519c' :
+                        p > 70 ? '#08719c' :
+                            p > 60 ? '#2171b5' :
+                                p > 50 ? '#4292c6' :
+                                    p > 40 ? '#6baed6' :
+                                        p > 30 ? '#9ecae1' :
+                                            p > 20 ? '#c6dbef' :
+                                                p > 10 ? '#deebf7' :
+                                                    '#f7fbff';
     }
 
     /**
@@ -298,7 +297,6 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
                 pointToLayer: L.mapbox.marker.style,
                 style: function (feature) {
                     var style = $.extend(true, {}, streetLinestringStyle);
-                    var randomInt = Math.floor(Math.random() * 5);
                     style.color = "#000";
                     style["stroke-width"] = 3;
                     style.opacity = 0.75;
@@ -392,8 +390,7 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
     }
 
     function initializeAllLayers(data) {
-        var count = 1;
-        for (i = 0; i < data.features.length; i++) {
+        for (var i = 0; i < data.features.length; i++) {
             var labelType = data.features[i].properties.label_type;
             if(labelType === "Occlusion" || labelType === "NoSidewalk"){
                 // console.log(data.features[i]);
@@ -412,7 +409,7 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
         }
 
         Object.keys(self.allLayers).forEach(function (key) {
-            for (i = 0; i < self.allLayers[key].length; i++) {
+            for (var i = 0; i < self.allLayers[key].length; i++) {
                 self.allLayers[key][i] = createLayer({"type": "FeatureCollection", "features": self.allLayers[key][i]});
                 self.allLayers[key][i].addTo(map);
             }
@@ -438,14 +435,14 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
     function toggleLayers(label, checkboxId, sliderId) {
         if (document.getElementById(checkboxId).checked) {
             if(checkboxId == "occlusion" || checkboxId == "nosidewalk"){
-                for (i = 0; i < self.allLayers[label].length; i++) {
+                for (var i = 0; i < self.allLayers[label].length; i++) {
                     if (!map.hasLayer(self.allLayers[label][i])) {
                         map.addLayer(self.allLayers[label][i]);
                     }
                 }
             }
             else {
-                for (i = 0; i < self.allLayers[label].length; i++) {
+                for (var i = 0; i < self.allLayers[label].length; i++) {
                     if (!map.hasLayer(self.allLayers[label][i])
                         && ($(sliderId).slider("option", "value") == i ||
                         $(sliderId).slider("option", "value") == 5 )) {
@@ -457,7 +454,7 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
                 }
             }
         } else {
-            for (i = 0; i < self.allLayers[label].length; i++) {
+            for (var i = 0; i < self.allLayers[label].length; i++) {
                 if (map.hasLayer(self.allLayers[label][i])) {
                     map.removeLayer(self.allLayers[label][i]);
                 }
