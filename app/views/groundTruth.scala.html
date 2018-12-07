@@ -1,0 +1,197 @@
+@import models.user.User
+@import models.sidewalk.Populator
+
+@(title: String, user: Option[User] = None)
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Drawing Tools</title>
+        <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+        <meta charset="utf-8">
+        <style>
+                /* Always set the map height explicitly to define the size of the div
+                 * element that contains the map. */
+                #map {
+                    height: 100%;
+                }
+                /* Optional: Makes the sample page fill the window. */
+                html, body {
+                    height: 100%;
+                    margin: 0;
+                    padding: 0;
+                }
+        </style>
+    </head>
+    <body>
+        <div id="map"></div>
+        <!-- putting in the labels -->
+        <!-- this contains label_id, label lat, label lng, pano lat, pano long, road bearing, pano bearing, pano pitch, and label type, seperated by ','. Each entry is seperated by '|' -->
+        <div id="labels-info">
+            @for(label: (Int, Boolean, Float, Float) <- Populator.getAllLabelsFromAlgorithmTable()){
+                label._1,@Populator.getPositionFromId(label._1)._1,@Populator.getPositionFromId(label._1)._2,label._3,@Populator.getPanoBearingFromId(label._1),@Populator.getPanoPitchFromId(label._1),@Populator.getLabelTypeFromId(label._1)|
+            }
+        </div>
+
+
+
+        <script>
+                var labelMarkers = [];
+
+                //makes it easier for me to guess which label maps to what
+                var labelTypeToColor = [
+                                        '#17ff00',
+                                        '#ff1e00',
+                                        '#00fffc',
+                                        '#ffb800',
+                                        '#b4b4b4',
+                                        '#000100',
+                                        '#d305ff',
+                                        ];
+                var currentPositionInLabelEntries = 0;
+
+                // This example requires the Drawing library. Include the libraries=drawing
+                // parameter when you first load the API. For example:
+                // <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=drawing">
+                var labelEntries;
+                var map;
+                function initMap() {
+                    map = new google.maps.Map(document.getElementById('map'), {
+                        center: {lat: 38.8952632, lng: -77.0729659},
+                        zoom: 12,
+                        streetViewControl: false
+                    });
+
+                    labelEntries = document.getElementById('labels-info').innerText.split('|');
+
+                    for(var i = 0; i < labelEntries.length; i++) {
+                        if (labelEntries[i] === "") {
+                            continue;
+                        }
+                        var labelDataSplit = labelEntries[i].split(',');
+                        var label = new google.maps.Marker({
+                            position: {lat: parseFloat(labelDataSplit[1]), lng: parseFloat(labelDataSplit[2])},
+                            icon: {
+                                path: google.maps.SymbolPath.CIRCLE,
+                                fillOpacity: 0.0,
+                                fillColor: labelTypeToColor[parseInt(labelDataSplit[6]) - 1],
+                                strokeOpacity: 0.0,
+                                strokeColor: labelTypeToColor[parseInt(labelDataSplit[6]) - 1],
+                                strokeWeight: 3.0,
+                                scale: 5, //pixels
+                                zIndex: 1
+                            }
+                        });
+
+                        label.setMap(map);
+                        labelMarkers.push(label);
+                    }
+                }
+
+                var panorama;
+
+
+                //functions to handle ground truth data inputs
+                //move to indicated pano
+                function moveToNextPano(labelDataSplit){
+                    //setting map center
+                    map.setCenter(new google.maps.LatLng(parseFloat(labelDataSplit[1]), parseFloat(labelDataSplit[2])));
+
+                    //get the street view from the map, set the heading and pitch to the road direction as default
+                    panorama = map.getStreetView();
+                    panorama.setPosition(new google.maps.LatLng(parseFloat(labelDataSplit[1]), parseFloat(labelDataSplit[2])));
+                    panorama.setPov({
+                        heading: parseFloat(labelDataSplit[3]),
+                        pitch: 0
+                    });
+                    panorama.setVisible(true);
+                }
+
+                //move back one label, move forward one label
+                function prevClick(){
+
+                    currentPositionInLabelEntries--;
+                    if(currentPositionInLabelEntries < 0){
+                        currentPositionInLabelEntries = 0;
+                        return;
+                    }
+
+                    //parsing data
+                    var labelEntry = labelEntries[currentPositionInLabelEntries];
+                    moveToNextPano(labelEntry.split(','));
+                }
+                function nextClick(){
+                    currentPositionInLabelEntries++;
+                    if(currentPositionInLabelEntries >= labelEntries.length){
+                        currentPositionInLabelEntries = labelEntries.length - 1;
+                        return;
+                    }
+
+                    //parsing data
+                    var labelEntry = labelEntries[currentPositionInLabelEntries];
+                    moveToNextPano(labelEntry.split(','));
+                }
+
+                //inputting data to ground truth
+                function rightClick(){
+                    var labelEntry = labelEntries[currentPositionInLabelEntries];
+                    var labelEntrySplit = labelEntry.split(',');
+                    var label_id = parseInt(labelEntrySplit[0]);
+                    sendAjaxRequestToModifyGroundTruth(label_id, true);
+                }
+                function leftClick(){
+                    var labelEntry = labelEntries[currentPositionInLabelEntries];
+                    var labelEntrySplit = labelEntry.split(',');
+                    var label_id = parseInt(labelEntrySplit[0]);
+                    sendAjaxRequestToModifyGroundTruth(label_id, false);
+                }
+
+                function sendAjaxRequestToModifyGroundTruth(label_id, isRight){
+                    var groundTruthUrl = '/groundTruth';
+                    var textData = label_id + "," + isRight;
+                    var async = true;
+                    $.ajax({
+                        async: async,
+                        url: groundTruthUrl,
+                        type: 'post',
+                        dataType: 'text',
+                        data: textData,
+                        success: function (data) {
+                            alert(data.success);
+                        }
+                    });
+                }
+
+                //snap to road or label view
+                function roadPanoClick(){
+                    var labelEntry = labelEntries[currentPositionInLabelEntries];
+                    var labelEntrySplit = labelEntry.split(',');
+                    panorama.setPov({
+                        heading: parseFloat(labelEntrySplit[3]),
+                        pitch: 0
+                    });
+                }
+                function labelPanoClick(){
+                    var labelEntry = labelEntries[currentPositionInLabelEntries];
+                    var labelEntrySplit = labelEntry.split(',');
+                    panorama.setPov({
+                        heading: parseFloat(labelEntrySplit[4]),
+                        pitch: parseFloat(labelEntrySplit[5])
+                    });
+                }
+
+        </script>
+        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDCBNAIxzx31wIKhxMv91i3cM5yK8gDxCk&libraries=drawing&callback=initMap"
+        async defer></script>
+        <br>
+        <button onclick="roadPanoClick()">RoadPano</button>
+        <button onclick="labelPanoClick()">LabelPano</button>
+        <br>
+        <button onclick="prevClick()">Prev</button>
+        <button onclick="nextClick()">Next</button>
+        <br>
+        <button onclick="rightClick()">Right</button>
+        <button onclick="leftClick()">Left</button>
+    </body>
+
+</html>

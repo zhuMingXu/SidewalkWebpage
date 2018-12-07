@@ -12,6 +12,7 @@ import models.daos.slick.DBTableDefinitions.{DBUser, UserTable}
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.mvc._
 import models.sidewalk.Populator
+import play.api.libs.json._
 
 import scala.concurrent.Future
 import scala.util.Random
@@ -340,7 +341,9 @@ class ApplicationController @Inject() (implicit val env: Environment[User, Sessi
     }
   }
 
-  def populate_sidewalks = UserAwareAction.async { implicit request =>
+
+  //populates the algorithm table of left-right labels. Should populate the edge table first.
+  def populate_algorithm = UserAwareAction.async { implicit request =>
     request.identity match {
       case Some(user) =>
         val now = new DateTime(DateTimeZone.UTC)
@@ -348,13 +351,63 @@ class ApplicationController @Inject() (implicit val env: Environment[User, Sessi
         val ipAddress: String = request.remoteAddress
 
         WebpageActivityTable.save(WebpageActivity(0, user.userId.toString, ipAddress, "Visit_Map", timestamp))
-        Populator.populate
-        Future.successful(Ok(views.html.sidewalkPopulate("Populating sidewalks...", Some(user))))
+        Populator.clearLog
+        Populator.populateAlgorithmTable
+        Future.successful(Ok(views.html.populateAlgorithmTable("Populating algorithm table...", Some(user))))
       case None =>
         Future.successful(Redirect("/anonSignUp?url=/test"))
     }
   }
 
+  //populates the edge table, relates labels to edges, very lengthy, only do once.
+  def populate_label_street = UserAwareAction.async { implicit request =>
+    request.identity match {
+      case Some(user) =>
+        val now = new DateTime(DateTimeZone.UTC)
+        val timestamp: Timestamp = new Timestamp(now.getMillis)
+        val ipAddress: String = request.remoteAddress
+
+        WebpageActivityTable.save(WebpageActivity(0, user.userId.toString, ipAddress, "Visit_Map", timestamp))
+        Populator.clearLog
+        Populator.populateLabelStreetTable
+        Future.successful(Ok(views.html.populateLabelStreetTable("Populating label street table...", Some(user))))
+      case None =>
+        Future.successful(Redirect("/anonSignUp?url=/test"))
+
+
+    }
+  }
+
+  //ground truth label entry page
+  def ground_truth = UserAwareAction.async { implicit request =>
+    request.identity match {
+      case Some(user) =>
+        val now = new DateTime(DateTimeZone.UTC)
+        val timestamp: Timestamp = new Timestamp(now.getMillis)
+        val ipAddress: String = request.remoteAddress
+
+        WebpageActivityTable.save(WebpageActivity(0, user.userId.toString, ipAddress, "Visit_Map", timestamp))
+        Future.successful(Ok(views.html.groundTruth("label ground truth tool", Some(user))))
+      case None =>
+        Future.successful(Redirect("/anonSignUp?url=/test"))
+    }
+  }
+
+  //adds a label to the ground truth
+  def ground_truth_add = UserAwareAction.async { implicit request =>
+      // get data as a string and parse the values
+      val data = request.body.asText.get
+      val splitData = data.split(",")
+      val labelId = splitData(0).toInt;
+      val isRight = splitData(1).toBoolean;
+      // delete any entry with the same labelId, we're replacing it.
+      Populator.deleteEntryGroundTruth(labelId);
+      // inesrt a new entry with the labelId and whether the label is on the left or right side of the street
+      Populator.insertEntryGroundTruth(labelId, isRight);
+      Future.successful(Ok(Json.obj("ground_truth_submission_success" -> "True")))
+  }
+
+  //shows results of the left-right label stuff.
   def show_sidewalk_detection = UserAwareAction.async { implicit request =>
     request.identity match {
       case Some(user) =>
@@ -363,7 +416,7 @@ class ApplicationController @Inject() (implicit val env: Environment[User, Sessi
         val ipAddress: String = request.remoteAddress
 
         WebpageActivityTable.save(WebpageActivity(0, user.userId.toString, ipAddress, "Visit_Map", timestamp))
-        Future.successful(Ok(views.html.sidewalkDetect("sidewalk detection tool", Some(user))))
+        Future.successful(Ok(views.html.viewLabelResults("label viewing tool", Some(user))))
       case None =>
         Future.successful(Redirect("/anonSignUp?url=/test"))
     }

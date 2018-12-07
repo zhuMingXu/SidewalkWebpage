@@ -1,5 +1,5 @@
 @import models.user.User
-@import models.sidewalk.LabelConnTable
+@import models.sidewalk.Populator
 
 @(title: String, user: Option[User] = None)
 
@@ -27,9 +27,6 @@
         <div id="map"></div>
         <!-- putting in the labels -->
         <div id="labels-info">
-            @for(label: (Int, Int) <- LabelConnTable.getConnectedLabels()){
-                |@LabelConnTable.getPositionFromId(label._1)._1,@LabelConnTable.getPositionFromId(label._1)._2,@LabelConnTable.getPositionFromId(label._2)._1,@LabelConnTable.getPositionFromId(label._2)._2
-            }
         </div>
 
 

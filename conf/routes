@@ -12,8 +12,6 @@ GET     /api                                                 @controllers.Applic
 GET     /developer                                           @controllers.ApplicationController.developer
 GET     /terms                                               @controllers.ApplicationController.terms
 GET     /demo                                                @controllers.ApplicationController.demo
-GET     /populate                                            @controllers.ApplicationController.populate_sidewalks
-GET     /show                                                @controllers.ApplicationController.show_sidewalk_detection
 GET     /results                                             @controllers.ApplicationController.results
 GET     /faq                                                 @controllers.ApplicationController.faq
 GET     /labelingGuide                                       @controllers.ApplicationController.labelingGuide
@@ -25,6 +23,13 @@ GET     /labelingGuide/occlusion                             @controllers.Applic
 GET     /mobile                                              @controllers.ApplicationController.mobile
 GET     /noAvailableMissionIndex                             @controllers.ApplicationController.noAvailableMissionIndex
 GET     /turkerIdExists                                      @controllers.ApplicationController.turkerIdExists
+
+# Test pages for the left-right side of sidewalk algorithm. Should be removed after algorithm is fully implemented
+GET     /populateLabelTreetTable                             @controllers.ApplicationController.populate_label_street
+GET     /populateAlgorithm                                   @controllers.ApplicationController.populate_algorithm
+GET     /groundTruth                                         @controllers.ApplicationController.ground_truth
+GET     /show                                                @controllers.ApplicationController.show_sidewalk_detection
+POST    /groundTruth/addLabel                                @controllers.ApplicationController.ground_truth_add
 
 # User authentication
 GET     /signIn                                              @controllers.UserController.signIn(url: String ?= "/")
