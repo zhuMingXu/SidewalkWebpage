@@ -90,7 +90,8 @@ GET     /neighborhoodMissions                                @controllers.Missio
 GET     /rewardEarned                                        @controllers.MissionController.getTotalRewardEarned()
 
 # Labels
-GET     /label/currentMission                                @controllers.LabelController.getLabelsFromCurrentMission(regionId: Int)
+# removed to work with older version of the database that doesn't have mission id info
+# GET     /label/currentMission                                @controllers.LabelController.getLabelsFromCurrentMission(regionId: Int)
 GET     /label/tags                                          @controllers.LabelController.getLabelTags()
 
 # Neighborhoods

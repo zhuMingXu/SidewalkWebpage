@@ -234,7 +234,9 @@ class TaskController @Inject() (implicit val env: Environment[User, SessionAuthe
                     Logger.error("No timestamp given for a new label")
                     None
                 }
-                LabelTable.save(Label(0, auditTaskId, missionId, label.gsvPanoramaId, labelTypeId,
+                
+                //took out missionId to work with older database snapshot
+                LabelTable.save(Label(0, auditTaskId, /*missionId,*/ label.gsvPanoramaId, labelTypeId,
                                       label.photographerHeading, label.photographerPitch, label.panoramaLat,
                                       label.panoramaLng, label.deleted.value, label.temporaryLabelId, timeCreated))
             }

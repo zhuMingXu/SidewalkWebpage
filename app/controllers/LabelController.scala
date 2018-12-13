@@ -23,6 +23,8 @@ class LabelController @Inject() (implicit val env: Environment[User, SessionAuth
     * @param regionId Region id
     * @return
     */
+  //removed this function to work with older database that doesn't have mission id data
+  /*
   def getLabelsFromCurrentMission(regionId: Int) = UserAwareAction.async { implicit request =>
     request.identity match {
       case Some(user) =>
@@ -33,7 +35,7 @@ class LabelController @Inject() (implicit val env: Environment[User, SessionAuth
         Future.successful(Redirect(s"/anonSignUp?url=/label/currentMission?regionId=$regionId"))
     }
   }
-
+*/
   /**
     * Gets all tags in the database in JSON.
     *
