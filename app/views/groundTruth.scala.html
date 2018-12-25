@@ -25,7 +25,6 @@
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     </head>
     <body>
-        <p style = "word-wrap: break-word; white-space: pre">@Populator.log()</p>
 
         <div id="map"></div>
 
@@ -38,12 +37,19 @@
         <br>
         <button onclick="rightClick()">Right</button>
         <button onclick="leftClick()">Left</button>
+        Label Number To Go To: <input type="text" id="label-to-go-to" value="">
+        <button onclick="gotoLabel()">Go!</button>
+        <br>
+        <div style = "word-wrap: break-word; white-space: pre" id = "label-number"></div>
+        <br>
 
         <!-- putting in the labels -->
-        <!-- this contains label_id, label lat, label lng, pano lat, pano long, road bearing, pano bearing, pano pitch, and label type, seperated by ','. Each entry is seperated by '|' -->
+
+        <!--                  0           1         2         3         4          5             6             7             8
+        <!-- this contains label_id, label lat, label lng, pano lat, pano lng, road bearing, pano bearing, pano pitch, and label type, seperated by ','. Each entry is seperated by '|' -->
         <div id="labels-info" style = "word-wrap: break-word; white-space: pre">
             @for(label: (Int, Boolean, Float, Float) <- Populator.getAllLabelsFromAlgorithmTable()){
-                @label._1, @Populator.getPositionFromId(label._1)._1, @Populator.getPositionFromId(label._1)._2, @label._3, @Populator.getPanoBearingFromId(label._1), @Populator.getPanoPitchFromId(label._1), @Populator.getLabelTypeFromId(label._1)|
+                @label._1, @Populator.getPositionFromId(label._1)._1, @Populator.getPositionFromId(label._1)._2, @Populator.getPanoPositionFromId(label._1)._1, @Populator.getPanoPositionFromId(label._1)._2, @label._3, @label._4, @Populator.getPanoPitchFromId(label._1), @Populator.getLabelTypeFromId(label._1)|
             }
         </div>
 
@@ -61,6 +67,7 @@
                                         '#000100',
                                         '#d305ff',
                                         ];
+
                 var currentPositionInLabelEntries = 0;
 
                 // This example requires the Drawing library. Include the libraries=drawing
@@ -87,16 +94,16 @@
                             icon: {
                                 path: google.maps.SymbolPath.CIRCLE,
                                 fillOpacity: 0.0,
-                                fillColor: labelTypeToColor[parseInt(labelDataSplit[6]) - 1],
-                                strokeOpacity: 0.0,
-                                strokeColor: labelTypeToColor[parseInt(labelDataSplit[6]) - 1],
+                                fillColor: labelTypeToColor[parseInt(labelDataSplit[8]) - 1],
+                                strokeOpacity: 1.0,
+                                strokeColor: labelTypeToColor[parseInt(labelDataSplit[8]) - 1],
                                 strokeWeight: 3.0,
                                 scale: 5, //pixels
                                 zIndex: 1
                             }
                         });
 
-                        label.setMap(map);
+                        label.setMap(null);
                         labelMarkers.push(label);
                     }
                 }
@@ -108,37 +115,68 @@
                 //move to indicated pano
                 function moveToNextPano(labelDataSplit){
                     //setting map center
-                    map.setCenter(new google.maps.LatLng(parseFloat(labelDataSplit[1]), parseFloat(labelDataSplit[2])));
+                    map.setCenter(new google.maps.LatLng(parseFloat(labelDataSplit[3]), parseFloat(labelDataSplit[4])));
 
                     //get the street view from the map, set the heading and pitch to the road direction as default
                     panorama = map.getStreetView();
-                    panorama.setPosition(new google.maps.LatLng(parseFloat(labelDataSplit[1]), parseFloat(labelDataSplit[2])));
+                    panorama.setPosition(new google.maps.LatLng(parseFloat(labelDataSplit[3]), parseFloat(labelDataSplit[4])));
                     panorama.setPov({
-                        heading: parseFloat(labelDataSplit[3]),
+                        heading: parseFloat(labelDataSplit[5]),
                         pitch: 0
                     });
                     panorama.setVisible(true);
                 }
 
+                function handleLabelNumber(){
+                    var labelEntry = labelEntries[currentPositionInLabelEntries];
+                    var labelEntrySplit = labelEntry.split(',');
+                    var label_id = parseInt(labelEntrySplit[0]);
+                    $( "#label-number" ).text("current label index: " + currentPositionInLabelEntries + " current label_id: " + label_id);
+                }
+
+                function gotoLabel(){
+                    gotoLabelIndex(parseInt(document.getElementById("label-to-go-to").value));
+                }
+
+                function gotoLabelIndex(newPositionInLabelEntries){
+                    labelMarkers[currentPositionInLabelEntries].setMap(null);
+                    currentPositionInLabelEntries = newPositionInLabelEntries;
+                    labelMarkers[currentPositionInLabelEntries].setMap(map);
+                    handleLabelNumber();
+
+                    //parsing data
+                    var labelEntry = labelEntries[currentPositionInLabelEntries];
+                    moveToNextPano(labelEntry.split(','));
+                }
+
                 //move back one label, move forward one label
                 function prevClick(){
-
+                    labelMarkers[currentPositionInLabelEntries].setMap(null);
                     currentPositionInLabelEntries--;
                     if(currentPositionInLabelEntries < 0){
                         currentPositionInLabelEntries = 0;
+                        labelMarkers[currentPositionInLabelEntries].setMap(map);
                         return;
                     }
+                    labelMarkers[currentPositionInLabelEntries].setMap(map);
+
+                    handleLabelNumber();
 
                     //parsing data
                     var labelEntry = labelEntries[currentPositionInLabelEntries];
                     moveToNextPano(labelEntry.split(','));
                 }
                 function nextClick(){
+                    labelMarkers[currentPositionInLabelEntries].setMap(null);
                     currentPositionInLabelEntries++;
                     if(currentPositionInLabelEntries >= labelEntries.length){
                         currentPositionInLabelEntries = labelEntries.length - 1;
+                        labelMarkers[currentPositionInLabelEntries].setMap(map);
                         return;
                     }
+                    labelMarkers[currentPositionInLabelEntries].setMap(map);
+
+                    handleLabelNumber();
 
                     //parsing data
                     var labelEntry = labelEntries[currentPositionInLabelEntries];
@@ -187,7 +225,7 @@
                     var labelEntry = labelEntries[currentPositionInLabelEntries];
                     var labelEntrySplit = labelEntry.split(',');
                     panorama.setPov({
-                        heading: parseFloat(labelEntrySplit[3]),
+                        heading: parseFloat(labelEntrySplit[5]),
                         pitch: 0
                     });
                 }
@@ -195,8 +233,8 @@
                     var labelEntry = labelEntries[currentPositionInLabelEntries];
                     var labelEntrySplit = labelEntry.split(',');
                     panorama.setPov({
-                        heading: parseFloat(labelEntrySplit[4]),
-                        pitch: parseFloat(labelEntrySplit[5])
+                        heading: parseFloat(labelEntrySplit[6]),
+                        pitch: parseFloat(labelEntrySplit[7])
                     });
                 }
 

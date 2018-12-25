@@ -384,6 +384,15 @@ object Populator {
     selectQuery(id).list.head
   }
 
+  def getPanoPositionFromId(id: Int): (Float,Float) = db.withSession { implicit session =>
+    val selectQuery = Q.query[Int, (Float,Float)](
+      """SELECT lb.panorama_lat, lb.panorama_lng
+        |FROM sidewalk.label AS lb
+        |WHERE lb.label_id = ?""".stripMargin
+    )
+    selectQuery(id).list.head
+  }
+
   def getLabelsNear(Lat: Float, Lng: Float): List[(Int)] = db.withSession { implicit session =>
     val epsilon : Float = 0.00001f;
     val selectQuery = Q.query[(Float, Float, Float, Float), (Int)](
