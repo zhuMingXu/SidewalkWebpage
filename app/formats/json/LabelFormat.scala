@@ -20,7 +20,7 @@ object LabelFormats {
 //      (JsPath \ "temporary_label_id").readNullable[Int]
 //    )(Label.apply _)
 
-  //removed json parsing functionality to work with older database snapshot
+  //removed json parsing functionality to work with older database snapshot (no missionId)
   /*
   implicit val labelWrites: Writes[Label] = (
     (__ \ "label_id").write[Int] and

@@ -61,13 +61,9 @@ ALTER TABLE audit_task_incomplete
   ADD COLUMN mission_id INT NOT NULL,
   ADD FOREIGN KEY (mission_id) REFERENCES mission(mission_id);
 
-ALTER TABLE label
-  ADD COLUMN mission_id INT NOT NULL,
-  ADD FOREIGN KEY (mission_id) REFERENCES mission(mission_id);
+
 
 # --- !Downs
-ALTER TABLE label
-  DROP COLUMN mission_id;
 
 ALTER TABLE audit_task_incomplete
   DROP COLUMN mission_id;

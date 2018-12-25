@@ -139,6 +139,8 @@ object Populator {
 
       var allLabels: Array[(Int, Int, Int)] = Array[(Int, Int, Int)]()
       for(sampleIndex: Int <- sampleIndexes){
+          logprint(""+ sampleIndex);
+
           val streetEdge = streetEdges(sampleIndex)
           //get the path of lat longs (YAY! no longer need slow google API for paths!)
           val coordinates: Array[Coordinate] = streetEdge.geom.getCoordinates
