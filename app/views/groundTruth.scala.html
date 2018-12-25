@@ -22,17 +22,30 @@
                     padding: 0;
                 }
         </style>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     </head>
     <body>
+        <p style = "word-wrap: break-word; white-space: pre">@Populator.log()</p>
+
         <div id="map"></div>
+
+        <br>
+        <button onclick="roadPanoClick()">RoadPano</button>
+        <button onclick="labelPanoClick()">LabelPano</button>
+        <br>
+        <button onclick="prevClick()">Prev</button>
+        <button onclick="nextClick()">Next</button>
+        <br>
+        <button onclick="rightClick()">Right</button>
+        <button onclick="leftClick()">Left</button>
+
         <!-- putting in the labels -->
         <!-- this contains label_id, label lat, label lng, pano lat, pano long, road bearing, pano bearing, pano pitch, and label type, seperated by ','. Each entry is seperated by '|' -->
-        <div id="labels-info">
+        <div id="labels-info" style = "word-wrap: break-word; white-space: pre">
             @for(label: (Int, Boolean, Float, Float) <- Populator.getAllLabelsFromAlgorithmTable()){
-                label._1,@Populator.getPositionFromId(label._1)._1,@Populator.getPositionFromId(label._1)._2,label._3,@Populator.getPanoBearingFromId(label._1),@Populator.getPanoPitchFromId(label._1),@Populator.getLabelTypeFromId(label._1)|
+                @label._1, @Populator.getPositionFromId(label._1)._1, @Populator.getPositionFromId(label._1)._2, @label._3, @Populator.getPanoBearingFromId(label._1), @Populator.getPanoPitchFromId(label._1), @Populator.getLabelTypeFromId(label._1)|
             }
         </div>
-
 
 
         <script>
@@ -146,18 +159,25 @@
                     sendAjaxRequestToModifyGroundTruth(label_id, false);
                 }
 
-                function sendAjaxRequestToModifyGroundTruth(label_id, isRight){
-                    var groundTruthUrl = '/groundTruth';
-                    var textData = label_id + "," + isRight;
-                    var async = true;
+                function sendAjaxRequestToModifyGroundTruth(label_id, is_right){
+
+                    var data = {
+                        labelID: label_id,
+                        isRight: is_right
+                    };
+
                     $.ajax({
-                        async: async,
-                        url: groundTruthUrl,
+                        async: true,
+                        contentType: 'application/json; charset=utf-8',
+                        url: "/addLabel",
                         type: 'post',
-                        dataType: 'text',
-                        data: textData,
-                        success: function (data) {
-                            alert(data.success);
+                        data: JSON.stringify(data),
+                        dataType: 'json',
+                        success: function (result) {
+                            alert("it worked!");
+                        },
+                        error: function (result) {
+                            console.error(result);
                         }
                     });
                 }
@@ -183,15 +203,10 @@
         </script>
         <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDCBNAIxzx31wIKhxMv91i3cM5yK8gDxCk&libraries=drawing&callback=initMap"
         async defer></script>
-        <br>
-        <button onclick="roadPanoClick()">RoadPano</button>
-        <button onclick="labelPanoClick()">LabelPano</button>
-        <br>
-        <button onclick="prevClick()">Prev</button>
-        <button onclick="nextClick()">Next</button>
-        <br>
-        <button onclick="rightClick()">Right</button>
-        <button onclick="leftClick()">Left</button>
+
+
+
+
     </body>
 
 </html>

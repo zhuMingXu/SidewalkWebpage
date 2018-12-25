@@ -366,8 +366,6 @@ class ApplicationController @Inject() (implicit val env: Environment[User, Sessi
         val now = new DateTime(DateTimeZone.UTC)
         val timestamp: Timestamp = new Timestamp(now.getMillis)
         val ipAddress: String = request.remoteAddress
-
-        WebpageActivityTable.save(WebpageActivity(0, user.userId.toString, ipAddress, "Visit_Map", timestamp))
         Populator.clearLog
         Populator.populateLabelStreetTable
         Future.successful(Ok(views.html.populateLabelStreetTable("Populating label street table...", Some(user))))
@@ -394,12 +392,13 @@ class ApplicationController @Inject() (implicit val env: Environment[User, Sessi
   }
 
   //adds a label to the ground truth
-  def ground_truth_add = UserAwareAction.async { implicit request =>
-      // get data as a string and parse the values
-      val data = request.body.asText.get
-      val splitData = data.split(",")
-      val labelId = splitData(0).toInt;
-      val isRight = splitData(1).toBoolean;
+  def ground_truth_add = Action.async(BodyParsers.parse.json) { implicit request =>
+      val json = request.body;
+
+      val labelId = (json\"labelID").as[Int]
+      val isRight = (json\"isRight").as[Boolean]
+
+
       // delete any entry with the same labelId, we're replacing it.
       Populator.deleteEntryGroundTruth(labelId);
       // inesrt a new entry with the labelId and whether the label is on the left or right side of the street

@@ -137,30 +137,33 @@ object Populator {
     val streetEdges = StreetEdgeTable.all.toArray
     val sampleIndexes = getSampleEdges(seed, max)
 
-      var allLabels: Array[(Int, Int, Int)] = Array[(Int, Int, Int)]()
-      for(sampleIndex: Int <- sampleIndexes){
-          logprint(""+ sampleIndex);
+    logprint("the max index: " + max)
 
-          val streetEdge = streetEdges(sampleIndex)
-          //get the path of lat longs (YAY! no longer need slow google API for paths!)
-          val coordinates: Array[Coordinate] = streetEdge.geom.getCoordinates
-          val path: Array[geojson.LatLng] = coordinates.map(coord => geojson.LatLng(coord.y, coord.x)).toArray
+    var allLabels: Array[(Int, Int, Int)] = Array[(Int, Int, Int)]()
+    for(sampleIndex: Int <- sampleIndexes){
+        logprint("random sampled index " + sampleIndex)
+        val streetEdge = streetEdges(sampleIndex)
 
-          //go through our path
-          for(i <- 0 until path.length){
-              //get the start and end points
-              val start = path(i)
-              val newLabels : List[(Int)] = getLabelsNear(start.lat.toFloat, start.lng.toFloat)
-              for(labelId : (Int) <- newLabels){
-                var labelMetaData = (streetEdge.streetEdgeId, i, labelId)
-                allLabels :+ labelMetaData
-              }
-          }
-      }
-      clearLabelStreetTable()
-      for(labelData : (Int,Int,Int) <- allLabels) {
-        insertEntryStreetEdgeTable(labelData._1, labelData._2, labelData._3)
-      }
+        //get the path of lat longs (YAY! no longer need slow google API for paths!)
+        val coordinates: Array[Coordinate] = streetEdge.geom.getCoordinates
+        val path: Array[geojson.LatLng] = coordinates.map(coord => geojson.LatLng(coord.y, coord.x)).toArray
+
+        //go through our path
+        for(i <- 0 until path.length){
+            //get the start and end points
+            val start = path(i)
+            val newLabels : List[(Int)] = getLabelsNear(start.lat.toFloat, start.lng.toFloat)
+            logprint("     number of labels found at " + i + ": " + newLabels.length)
+            for(labelId : (Int) <- newLabels){
+              var labelMetaData = (streetEdge.streetEdgeId, i, labelId)
+              allLabels = allLabels :+ labelMetaData
+            }
+        }
+    }
+    clearLabelStreetTable()
+    for(labelData : (Int,Int,Int) <- allLabels) {
+      insertEntryStreetEdgeTable(labelData._1, labelData._2, labelData._3)
+    }
   }
 
   def log(): String = {
@@ -183,7 +186,7 @@ object Populator {
       while(edges contains randSample){
         randSample = r.nextInt(max)
       }
-      edges :+ randSample
+      edges = edges :+ randSample
     }
     edges
   }
@@ -215,7 +218,7 @@ object Populator {
 
             val roadBearing = getBearing(start.lat.toFloat, start.lng.toFloat, end.lat.toFloat, end.lng.toFloat)
             val labelBearing = getHeadingFromId(label._2)
-            insertEntryAlgorithm(label._2, (labelBearing - roadBearing < 0 && labelBearing - roadBearing > -180),roadBearing, labelBearing)
+            insertEntryAlgorithm(label._2, !(labelBearing - roadBearing > 0 && labelBearing - roadBearing < 180),roadBearing, labelBearing)
         }
     }
   }
@@ -382,7 +385,7 @@ object Populator {
   }
 
   def getLabelsNear(Lat: Float, Lng: Float): List[(Int)] = db.withSession { implicit session =>
-    val epsilon : Float = 0.000001f;
+    val epsilon : Float = 0.00001f;
     val selectQuery = Q.query[(Float, Float, Float, Float), (Int)](
       """SELECT lb.label_id
         |FROM sidewalk.label AS lb

@@ -29,7 +29,7 @@ GET     /populateLabelTreetTable                             @controllers.Applic
 GET     /populateAlgorithm                                   @controllers.ApplicationController.populate_algorithm
 GET     /groundTruth                                         @controllers.ApplicationController.ground_truth
 GET     /show                                                @controllers.ApplicationController.show_sidewalk_detection
-POST    /groundTruth/addLabel                                @controllers.ApplicationController.ground_truth_add
+POST    /addLabel                                            @controllers.ApplicationController.ground_truth_add
 
 # User authentication
 GET     /signIn                                              @controllers.UserController.signIn(url: String ?= "/")
