@@ -26,9 +26,10 @@
     </head>
     <body>
 
-        <div id="map"></div>
 
-        <br>
+
+        <div id="map" style="height:75%"></div>
+
         <button onclick="roadPanoClick()">RoadPano</button>
         <button onclick="labelPanoClick()">LabelPano</button>
         <br>
@@ -37,6 +38,10 @@
         <br>
         <button onclick="rightClick()">Right</button>
         <button onclick="leftClick()">Left</button>
+        <input type="checkbox" id="street-incorrect">
+        <label for="street-incorrect">an incorrect street was chosen</label>
+
+        <br>
         Label Number To Go To: <input type="text" id="label-to-go-to" value="">
         <button onclick="gotoLabel()">Go!</button>
         <br>
@@ -45,7 +50,7 @@
 
         <!-- putting in the labels -->
 
-        <!--                  0           1         2         3         4          5             6             7             8
+        <!--                  0           1         2         3         4          5             6             7             8  -->
         <!-- this contains label_id, label lat, label lng, pano lat, pano lng, road bearing, pano bearing, pano pitch, and label type, seperated by ','. Each entry is seperated by '|' -->
         <div id="labels-info" style = "word-wrap: break-word; white-space: pre">
             @for(label: (Int, Boolean, Float, Float) <- Populator.getAllLabelsFromAlgorithmTable()){
@@ -53,9 +58,24 @@
             }
         </div>
 
+        <!-- this contains the streetPoints, where:
+                    each point lat/long is separated by a ','
+                    each point is separated by a ';'
+                    each list of street points is separated by a '|'-->
+
+        <div id ="street-info" style = "word-wrap: break-word; white-space: pre">
+            @for(streetPoint: String <- Populator.getAllStreetPointsAsStr()){
+                @streetPoint|
+            }
+        </div>
+
+
+
 
         <script>
                 var labelMarkers = [];
+                var streetMarkers = [];
+
 
                 //makes it easier for me to guess which label maps to what
                 var labelTypeToColor = [
@@ -68,12 +88,16 @@
                                         '#d305ff',
                                         ];
 
-                var currentPositionInLabelEntries = 0;
+                var streetColor = '#ffffff';
+
+
+                var currentPositionInLabelEntries = -1;
 
                 // This example requires the Drawing library. Include the libraries=drawing
                 // parameter when you first load the API. For example:
                 // <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=drawing">
                 var labelEntries;
+                var streetEntries;
                 var map;
                 function initMap() {
                     map = new google.maps.Map(document.getElementById('map'), {
@@ -83,6 +107,7 @@
                     });
 
                     labelEntries = document.getElementById('labels-info').innerText.split('|');
+                    streetEntries = document.getElementById('street-info').innerText.split('|');
 
                     for(var i = 0; i < labelEntries.length; i++) {
                         if (labelEntries[i] === "") {
@@ -106,6 +131,39 @@
                         label.setMap(null);
                         labelMarkers.push(label);
                     }
+
+                    for(var i = 0; i < streetEntries.length; i++){
+                        if (labelEntries[i] === "") {
+                            continue;
+                        }
+                        var streetPointMarkers = [];
+                        var streetDataSplit = streetEntries[i].split(';');
+                        for(var i1 = 0; i1 < streetDataSplit.length; i1++){
+                            if(streetDataSplit[i1] === ""){
+                                continue;
+                            }
+                            var streetPoint = streetDataSplit[i1].split(',');
+                            var lat = parseFloat(streetPoint[0]);
+                            var lng = parseFloat(streetPoint[1]);
+                            var marker = new google.maps.Marker({
+                                position: {lat: lat, lng: lng},
+                                icon: {
+                                    path: google.maps.SymbolPath.CIRCLE,
+                                    fillOpacity: 1.0,
+                                    fillColor: streetColor,
+                                    strokeOpacity: 1.0,
+                                    strokeColor: streetColor,
+                                    strokeWeight: 3.0,
+                                    scale: 5, //pixels
+                                    zIndex: 1
+                                }
+                            });
+                            marker.setMap(null);
+                            streetPointMarkers.push(marker);
+                        }
+                        streetMarkers.push(streetPointMarkers);
+                    }
+                    gotoLabelIndex(0);
                 }
 
                 var panorama;
@@ -134,14 +192,46 @@
                     $( "#label-number" ).text("current label index: " + currentPositionInLabelEntries + " current label_id: " + label_id);
                 }
 
+                //returns
+                function handleMapMarkers(currPositionInLabelEntries, newPositionInLabelEntries){
+                    var correctedNewPositionInLabelEntries = newPositionInLabelEntries;
+
+                    if(newPositionInLabelEntries < 0){
+                        correctedNewPositionInLabelEntries = 0
+                    }
+                    else if(newPositionInLabelEntries >= labelEntries.length){
+                        correctedNewPositionInLabelEntries = labelEntries.length - 1;
+                    }
+
+
+                    if(correctedNewPositionInLabelEntries !== currPositionInLabelEntries){
+                        if(currPositionInLabelEntries >= 0 && currPositionInLabelEntries < labelEntries.length){
+                            labelMarkers[currPositionInLabelEntries].setMap(null);
+                            for(var i = 0; i < streetMarkers[currPositionInLabelEntries].length; i++){
+                                streetMarkers[currPositionInLabelEntries][i].setMap(null);
+                            }
+                        }
+                        for(var i = 0; i < streetMarkers[correctedNewPositionInLabelEntries].length; i++){
+                            streetMarkers[correctedNewPositionInLabelEntries][i].setMap(map);
+                        }
+                        labelMarkers[correctedNewPositionInLabelEntries].setMap(map);
+                    }
+                    console.log("new pos " + correctedNewPositionInLabelEntries + " old pos " + currentPositionInLabelEntries + " expected new pos " + newPositionInLabelEntries + " numLabelEntries: " + labelEntries.length);
+                    return correctedNewPositionInLabelEntries;
+                }
+
                 function gotoLabel(){
                     gotoLabelIndex(parseInt(document.getElementById("label-to-go-to").value));
                 }
 
                 function gotoLabelIndex(newPositionInLabelEntries){
-                    labelMarkers[currentPositionInLabelEntries].setMap(null);
-                    currentPositionInLabelEntries = newPositionInLabelEntries;
-                    labelMarkers[currentPositionInLabelEntries].setMap(map);
+                    var newPos = handleMapMarkers(currentPositionInLabelEntries, newPositionInLabelEntries);
+
+                    if(newPos === currentPositionInLabelEntries){
+                        return;
+                    }
+                    currentPositionInLabelEntries = newPos;
+
                     handleLabelNumber();
 
                     //parsing data
@@ -151,14 +241,13 @@
 
                 //move back one label, move forward one label
                 function prevClick(){
-                    labelMarkers[currentPositionInLabelEntries].setMap(null);
-                    currentPositionInLabelEntries--;
-                    if(currentPositionInLabelEntries < 0){
-                        currentPositionInLabelEntries = 0;
-                        labelMarkers[currentPositionInLabelEntries].setMap(map);
+                    var newPositionInLabelEntries = handleMapMarkers(currentPositionInLabelEntries, currentPositionInLabelEntries - 1);
+
+                    if(newPositionInLabelEntries === currentPositionInLabelEntries){
                         return;
                     }
-                    labelMarkers[currentPositionInLabelEntries].setMap(map);
+
+                    currentPositionInLabelEntries = newPositionInLabelEntries;
 
                     handleLabelNumber();
 
@@ -167,14 +256,12 @@
                     moveToNextPano(labelEntry.split(','));
                 }
                 function nextClick(){
-                    labelMarkers[currentPositionInLabelEntries].setMap(null);
-                    currentPositionInLabelEntries++;
-                    if(currentPositionInLabelEntries >= labelEntries.length){
-                        currentPositionInLabelEntries = labelEntries.length - 1;
-                        labelMarkers[currentPositionInLabelEntries].setMap(map);
+                    var newPositionInLabelEntries = handleMapMarkers(currentPositionInLabelEntries, currentPositionInLabelEntries + 1);
+
+                    if(newPositionInLabelEntries === currentPositionInLabelEntries){
                         return;
                     }
-                    labelMarkers[currentPositionInLabelEntries].setMap(map);
+                    currentPositionInLabelEntries = newPositionInLabelEntries;
 
                     handleLabelNumber();
 
@@ -201,7 +288,8 @@
 
                     var data = {
                         labelID: label_id,
-                        isRight: is_right
+                        isRight: is_right,
+                        isIncorrectStreet: document.getElementById("street-incorrect").checked
                     };
 
                     $.ajax({
@@ -218,6 +306,7 @@
                             console.error(result);
                         }
                     });
+                    document.getElementById("street-incorrect").checked = false;
                 }
 
                 //snap to road or label view

@@ -728,4 +728,8 @@ object LabelTable {
     // Counts the number of labels for each user by grouping by user_id and role.
     audits.groupBy(l => (l._1, l._2)).map{ case ((uId, role), group) => (uId, role, group.length) }.list
   }
+
+  def all: List[Label] = db.withSession { implicit session =>
+    labelsWithoutDeleted.list
+  }
 }

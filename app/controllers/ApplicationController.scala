@@ -397,12 +397,12 @@ class ApplicationController @Inject() (implicit val env: Environment[User, Sessi
 
       val labelId = (json\"labelID").as[Int]
       val isRight = (json\"isRight").as[Boolean]
-
+      val isIncorrectStreet = (json\"isIncorrectStreet").as[Boolean]
 
       // delete any entry with the same labelId, we're replacing it.
       Populator.deleteEntryGroundTruth(labelId);
-      // inesrt a new entry with the labelId and whether the label is on the left or right side of the street
-      Populator.insertEntryGroundTruth(labelId, isRight);
+      // inesrt a new entry with the labelId and whether the label is on the left or right side of the street, and also
+      Populator.insertEntryGroundTruth(labelId, isRight, isIncorrectStreet);
       Future.successful(Ok(Json.obj("ground_truth_submission_success" -> "True")))
   }
 

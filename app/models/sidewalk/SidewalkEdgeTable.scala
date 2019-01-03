@@ -23,6 +23,7 @@ import scala.util.control.Breaks._
 import org.geotools.geometry.jts.JTS
 import com.vividsolutions.jts.geom.Coordinate
 import models.street.StreetEdgeTable
+import models.label.LabelTable
 import play.api.libs.json._
 import play.extras.geojson
 import com.vividsolutions.jts.geom.Coordinate
@@ -126,45 +127,69 @@ object Populator {
 
   var pairs : List[(Int, Int)] = List[(Int, Int)]()
 
-  val numSamples = 10
+  val numSamples = 1000
   val seed = 0
   //ideally, we call this once; then never again.
   var numLabelStreetEdgeEntries = 0
   var max = 15262
 
   def populateLabelStreetTable(): Unit ={
-    max = StreetEdgeTable.all.length
+
+    var allLabels: Array[(Int, Int, Int, Int)] = Array[(Int, Int, Int, Int)]()
+
+    max = LabelTable.all.length
+    val labels = LabelTable.all.toArray
     val streetEdges = StreetEdgeTable.all.toArray
     val sampleIndexes = getSampleEdges(seed, max)
 
+
     logprint("the max index: " + max)
 
-    var allLabels: Array[(Int, Int, Int)] = Array[(Int, Int, Int)]()
+
+
     for(sampleIndex: Int <- sampleIndexes){
         logprint("random sampled index " + sampleIndex)
-        val streetEdge = streetEdges(sampleIndex)
+        val label = labels(sampleIndex)
+        val labelLat = label.panoramaLat
+        val labelLong = label.panoramaLng
 
-        //get the path of lat longs (YAY! no longer need slow google API for paths!)
-        val coordinates: Array[Coordinate] = streetEdge.geom.getCoordinates
-        val path: Array[geojson.LatLng] = coordinates.map(coord => geojson.LatLng(coord.y, coord.x)).toArray
+        var closestStreetId = -1
+        var closestStreetIndex = -1
+        var closestStreetPathIndex = -1
+        var closestDist = Float.MaxValue
 
-        //go through our path
-        for(i <- 0 until path.length){
-            //get the start and end points
-            val start = path(i)
-            val newLabels : List[(Int)] = getLabelsNear(start.lat.toFloat, start.lng.toFloat)
-            logprint("     number of labels found at " + i + ": " + newLabels.length)
-            for(labelId : (Int) <- newLabels){
-              var labelMetaData = (streetEdge.streetEdgeId, i, labelId)
-              allLabels = allLabels :+ labelMetaData
+        //loop through all street edges to find the closest point to the label, as well as the closest index.
+        for(currStreetEdge <- 0 until streetEdges.length){
+          val streetEdge = streetEdges(currStreetEdge)
+          //get the path of lat longs
+          val coordinates: Array[Coordinate] = streetEdge.geom.getCoordinates
+          val path: Array[geojson.LatLng] = coordinates.map(coord => geojson.LatLng(coord.y, coord.x)).toArray
+
+          //go through our path
+          for(i <- 0 until path.length){
+            //get the current pos in the path
+            val currPos = path(i)
+            //get lat and long
+            val currPosLat = currPos.lat.toFloat
+            val currPosLong =  currPos.lng.toFloat
+            val distToLabel = getDist(labelLat, labelLong, currPosLat, currPosLong)
+            if(distToLabel < closestDist){
+              closestStreetId = streetEdges(currStreetEdge).streetEdgeId
+              closestStreetPathIndex = i
+              closestStreetIndex = currStreetEdge
+              closestDist = distToLabel
             }
+          }
         }
+        var labelMetaData = (closestStreetId, closestStreetPathIndex, label.labelId, closestStreetIndex)
+        allLabels = allLabels :+ labelMetaData
     }
     clearLabelStreetTable()
-    for(labelData : (Int,Int,Int) <- allLabels) {
-      insertEntryStreetEdgeTable(labelData._1, labelData._2, labelData._3)
+    for(labelData : (Int,Int,Int,Int) <- allLabels) {
+      insertEntryStreetEdgeTable(labelData._1, labelData._2, labelData._3, labelData._4)
     }
   }
+
 
   def log(): String = {
     logStr
@@ -191,36 +216,87 @@ object Populator {
     edges
   }
 
+  def getStartAndEndIndexes(index: Int, range: Int, max: Int): (Int, Int) ={
+    if(index + range < max && index - range >= 0){
+       return (index - range, index + range)
+    }else if(index + range >= max){
+       var start = max -  range * 2 - 1;
+       if(start < 0){
+         start = 0
+       }
+       return (start, max - 1)
+    }else{
+        var end = range * 2;
+        if(end >= max){
+          end = max - 1
+        }
+       return (0, end)
+    }
+  }
+
   //pupulate the 'left/right' part of the table, as well as bearing statistics.
   def populateAlgorithmTable(): Unit ={
-    max = StreetEdgeTable.all.length
     val streetEdges = StreetEdgeTable.all.toArray
-    val sampleIndexes = getSampleEdges(seed, max)
     clearAlgorithmTable()
-    for(sampleIndex: Int <- sampleIndexes){
+    val allLabels = getAllLabelsFromLabelStreetTable()
 
-        val streetEdge = streetEdges(sampleIndex)
+    logprint("length of street edge array: " + streetEdges.length)
+    for(label: (Int, Int, Int, Int) <- allLabels) {
+      breakable{
+
+        if (label._4 >= streetEdges.length) {
+          logprint("for some reason, we got an out of bounds here... index: " + label._4)
+          break
+        }
+
+        val streetEdge = streetEdges(label._4)
         val coordinates: Array[Coordinate] = streetEdge.geom.getCoordinates
         val path: Array[geojson.LatLng] = coordinates.map(coord => geojson.LatLng(coord.y, coord.x)).toArray
-        val labels: List[(Int,Int)] = getAllLabelStreetEntriesWithStreetIndex(streetEdge.streetEdgeId)
 
-        for(label: (Int, Int) <- labels) {
-            var start: play.extras.geojson.LatLng = null;
-            var end: play.extras.geojson.LatLng = null;
-            //get the start and end points
-            if(label._1 + 1 < path.length){
-              start = path(label._1)
-              end = path(label._1 + 1)
-            }else{
-              start = path(label._1 - 1)
-              end = path(label._1)
-            }
+        var start: play.extras.geojson.LatLng = null;
+        var end: play.extras.geojson.LatLng = null;
 
-            val roadBearing = getBearing(start.lat.toFloat, start.lng.toFloat, end.lat.toFloat, end.lng.toFloat)
-            val labelBearing = getHeadingFromId(label._2)
-            insertEntryAlgorithm(label._2, !(labelBearing - roadBearing > 0 && labelBearing - roadBearing < 180),roadBearing, labelBearing)
+
+        var startAndEndIndexes = getStartAndEndIndexes(label._2, 1, path.length)
+
+        start = path(startAndEndIndexes._1)
+        end = path(startAndEndIndexes._2)
+
+        var roadBearing = getBearing(start.lat.toFloat, start.lng.toFloat, end.lat.toFloat, end.lng.toFloat)
+        if(roadBearing < 0){
+          roadBearing += 360
         }
+        val labelBearing = getHeadingFromId(label._3)
+
+        insertEntryAlgorithm(label._3, getClockwiseAngle(roadBearing, labelBearing) < 180,roadBearing, labelBearing)
+      }
     }
+  }
+
+  def getClockwiseAngle(angleA: Float, angleB: Float): Float ={
+    if(angleB > angleA){
+      return angleB - angleA;
+    }else{
+      return (360 - angleA) + angleB;
+    }
+  }
+
+  def getAllStreetPointsAsStr(): Array[String] ={
+    val streetEdges = StreetEdgeTable.all.toArray
+    var streetPoints: Array[String] = Array[String]()
+    val allLabels = getAllLabelsFromLabelStreetTable()
+    for(label: (Int, Int, Int, Int) <- allLabels) {
+      val streetEdge = streetEdges(label._4)
+      val coordinates: Array[Coordinate] = streetEdge.geom.getCoordinates
+      val path: Array[geojson.LatLng] = coordinates.map(coord => geojson.LatLng(coord.y, coord.x)).toArray
+      var startAndEndIndexes = getStartAndEndIndexes(label._2, 3, path.length)
+      var streetPtsStr = "";
+      for(i <- startAndEndIndexes._1 to startAndEndIndexes._2){
+         streetPtsStr += path(i).lat.toFloat + "," + path(i).lng.toFloat + ";"
+      }
+      streetPoints = streetPoints :+ streetPtsStr
+    }
+    return streetPoints
   }
 
   //gets distance between two lat long coordinates "as the crow flies"
@@ -318,12 +394,12 @@ object Populator {
   }
 
   //inserts an entry into the label_street_edge table.
-  def insertEntryStreetEdgeTable(streetEdgeId: Int, index: Int, labelId: Int): Unit = db.withSession { implicit session =>
-    Q.updateNA("INSERT INTO sidewalk.label_street_edge VALUES("+ streetEdgeId + "," + index + "," + labelId + ")").execute
+  def insertEntryStreetEdgeTable(streetEdgeId: Int, index: Int, labelId: Int, streetEdgeIndex: Int): Unit = db.withSession { implicit session =>
+    Q.updateNA("INSERT INTO sidewalk.label_street_edge VALUES("+ streetEdgeId + "," + index + "," + labelId + "," + streetEdgeIndex +  ")").execute
   }
 
-  def insertEntryGroundTruth(label_id: Int, isRight: Boolean): Unit = db.withSession { implicit session =>
-    Q.updateNA("INSERT INTO sidewalk.label_street_side_ground_truth VALUES("+ label_id + "," + isRight + ")").execute
+  def insertEntryGroundTruth(label_id: Int, isRight: Boolean, isIncorrectStreet: Boolean): Unit = db.withSession { implicit session =>
+    Q.updateNA("INSERT INTO sidewalk.label_street_side_ground_truth VALUES("+ label_id + "," + isRight + "," + isIncorrectStreet + ")").execute
   }
 
   //returns number of rows deleted
@@ -406,13 +482,11 @@ object Populator {
     selectQuery((Lat - epsilon, Lat + epsilon, Lng - epsilon, Lng + epsilon)).list
   }
 
-  def getAllLabelStreetEntriesWithStreetIndex(streetEdgeIndex: Int): List[(Int, Int)] = db.withSession { implicit session =>
-    val selectQuery = Q.query[Int, (Int, Int)](
-      """SELECT ls.index, ls.label_id
-        |FROM sidewalk.label_street_edge AS ls
-        |WHERE ls.street_edge_id = ?""".stripMargin
+  def getAllLabelsFromLabelStreetTable(): List[(Int, Int, Int, Int)] = db.withSession { implicit session =>
+    val selectQuery = Q.queryNA[(Int, Int, Int, Int)](
+      """SELECT * FROM sidewalk.label_street_edge""".stripMargin
     )
-    selectQuery(streetEdgeIndex).list
+    selectQuery.list
   }
 
   def getAllLabelsFromAlgorithmTable(): List[(Int, Boolean, Float, Float)] = db.withSession { implicit session =>
