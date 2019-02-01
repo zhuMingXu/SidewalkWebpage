@@ -18,30 +18,33 @@
     <link href='@routes.Assets.at("stylesheets/bootstrap/bootstrap.min.css")' rel='stylesheet' />
     <link href='@routes.Assets.at("stylesheets/bootstrap/bootstrap-accessibility.css")' rel='stylesheet' />
 
-    <script src='@routes.Assets.at("javascripts/lib/bootstrap-accessibility-plugin/bs3.1.1/js/jquery-1.12.2.min.js")'></script>
-    <script src="//code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
-    <script src='@routes.Assets.at("javascripts/lib/bootstrap-accessibility-plugin/bs3.1.1/js/bootstrap.min.js")'></script>
-    <script src='@routes.Assets.at("javascripts/lib/bootstrap-accessibility-plugin/plugins/js/bootstrap-accessibility.min.js")'></script>
-
     <!--<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7/leaflet.css" />-->
     <!--<script src="lib/jquery-1.7.2.min.js"></script>-->
-    <script type="text/javascript" src='@routes.Assets.at("javascripts/lib/underscore.min.js")'></script>
-    <script type="text/javascript" src='@routes.Assets.at("javascripts/lib/backbone-min.js")'></script>
-    <script src='@routes.Assets.at("javascripts/lib/d3.v3.js")'></script>
-    <script src='@routes.Assets.at("javascripts/lib/mapbox.js")'></script>
-    <script src='@routes.Assets.at("javascripts/lib/leaflet-omnivore.min.js")'></script>
-    <script src='@routes.Assets.at("javascripts/lib/js.cookie.js")'></script>
-    <script type="text/javascript"
-        src="https://maps.googleapis.com/maps/api/js?v=3.31&key=AIzaSyB0ToxwyHzvubTo9gm0zbtECWuEe3yYo8M&libraries=geometry">
-    </script>
+
     <link href='@routes.Assets.at("stylesheets/fonts.css")' rel="stylesheet"/>
     <link href='@routes.Assets.at("stylesheets/mapbox.css")' rel='stylesheet' />
     <!--<link href='@routes.Assets.at("stylesheets/main.css")' rel="stylesheet"/>-->
     <link rel="stylesheet" href='@routes.Assets.at("css/main.css")'>
 
-    <!--<script src='@routes.Assets.at("assets/homepage.js")'></script>-->
+    <script src='@routes.Assets.at("javascripts/lib/bootstrap-accessibility-plugin/bs3.1.1/js/jquery-1.12.2.min.js")'></script>
+    <script src='@routes.Assets.at("javascripts/lib/bootstrap-accessibility-plugin/bs3.1.1/js/bootstrap.min.js")'></script>
+    <script src='@routes.Assets.at("javascripts/lib/bootstrap-accessibility-plugin/plugins/js/bootstrap-accessibility.min.js")'></script>
+
+    @if(url.get != "/") {
+        <script src="//code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+        <script type="text/javascript" src='@routes.Assets.at("javascripts/lib/underscore.min.js")'></script>
+        <script type="text/javascript" src='@routes.Assets.at("javascripts/lib/backbone-min.js")'></script>
+        <script src='@routes.Assets.at("javascripts/lib/d3.v3.js")'></script>
+        <script src='@routes.Assets.at("javascripts/lib/mapbox.js")'></script>
+        <script src='@routes.Assets.at("javascripts/lib/leaflet-omnivore.min.js")'></script>
+        <script src='@routes.Assets.at("javascripts/lib/js.cookie.js")'></script>
+        <script type="text/javascript"
+            src="https://maps.googleapis.com/maps/api/js?v=3.31&key=AIzaSyB0ToxwyHzvubTo9gm0zbtECWuEe3yYo8M&libraries=geometry">
+        </script>
+        <script src='@routes.Assets.at("assets/bowser.min.js")'></script>
+    }
+
     <script src='@routes.Assets.at("assets/countUp.js")'></script>
-    <script src='@routes.Assets.at("assets/bowser.min.js")'></script>
     <script src='@routes.Assets.at("assets/pagetop-padding.js")'></script>
 
     <!-- Twitter Card -->

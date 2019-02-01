@@ -1,4 +1,4 @@
-function Choropleth(_, $, turf, difficultRegionIds) {
+function Choropleth($, turf, difficultRegionIds) {
     var neighborhoodPolygonLayer;
 
 // Construct a bounding box for these maps that the user cannot move out of
