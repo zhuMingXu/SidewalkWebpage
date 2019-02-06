@@ -45,7 +45,7 @@ case class LabelLocationWithSeverity(labelId: Int,
                                      auditTaskId: Int,
                                      gsvPanoramaId: String,
                                      labelType: String,
-                                     severity: Int,
+                                     severity: Option[Int],
                                      lat: Float,
                                      lng: Float)
 
@@ -127,7 +127,7 @@ object LabelTable {
     LabelLocation(r.nextInt, r.nextInt, r.nextString, r.nextString, r.nextFloat, r.nextFloat))
 
   implicit val labelSeverityConverter = GetResult[LabelLocationWithSeverity](r =>
-    LabelLocationWithSeverity(r.nextInt, r.nextInt, r.nextString, r.nextString, r.nextInt, r.nextFloat, r.nextFloat))
+    LabelLocationWithSeverity(r.nextInt, r.nextInt, r.nextString, r.nextString, r.nextIntOption, r.nextFloat, r.nextFloat))
 
   /**
     * Find a label
@@ -702,12 +702,12 @@ object LabelTable {
     */
   def selectLocationsAndSeveritiesOfLabels: List[LabelLocationWithSeverity] = db.withSession { implicit session =>
     val _labels = for {
-      (_labels, _labelTypes) <- labelsWithoutDeleted.innerJoin(labelTypes).on(_.labelTypeId === _.labelTypeId)
+      (_labels, _labelTypes) <- labelsWithoutDeletedOrOnboarding.innerJoin(labelTypes).on(_.labelTypeId === _.labelTypeId)
     } yield (_labels.labelId, _labels.auditTaskId, _labels.gsvPanoramaId, _labelTypes.labelType, _labels.panoramaLat, _labels.panoramaLng)
 
     val _slabels = for {
-      (l, s) <- _labels.innerJoin(severities).on(_._1 === _.labelId)
-    } yield (l._1, l._2, l._3, l._4, s.severity)
+      (l, s) <- _labels.leftJoin(severities).on(_._1 === _.labelId)
+    } yield (l._1, l._2, l._3, l._4, s.severity.?)
 
     val _points = for {
       (l, p) <- _slabels.innerJoin(labelPoints).on(_._1 === _.labelId)

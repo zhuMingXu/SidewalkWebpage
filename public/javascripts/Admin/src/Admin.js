@@ -13,7 +13,7 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
 
     var neighborhoodPolygonLayer;
 
-    for (var i = 0; i < 5; i++) {
+    for (var i = 0; i < 6; i++) {
         self.curbRampLayers[i] = [];
         self.missingCurbRampLayers[i] = [];
         self.obstacleLayers[i] = [];
@@ -31,13 +31,14 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
 
     self.auditedStreetLayer = null;
 
-    L.mapbox.accessToken = 'pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA';
+    // L.mapbox.accessToken = 'pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA';
+    L.mapbox.accessToken = 'pk.eyJ1IjoibWlzYXVnc3RhZCIsImEiOiJjajN2dTV2Mm0wMDFsMndvMXJiZWcydDRvIn0.IXE8rQNF--HikYDjccA7Ug';
 
     // var tileUrl = "https://a.tiles.mapbox.com/v4/kotarohara.mmoldjeh/page.html?access_token=pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA#13/38.8998/-77.0638";
-    var tileUrl = "https:\/\/a.tiles.mapbox.com\/v4\/kotarohara.8e0c6890\/{z}\/{x}\/{y}.png?access_token=pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA";
-    var mapboxTiles = L.tileLayer(tileUrl, {
-        attribution: '<a href="http://www.mapbox.com/about/maps/" target="_blank">Terms &amp; Feedback</a>'
-    });
+    // var tileUrl = "https:\/\/a.tiles.mapbox.com\/v4\/kotarohara.8e0c6890\/{z}\/{x}\/{y}.png?access_token=pk.eyJ1Ijoia290YXJvaGFyYSIsImEiOiJDdmJnOW1FIn0.kJV65G6eNXs4ATjWCtkEmA";
+    // var mapboxTiles = L.tileLayer(tileUrl, {
+    //     attribution: '<a href="http://www.mapbox.com/about/maps/" target="_blank">Terms &amp; Feedback</a>'
+    // });
     var map = L.mapbox.map('admin-map', "kotarohara.8e0c6890", {
         maxZoom: 19,
         minZoom: 9
@@ -62,6 +63,7 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
         choropleth.setZoom(data.default_zoom);
     });
 
+    L.mapbox.styleLayer('mapbox://styles/mapbox/light-v9').addTo(map);
     L.mapbox.styleLayer('mapbox://styles/mapbox/light-v9').addTo(choropleth);
 
     // Initialize the map
@@ -160,11 +162,11 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
      */
     function initializeChoroplethNeighborhoodPolygons(map, rates) {
         var neighborhoodPolygonStyle = { // default bright red, used to check if any regions are missing data
-                color: '#888',
-                weight: 1,
-                opacity: 0.25,
+                color: '#404040',
+                weight: 1.5,
+                opacity: 0.5,
                 fillColor: "#f00",
-                fillOpacity: 1.0
+                fillOpacity: 0.15
             },
             layers = [],
             currentLayer;
@@ -174,11 +176,12 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
             for (var i=0; i < rates.length; i++) {
                 if (rates[i].region_id === feature.properties.region_id) {
                     return {
-                        color: '#888',
-                        weight: 1,
-                        opacity: 0.25,
+                        color: '#404040',
+                        weight: 1.5,
+                        opacity: 0.5,
                         fillColor: getColor(rates[i].rate),
-                        fillOpacity: 0.25 + (0.5 * rates[i].rate / 100.0)
+                        // fillOpacity: 0.25 + (0.5 * rates[i].rate / 100.0)
+                        fillOpacity: 0.15
                     }
                 }
             }
@@ -233,13 +236,13 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
             layers.push(layer);
 
             layer.on('mouseover', function (e) {
-                this.setStyle({opacity: 1.0, weight: 3, color: "#000"});
+                this.setStyle({opacity: 0.5, weight: 1.5, color: "#404040"});
 
             });
             layer.on('mouseout', function (e) {
                 for (var i = layers.length - 1; i >= 0; i--) {
                     if (currentLayer !== layers[i])
-                        layers[i].setStyle({opacity: 0.25, weight: 1});
+                        layers[i].setStyle({opacity: 0.5, weight: 1.5});
                 }
                 //this.setStyle(neighborhoodPolygonStyle);
             });
@@ -266,7 +269,7 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
             streetLinestringStyle = {
                 color: "black",
                 weight: 3,
-                opacity: 0.75
+                opacity: 1.0
             };
 
         function onEachStreetFeature(feature, layer) {
@@ -289,7 +292,7 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
                     var style = $.extend(true, {}, streetLinestringStyle);
                     style.color = "#000";
                     style["stroke-width"] = 3;
-                    style.opacity = 0.75;
+                    style.opacity = 1.0;
                     style.weight = 3;
 
                     return style;
@@ -358,7 +361,7 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
 
     var colorMapping = util.misc.getLabelColors(),
         geojsonMarkerOptions = {
-            radius: 5,
+            radius: 2,
             fillColor: "#ff7800",
             color: "#ffffff",
             weight: 1,
@@ -395,6 +398,8 @@ function Admin(_, $, c3, turf, difficultRegionIds) {
                 self.allLayers[labelType][3].push(data.features[i]);
             } else if (data.features[i].properties.severity == 5) {
                 self.allLayers[labelType][4].push(data.features[i]);
+            } else {
+                self.allLayers[labelType][5].push(data.features[i]);
             }
         }
 

@@ -68,7 +68,7 @@ scalacOptions ++= Seq(
 
 javacOptions ++= Seq("-source", "1.7", "-target", "1.7")
 
-javaOptions ++= Seq("-Xmx3072M", "-Xms2048M", "-XX:MaxPermSize=3072M")
+javaOptions ++= Seq("-Xmx10240M", "-Xms4096M", "-XX:MaxPermSize=10240M")
 
 javaOptions in Test += "-Dconfig.file=conf/application.test.conf"
 
